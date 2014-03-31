@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -O3 -DNDEBUG
 
-OBJS = 
+OBJS = src/fen.o src/pos.o
 
 MAIN = src/main.c
 

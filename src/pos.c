@@ -126,12 +126,46 @@ void PosFree(pos_t *Pos)
   free(Pos);
 }
 
+pos_t *PosCopy(const pos_t *Src)
+{
+  // Allocate memory
+  pos_t *Pos=malloc(sizeof(pos_t));
+  size_t DataSize=(Src->DataEnd-Src->DataStart);
+  posdata_t *PosData=malloc(DataSize*sizeof(posdata_t));
+  if (Pos==NULL || PosData==NULL)
+  {
+    free(Pos);
+    free(PosData);
+    return NULL;
+  }
+  
+  // Set data
+  *Pos=*Src;
+  Pos->DataStart=PosData;
+  Pos->DataEnd=PosData+DataSize;
+  size_t DataLen=(Src->Data-Src->DataStart);
+  Pos->Data=PosData+DataLen;
+  memcpy(Pos->DataStart, Src->DataStart, (DataLen+1)*sizeof(posdata_t));
+  
+  assert(PosIsConsistent(Pos));
+  
+  return Pos;
+}
+
 bool PosSetToFEN(pos_t *Pos, const char *String)
 {
   // Parse FEN
   fen_t FEN;
-  if (!FENRead(&FEN, String))
-    return false;
+  if (String==NULL)
+  {
+    if (!FENRead(&FEN, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"))
+      return false;
+  }
+  else
+  {
+    if (!FENRead(&FEN, String))
+      return false;
+  }
   
   // Set position to clean state
   PosClean(Pos);
@@ -203,7 +237,7 @@ inline char PosPieceToChar(piece_t Piece)
 inline unsigned int PosPieceCount(const pos_t *Pos, piece_t Piece)
 {
   assert(PIECE_ISVALID(Piece));
-  return Pos->PieceListNext[Piece];
+  return (PosGetPieceListEnd(Pos, Piece)-PosGetPieceListStart(Pos, Piece));
 }
 
 bool PosMakeMove(pos_t *Pos, move_t Move)
@@ -425,6 +459,19 @@ move_t *PosGenPseudoQuiets(const pos_t *Pos, move_t *Moves)
   return Moves;
 }
 
+inline move_t PosGenLegalMove(pos_t *Pos)
+{
+  move_t Moves[MOVES_MAX], *Move;
+  move_t *End=PosGenPseudoMoves(Pos, Moves);
+  for(Move=Moves;Move<End;++Move)
+    if (PosMakeMove(Pos, *Move))
+    {
+      PosUndoMove(Pos);
+      return *Move;
+    }
+  return MOVE_NULL;
+}
+
 inline const sq_t *PosGetPieceListStart(const pos_t *Pos, piece_t Piece)
 {
   return &(Pos->PieceList[Piece<<4]);
@@ -466,6 +513,33 @@ move_t PosStrToMove(const pos_t *Pos, const char Str[static 6])
       return *Move;
   }
   return MOVE_NULL;
+}
+
+bool PosIsDraw(const pos_t *Pos)
+{
+  // False positives are bad, false negatives are OK
+  
+  // 3-fold repetition
+  // TODO: 3-fold repetition draws
+  
+  // 50-move rule
+  if (PosGetHalfMoveClock(Pos)>=100)
+    return true;
+  
+  // Insufficient material
+  // TODO: Insufficient material draws
+  
+  return false;
+}
+
+inline unsigned int PosGetHalfMoveClock(const pos_t *Pos)
+{
+  return Pos->Data->HalfMoveClock;
+}
+
+bool PosLegalMoveExist(pos_t *Pos)
+{
+  return (PosGenLegalMove(Pos)!=MOVE_NULL);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,14 @@
+#ifndef SEARCH_H
+#define SEARCH_H
+
+#include <stdbool.h>
+#include "pos.h"
+#include "time.h"
+
+bool SearchInit();
+void SearchQuit();
+void SearchThink(const pos_t *Pos, ms_t StartTime, ms_t SearchTime, bool Infinite);
+void SearchStop();
+void SearchReset(); // Clear any data search has collected (e.g. history tables)
+
+#endif

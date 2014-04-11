@@ -10,6 +10,7 @@ typedef struct pos_t pos_t;
 void PosInit();
 pos_t *PosNew(const char *FEN); // If FEN==NULL uses standard initial position
 void PosFree(pos_t *Pos);
+pos_t *PosCopy(const pos_t *Src);
 bool PosSetToFEN(pos_t *Pos, const char *String); // If fails Pos is unchanged
 void PosDraw(const pos_t *Pos);
 inline col_t PosGetSTM(const pos_t *Pos);
@@ -28,9 +29,13 @@ inline bool PosIsXSTMInCheck(const pos_t *Pos);
 move_t *PosGenPseudoMoves(const pos_t *Pos, move_t *Moves);
 move_t *PosGenPseudoCaptures(const pos_t *Pos, move_t *Moves);
 move_t *PosGenPseudoQuiets(const pos_t *Pos, move_t *Moves);
+inline move_t PosGenLegalMove(pos_t *Pos);
 inline const sq_t *PosGetPieceListStart(const pos_t *Pos, piece_t Piece);
 inline const sq_t *PosGetPieceListEnd(const pos_t *Pos, piece_t Piece);
 void PosMoveToStr(move_t Move, char Str[static 6]);
 move_t PosStrToMove(const pos_t *Pos, const char Str[static 6]);
+bool PosIsDraw(const pos_t *Pos);
+inline unsigned int PosGetHalfMoveClock(const pos_t *Pos);
+bool PosLegalMoveExist(pos_t *Pos);
 
 #endif

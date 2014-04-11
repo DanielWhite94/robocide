@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -Wall -O3 -DNDEBUG
+CFLAGS = -pthread -Wall -O3 -DNDEBUG
 
-OBJS = src/attacks.o src/bb.o src/fen.o src/magicmoves.o src/pos.o src/perft.o \
-       src/time.o
+OBJS = src/attacks.o src/bb.o src/eval.o src/fen.o src/magicmoves.o src/pos.o \
+       src/perft.o src/search.o src/threads.o src/time.o src/uci.o
 
 MAIN = src/main.c
 

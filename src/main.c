@@ -1,16 +1,17 @@
-#include <stdlib.h>
-#include "perft.h"
+#include "attacks.h"
 #include "pos.h"
+#include "search.h"
+#include "uci.h"
 
 int main()
 {
   AttacksInit();
   PosInit();
+  SearchInit();
   
-  pos_t *Pos=PosNew(NULL);
-  Perft(Pos, 128);
+  UCILoop();
   
-  PosFree(Pos);
+  SearchQuit();
   
-  return EXIT_SUCCESS;
+  return 0;
 }

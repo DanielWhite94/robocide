@@ -6,6 +6,7 @@
 #include "attacks.h"
 #include "fen.h"
 #include "pos.h"
+#include "WELL512a.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // 
@@ -19,6 +20,7 @@ typedef struct
   castrights_t CastRights;
   piece_t CapPiece;
   sq_t CapSq;
+  hkey_t Key;
 }posdata_t;
 
 struct pos_t
@@ -30,12 +32,16 @@ struct pos_t
   posdata_t *DataStart, *DataEnd, *Data;
   col_t STM;
   unsigned int FullMoveNumber;
+  hkey_t PawnKey;
 };
 
 char PosPieceToCharArray[16];
 char PosPromoCharArray[16];
 const char *PosStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 castrights_t PosCastUpdate[64];
+
+hkey_t PosKeySTM, PosKeyPiece[16][64], PosKeyEP[128], PosKeyCastling[16];
+hkey_t PosPawnKeyPiece[16][64];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -52,6 +58,9 @@ inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves);
 inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves);
 bool PosIsConsistent(const pos_t *Pos);
 char PosPromoChar(piece_t Piece);
+hkey_t PosComputeKey(const pos_t *Pos);
+hkey_t PosComputePawnKey(const pos_t *Pos);
+hkey_t PosRandKey();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -89,6 +98,51 @@ void PosInit()
   PosCastUpdate[E8]=~castrights_kq;
   PosCastUpdate[H1]=~castrights_K;
   PosCastUpdate[H8]=~castrights_k;
+  
+  // Hash keys
+  unsigned int RandInit[16]={1804289383,846930886,1681692777,1714636915,1957747793,424238335,719885386,1649760492,596516649,1189641421,1025202362,1350490027,783368690,1102520059,2044897763,1967513926};
+  InitWELLRNG512a(RandInit);
+  PosKeySTM=PosRandKey();
+  memset(PosKeyPiece, 0, 16*64*sizeof(hkey_t));
+  memset(PosPawnKeyPiece, 0, 16*64*sizeof(hkey_t));
+  memset(PosKeyEP, 0, 128*sizeof(hkey_t));
+  memset(PosKeyCastling, 0, 16*sizeof(hkey_t));
+  int I;
+  for(I=0;I<64;++I)
+  {
+    PosKeyPiece[wpawn][I]=PosRandKey();
+    PosKeyPiece[wknight][I]=PosRandKey();
+    PosKeyPiece[wbishop][I]=PosRandKey();
+    PosKeyPiece[wrook][I]=PosRandKey();
+    PosKeyPiece[wqueen][I]=PosRandKey();
+    PosKeyPiece[wking][I]=PosRandKey();
+    PosKeyPiece[bpawn][I]=PosRandKey();
+    PosKeyPiece[bknight][I]=PosRandKey();
+    PosKeyPiece[bbishop][I]=PosRandKey();
+    PosKeyPiece[brook][I]=PosRandKey();
+    PosKeyPiece[bqueen][I]=PosRandKey();
+    PosKeyPiece[bking][I]=PosRandKey();
+    
+    PosPawnKeyPiece[wpawn][I]=PosRandKey();
+    PosPawnKeyPiece[bpawn][I]=PosRandKey();
+  }
+  for(I=0;I<8;++I)
+    PosKeyEP[XYTOSQ(I,2)]=PosKeyEP[XYTOSQ(I,5)]=PosRandKey();
+  PosKeyCastling[castrights_K]=PosRandKey();
+  PosKeyCastling[castrights_Q]=PosRandKey();
+  PosKeyCastling[castrights_k]=PosRandKey();
+  PosKeyCastling[castrights_q]=PosRandKey();
+  PosKeyCastling[castrights_KQ]=PosKeyCastling[castrights_K]^PosKeyCastling[castrights_Q];
+  PosKeyCastling[castrights_Kk]=PosKeyCastling[castrights_K]^PosKeyCastling[castrights_k];
+  PosKeyCastling[castrights_Kq]=PosKeyCastling[castrights_K]^PosKeyCastling[castrights_q];
+  PosKeyCastling[castrights_Qk]=PosKeyCastling[castrights_Q]^PosKeyCastling[castrights_k];
+  PosKeyCastling[castrights_Qq]=PosKeyCastling[castrights_Q]^PosKeyCastling[castrights_q];
+  PosKeyCastling[castrights_kq]=PosKeyCastling[castrights_k]^PosKeyCastling[castrights_q];
+  PosKeyCastling[castrights_KQk]=PosKeyCastling[castrights_KQ]^PosKeyCastling[castrights_k];
+  PosKeyCastling[castrights_KQq]=PosKeyCastling[castrights_KQ]^PosKeyCastling[castrights_q];
+  PosKeyCastling[castrights_Kkq]=PosKeyCastling[castrights_Kk]^PosKeyCastling[castrights_q];
+  PosKeyCastling[castrights_Qkq]=PosKeyCastling[castrights_Qk]^PosKeyCastling[castrights_q];
+  PosKeyCastling[castrights_KQkq]=PosKeyCastling[castrights_KQ]^PosKeyCastling[castrights_kq];
 }
 
 pos_t *PosNew(const char *gFEN)
@@ -161,11 +215,8 @@ bool PosSetToFEN(pos_t *Pos, const char *String)
     if (!FENRead(&FEN, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"))
       return false;
   }
-  else
-  {
-    if (!FENRead(&FEN, String))
-      return false;
-  }
+  else if (!FENRead(&FEN, String))
+    return false;
   
   // Set position to clean state
   PosClean(Pos);
@@ -183,6 +234,7 @@ bool PosSetToFEN(pos_t *Pos, const char *String)
   Pos->Data->CastRights=FEN.CastRights;
   Pos->Data->CapPiece=empty;
   Pos->Data->CapSq=sqinvalid;
+  Pos->Data->Key=PosComputeKey(Pos);
   
   assert(PosIsConsistent(Pos));
   
@@ -270,6 +322,7 @@ bool PosMakeMove(pos_t *Pos, move_t Move)
   Pos->Data->CastRights=(Pos->Data-1)->CastRights & PosCastUpdate[ToSq] & PosCastUpdate[FromSq];
   Pos->Data->CapSq=(MOVE_ISEP(Move) ? ToSq^8 : ToSq);
   Pos->Data->CapPiece=PosGetPieceOnSq(Pos, Pos->Data->CapSq);
+  Pos->Data->Key=(Pos->Data-1)->Key;
   Pos->FullMoveNumber+=(Pos->STM==black); // Inc after black's move
   Pos->STM=COL_SWAP(Pos->STM);
   
@@ -313,6 +366,10 @@ bool PosMakeMove(pos_t *Pos, move_t Move)
         PosPieceMove(Pos, ToSq-2, ToSq+1); // Queenside
     }
   }
+  
+  // Update key
+  Pos->Data->Key^=PosKeySTM^PosKeyCastling[Pos->Data->CastRights^(Pos->Data-1)->CastRights]^
+                  PosKeyEP[Pos->Data->EPSq]^PosKeyEP[(Pos->Data-1)->EPSq];
   
   // Does move leave STM in check?
   if (PosIsXSTMInCheck(Pos))
@@ -542,6 +599,16 @@ bool PosLegalMoveExist(pos_t *Pos)
   return (PosGenLegalMove(Pos)!=MOVE_NULL);
 }
 
+inline hkey_t PosGetKey(const pos_t *Pos)
+{
+  return Pos->Data->Key;
+}
+
+inline hkey_t PosGetPawnKey(const pos_t *Pos)
+{
+  return Pos->PawnKey;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -555,6 +622,7 @@ void PosClean(pos_t *Pos)
     Pos->PieceListNext[I]=16*I;
   Pos->STM=white;
   Pos->FullMoveNumber=1;
+  Pos->PawnKey=0;
   Pos->Data=Pos->DataStart;
   Pos->Data->LastMove=MOVE_NULL;
   Pos->Data->HalfMoveClock=0;
@@ -562,27 +630,36 @@ void PosClean(pos_t *Pos)
   Pos->Data->CastRights=castrights_none;
   Pos->Data->CapPiece=empty;
   Pos->Data->CapSq=sqinvalid;
+  Pos->Data->Key=0;
 }
 
 inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq)
 {
+  // Sanity checks
   assert(PIECE_ISVALID(Piece));
   assert(SQ_ISVALID(Sq));
   assert(PosGetPieceOnSq(Pos, Sq)==empty);
   
+  // Update pieces
   Pos->BB[Piece]^=BBSqToBB(Sq);
   Pos->BB[PIECE_MAKE(pieceall,PIECE_COLOUR(Piece))]^=BBSqToBB(Sq);
   Pos->BB[pall]^=BBSqToBB(Sq);
   uint8_t Index=(Pos->PieceListNext[Piece]++);
   Pos->Array64[Sq]=Index;
   Pos->PieceList[Index]=Sq;
+  
+  // Update hash keys
+  Pos->Data->Key^=PosKeyPiece[Piece][Sq];
+  Pos->PawnKey^=PosPawnKeyPiece[Piece][Sq];
 }
 
 inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
 {
+  // Sanity checks
   assert(SQ_ISVALID(Sq));
   assert(PosGetPieceOnSq(Pos, Sq)!=empty);
   
+  // Update pieces
   uint8_t Index=Pos->Array64[Sq];
   piece_t Piece=(Index>>4);
   Pos->BB[Piece]^=BBSqToBB(Sq);
@@ -592,14 +669,20 @@ inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
   Pos->PieceList[Index]=Pos->PieceList[LastIndex];
   Pos->Array64[Pos->PieceList[Index]]=Index; // Easy to forget this line...
   Pos->Array64[Sq]=(empty<<4);
+  
+  // Update hash keys
+  Pos->Data->Key^=PosKeyPiece[Piece][Sq];
+  Pos->PawnKey^=PosPawnKeyPiece[Piece][Sq];
 }
 
 inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq)
 {
+  // Sanity checks
   assert(SQ_ISVALID(FromSq) && SQ_ISVALID(ToSq));
   assert(PosGetPieceOnSq(Pos, FromSq)!=empty);
   assert(PosGetPieceOnSq(Pos, ToSq)==empty);
   
+  // Update pieces
   uint8_t Index=Pos->Array64[FromSq];
   piece_t Piece=(Index>>4);
   Pos->BB[Piece]^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
@@ -608,16 +691,22 @@ inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq)
   Pos->Array64[ToSq]=Index;
   Pos->Array64[FromSq]=(empty<<4);
   Pos->PieceList[Index]=ToSq;
+  
+  // Update hash keys
+  Pos->Data->Key^=PosKeyPiece[Piece][FromSq]^PosKeyPiece[Piece][ToSq];
+  Pos->PawnKey^=PosPawnKeyPiece[Piece][FromSq]^PosPawnKeyPiece[Piece][ToSq];
 }
 
 inline void PosPieceMoveChange(pos_t *Pos, sq_t FromSq, sq_t ToSq, piece_t ToPiece)
 {
+  // Sanity checks
   assert(SQ_ISVALID(FromSq) && SQ_ISVALID(ToSq));
   assert(PosGetPieceOnSq(Pos, FromSq)!=empty);
   assert(PosGetPieceOnSq(Pos, ToSq)==empty);
   assert(PIECE_ISVALID(ToPiece));
   assert(PIECE_COLOUR(ToPiece)==PIECE_COLOUR(PosGetPieceOnSq(Pos, FromSq)));
   
+  // Update pieces
   PosPieceRemove(Pos, FromSq);
   PosPieceAdd(Pos, ToPiece, ToSq);
 }
@@ -1020,6 +1109,26 @@ bool PosIsConsistent(const pos_t *Pos)
       }
   }
   
+  // Test hash keys match
+  hkey_t TrueKey=PosComputeKey(Pos);
+  hkey_t Key=PosGetKey(Pos);
+  if (Key!=TrueKey)
+  {
+    sprintf(Error, "Key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
+            Key, TrueKey);
+    goto error;
+  }
+  
+  // Test pawn hash keys match
+  hkey_t TruePawnKey=PosComputePawnKey(Pos);
+  hkey_t PawnKey=PosGetPawnKey(Pos);
+  if (PawnKey!=TruePawnKey)
+  {
+    sprintf(Error, "Pawn key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
+            PawnKey, TruePawnKey);
+    goto error;
+  }
+  
   return true;
   
   error:
@@ -1037,4 +1146,43 @@ char PosPromoChar(piece_t Piece)
 {
   assert(PIECE_ISVALID(Piece));
   return PosPromoCharArray[Piece];
+}
+
+hkey_t PosComputeKey(const pos_t *Pos)
+{
+  hkey_t Key=0;
+  
+  // EP and castling
+  Key^=PosKeyEP[Pos->Data->EPSq]^PosKeyCastling[Pos->Data->CastRights];
+  
+  // Colour
+  if (PosGetSTM(Pos)==black)
+    Key^=PosKeySTM;
+  
+  // Pieces
+  sq_t Sq;
+  for(Sq=0;Sq<64;++Sq)
+    Key^=PosKeyPiece[PosGetPieceOnSq(Pos, Sq)][Sq];
+  
+  return Key;
+}
+
+hkey_t PosComputePawnKey(const pos_t *Pos)
+{
+  // Only piece placement is important for pawn key
+  hkey_t Key=0;
+  sq_t Sq;
+  for(Sq=0;Sq<64;++Sq)
+    Key^=PosPawnKeyPiece[PosGetPieceOnSq(Pos, Sq)][Sq];
+  
+  return Key;
+}
+
+hkey_t PosRandKey()
+{
+  hkey_t A=((hkey_t)(WELLRNG512a()*65536)) & 0xFFFF;
+  hkey_t B=((hkey_t)(WELLRNG512a()*65536)) & 0xFFFF;
+  hkey_t C=((hkey_t)(WELLRNG512a()*65536)) & 0xFFFF;
+  hkey_t D=((hkey_t)(WELLRNG512a()*65536)) & 0xFFFF;
+  return ((A<<48) | (B<<32) | (C<<16) | D);
 }

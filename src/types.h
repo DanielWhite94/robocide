@@ -1,6 +1,7 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <inttypes.h>
 #include <stdint.h>
 
 typedef uint64_t bb_t;
@@ -115,5 +116,8 @@ typedef int16_t score_t;
 #define SCORE_MATEDIN(P) ((P)-31000)
 #define SCORE_ISMATE(S)   (abs(abs(S)+SCORE_MATEDIN(0))<512)
 #define SCORE_MATEDIST(S) ((1-abs(S)-SCORE_MATEDIN(0))/2)
+
+typedef uint64_t hkey_t;
+#define PRIxkey PRIx64
 
 #endif

@@ -37,5 +37,7 @@ move_t PosStrToMove(const pos_t *Pos, const char Str[static 6]);
 bool PosIsDraw(const pos_t *Pos);
 inline unsigned int PosGetHalfMoveClock(const pos_t *Pos);
 bool PosLegalMoveExist(pos_t *Pos);
+inline hkey_t PosGetKey(const pos_t *Pos);
+inline hkey_t PosGetPawnKey(const pos_t *Pos);
 
 #endif

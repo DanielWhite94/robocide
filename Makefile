@@ -2,7 +2,8 @@ CC = gcc
 CFLAGS = -pthread -Wall -O3 -DNDEBUG
 
 OBJS = src/attacks.o src/bb.o src/eval.o src/fen.o src/magicmoves.o src/pos.o \
-       src/perft.o src/search.o src/threads.o src/time.o src/uci.o
+       src/perft.o src/search.o src/threads.o src/time.o src/uci.o \
+       src/WELL512a.o
 
 MAIN = src/main.c
 

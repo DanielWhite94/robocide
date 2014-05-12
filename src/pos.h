@@ -19,7 +19,7 @@ inline bb_t PosGetBBAll(const pos_t *Pos);
 inline bb_t PosGetBBColour(const pos_t *Pos, col_t Colour);
 inline bb_t PosGetBBPiece(const pos_t *Pos, piece_t Piece);
 inline char PosPieceToChar(piece_t Piece);
-inline unsigned int PosPieceCount(const pos_t *Pos, piece_t Piece);
+inline int PosPieceCount(const pos_t *Pos, piece_t Piece);
 bool PosMakeMove(pos_t *Pos, move_t Move);
 void PosUndoMove(pos_t *Pos);
 bool PosIsSqAttackedByColour(const pos_t *Pos, sq_t Sq, col_t Colour);

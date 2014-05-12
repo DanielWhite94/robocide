@@ -286,7 +286,7 @@ inline char PosPieceToChar(piece_t Piece)
   return PosPieceToCharArray[Piece];
 }
 
-inline unsigned int PosPieceCount(const pos_t *Pos, piece_t Piece)
+inline int PosPieceCount(const pos_t *Pos, piece_t Piece)
 {
   assert(PIECE_ISVALID(Piece));
   return (PosGetPieceListEnd(Pos, Piece)-PosGetPieceListStart(Pos, Piece));

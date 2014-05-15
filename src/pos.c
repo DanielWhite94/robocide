@@ -1186,3 +1186,11 @@ hkey_t PosRandKey()
   hkey_t D=((hkey_t)(WELLRNG512a()*65536)) & 0xFFFF;
   return ((A<<48) | (B<<32) | (C<<16) | D);
 }
+
+bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move)
+{
+  // TODO: PosIsMovePseudoLegal()
+  if (Move==MOVE_NULL)
+    return false;
+  return true;
+}

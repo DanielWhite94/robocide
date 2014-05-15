@@ -39,5 +39,6 @@ inline unsigned int PosGetHalfMoveClock(const pos_t *Pos);
 bool PosLegalMoveExist(pos_t *Pos);
 inline hkey_t PosGetKey(const pos_t *Pos);
 inline hkey_t PosGetPawnKey(const pos_t *Pos);
+bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move);
 
 #endif

@@ -40,5 +40,12 @@ bool PosLegalMoveExist(pos_t *Pos);
 inline hkey_t PosGetKey(const pos_t *Pos);
 inline hkey_t PosGetPawnKey(const pos_t *Pos);
 bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move);
+static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move);
+
+static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move)
+{
+  return (PosGetPieceOnSq(Pos, MOVE_GETTOSQ(Move))!=empty ||
+          MOVE_ISPROMO(Move) || MOVE_ISEP(Move));
+}
 
 #endif

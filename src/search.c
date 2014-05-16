@@ -1,6 +1,8 @@
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "eval.h"
 #include "search.h"
 #include "threads.h"
@@ -16,7 +18,10 @@ bool SearchInfinite, SearchStopFlag;
 ms_t SearchStartTime, SearchEndTime;
 thread_t *SearchThread=NULL;
 
-typedef int movescore_t;
+typedef uint64_t movescore_t;
+#define MOVESCORE_WIDTH 64
+#define HISTORY_MAX (((movescore_t)1)<<(MOVESCORE_WIDTH-8)) // see SearchScoreMove()
+movescore_t SearchHistory[16][64];
 
 typedef enum
 {
@@ -56,6 +61,9 @@ void SearchMovesInit(node_t *N, move_t HashMove);
 move_t SearchMovesNext(moves_t *Moves);
 void SearchSortMoves(moves_t *Moves);
 inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move);
+void SearchHistoryUpdate(const node_t *N);
+void SearchHistoryAge();
+void SearchHistoryReset();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -67,6 +75,9 @@ bool SearchInit()
   SearchThread=ThreadCreate();
   if (SearchThread==NULL)
     return false;
+  
+  // Init history tables
+  SearchHistoryReset();
   
   return true;
 }
@@ -111,6 +122,8 @@ void SearchStop()
 
 void SearchReset()
 {
+  // Clear history tables
+  SearchHistoryReset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -256,6 +269,10 @@ score_t SearchNode(node_t *N)
   
   // We now know the best move
   cutoff:
+  assert(N->PV[0]!=MOVE_NULL);
+  
+  // Update history table
+  SearchHistoryUpdate(N);
   
   // Return
   return BestScore;
@@ -395,13 +412,46 @@ inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move)
   movescore_t Score=0;
   
   /* Sort first by captured/promotion piece (most valuable first) */
-  piece_t FromPiece=PIECE_TYPE(PosGetPieceOnSq(Pos, MOVE_GETFROMSQ(Move)));
-  piece_t ToPiece=(MOVE_ISPROMO(Move) ? PIECE_TYPE(MOVE_GETPROMO(Move)) : FromPiece);
+  piece_t FromPiece=PosGetPieceOnSq(Pos, MOVE_GETFROMSQ(Move));
+  piece_t ToPiece=(MOVE_ISPROMO(Move) ? MOVE_GETPROMO(Move) : FromPiece);
   piece_t CapturedPiece=(MOVE_ISEP(Move) ? pawn : PIECE_TYPE(PosGetPieceOnSq(Pos, MOVE_GETTOSQ(Move))));
-  Score+=(CapturedPiece+ToPiece-FromPiece)*8;
+  Score+=(CapturedPiece+PIECE_TYPE(ToPiece)-PIECE_TYPE(FromPiece))*8*HISTORY_MAX;
   
   /* Sort second by capturing piece (least valuable first) */
-  Score+=(8-ToPiece);
+  Score+=(8-PIECE_TYPE(ToPiece))*HISTORY_MAX;
+  
+  /* Further sort using history tables */
+  Score+=SearchHistory[FromPiece][MOVE_GETTOSQ(Move)];
   
   return Score;
+}
+
+void SearchHistoryUpdate(const node_t *N)
+{
+  /* Only consider non-capture moves */
+  move_t Move=N->PV[0];
+  if (!PosIsMoveCapture(N->Pos, Move))
+  {
+    /* Increment count in table */
+    piece_t FromPiece=PosGetPieceOnSq(N->Pos, MOVE_GETFROMSQ(Move));
+    movescore_t *Counter=&SearchHistory[FromPiece][MOVE_GETTOSQ(Move)];
+    *Counter+=(((movescore_t)1)<<N->Depth);
+    
+    /* Overflow? (not a literal overflow, but beyond desired range) */
+    if (*Counter>=HISTORY_MAX)
+      SearchHistoryAge();
+  }
+}
+
+void SearchHistoryAge()
+{
+  int I, J;
+  for(I=0;I<16;++I)
+    for(J=0;J<64;++J)
+      SearchHistory[I][J]/=2;
+}
+
+void SearchHistoryReset()
+{
+  memset(SearchHistory, 0, sizeof(SearchHistory));
 }

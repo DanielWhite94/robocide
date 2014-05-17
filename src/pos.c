@@ -1203,8 +1203,98 @@ hkey_t PosRandKey()
 
 bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move)
 {
-  // TODO: PosIsMovePseudoLegal()
+  col_t STM=PosGetSTM(Pos);
+  sq_t FromSq=MOVE_GETFROMSQ(Move);
+  sq_t ToSq=MOVE_GETTOSQ(Move);
+  piece_t FromPiece=PosGetPieceOnSq(Pos, FromSq);
+  piece_t ToPiece=PosGetPieceOnSq(Pos, ToSq);
+  
+  // Special case: null move
   if (Move==MOVE_NULL)
     return false;
-  return true;
+  
+  // Is move of correct colour?
+  if (MOVE_GETCOLOUR(Move)!=STM)
+    return false;
+  
+  // Special case: castling
+  if (MOVE_ISCAST(Move))
+  {
+    bb_t Occ=PosGetBBAll(Pos);
+    if (STM==white)
+    {
+      if (ToSq>FromSq)
+        return ((Pos->Data->CastRights & castrights_K) && !(Occ & (BBF1 | BBG1)));
+      else
+        return ((Pos->Data->CastRights & castrights_Q) && !(Occ & (BBB1 | BBC1 | BBD1)));
+    }
+    else
+    {
+      if (ToSq>FromSq)
+        return ((Pos->Data->CastRights & castrights_k) && !(Occ & (BBF8 | BBG8)));
+      else
+        return ((Pos->Data->CastRights & castrights_q) && !(Occ & (BBB8 | BBC8 | BBD8)));
+    }
+  }
+  
+  // Is from piece of correct colour?
+  if (FromPiece==empty || PIECE_COLOUR(FromPiece)!=STM)
+    return false;
+  
+  // Special case: pawns
+  if (PIECE_TYPE(FromPiece)==pawn)
+  {
+    // This is a bit complicated but we cannot be sure the hash move was also a
+    // pawn move. e.g. consider hash move is white rook d5d4, current position
+    // has white pawn on d5, but d5d4 is not legal.
+    
+    int DX=abs(SQ_X(ToSq)-SQ_X(FromSq));
+    int DY=(SQ_Y(ToSq)-SQ_Y(FromSq));
+    int PDY=(STM==white ? 1 : -1);
+    
+    if (MOVE_ISEP(Move))
+      return (ToSq==Pos->Data->EPSq);
+    else if (MOVE_ISDP(Move))
+      return (ToPiece==empty && PosGetPieceOnSq(Pos, (ToSq+FromSq)/2)==empty);
+    else if (DX==1 && DY==PDY)
+      return (ToPiece!=empty && PIECE_COLOUR(ToPiece)==COL_SWAP(STM));
+    else if (DX==0 && DY==PDY)
+      return (ToPiece==empty);
+    else
+      return false;
+  }
+  
+  // Was move meant to be a pawn move?
+  if (MOVE_ISEP(Move) || MOVE_ISDP(Move) || MOVE_ISPROMO(Move))
+    return false;
+  
+  // Is to piece empty/opp?
+  if (ToPiece!=empty && PIECE_COLOUR(ToPiece)==STM)
+    return false;
+  
+  // Valid movement for piece?
+  int DX=abs(SQ_X(ToSq)-SQ_X(FromSq));
+  int DY=abs(SQ_Y(ToSq)-SQ_Y(FromSq));
+  switch(PIECE_TYPE(FromPiece))
+  {
+    case knight:
+      return ((DX==2 && DY==1) || (DX==1 && DY==2));
+    break;
+    case bishop:
+      return ((AttacksBishop(FromSq, PosGetBBAll(Pos)) & SQTOBB(ToSq))!=0);
+    break;
+    case rook:
+      return ((AttacksRook(FromSq, PosGetBBAll(Pos)) & SQTOBB(ToSq))!=0);
+    break;
+    case queen:
+      return ((AttacksQueen(FromSq, PosGetBBAll(Pos)) & SQTOBB(ToSq))!=0);
+    break;
+    case king:
+      return (DX<=1 && DY<=1);
+    break;
+    default:
+      assert(false);
+      return false;
+    break;
+  }
 }

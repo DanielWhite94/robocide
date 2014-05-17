@@ -57,6 +57,7 @@ typedef enum
 #define SQ_X(S) ((S)&7)
 #define SQ_Y(S) ((S)>>3)
 #define XYTOSQ(X,Y) (((Y)<<3)+(X))
+#define SQTOBB(SQ) (((bb_t)1)<<(SQ))
 
 typedef enum
 {

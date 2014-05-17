@@ -189,7 +189,7 @@ score_t SearchNode(node_t *N)
     return SCORE_DRAW;
   
   // Test for draws (and rare checkmates)
-  if (N->Ply>=1 && PosIsDraw(N->Pos))
+  if (N->Ply>=1 && PosIsDraw(N->Pos, N->Ply))
   {
     // In rare cases checkmate can be given on 100th half move
     if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))

@@ -229,6 +229,7 @@ void EvalPawnResize(size_t SizeMB)
       EvalPawnTableSize=Entries;
       return;
     }
+    Entries/=2;
   }
   
   // Could not allocate 

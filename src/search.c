@@ -186,7 +186,7 @@ score_t SearchNode(node_t *N)
   
   // Ply limit reached?
   if (N->Ply>=SEARCH_MAXPLY)
-    return SCORE_DRAW;
+    return Evaluate(N->Pos);
   
   // Test for draws (and rare checkmates)
   if (N->Ply>=1 && PosIsDraw(N->Pos, N->Ply))

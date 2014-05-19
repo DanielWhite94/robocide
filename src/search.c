@@ -7,6 +7,8 @@
 #include "search.h"
 #include "threads.h"
 #include "types.h"
+#include "uci.h"
+#include "util.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // 
@@ -48,6 +50,13 @@ typedef struct
 }node_t;
 #define NODE_ISQ(N) ((N)->Depth<1)
 
+typedef struct
+{
+  move_t BestMove;
+}hash_t;
+hash_t *SearchHashTable=NULL;
+size_t SearchHashTableSize=0;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,6 +73,11 @@ inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move);
 void SearchHistoryUpdate(const node_t *N);
 void SearchHistoryAge();
 void SearchHistoryReset();
+void SearchHashResize(int SizeMB);
+void SearchHashFree();
+void SearchHashReset();
+move_t SearchHashRead(const node_t *N);
+void SearchHashUpdate(const node_t *N);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -79,6 +93,11 @@ bool SearchInit()
   // Init history tables
   SearchHistoryReset();
   
+  // Init hash table
+  UCIOptionNewSpin("Hash", &SearchHashResize, 0, 16*1024, 16);
+  UCIOptionNewButton("Clear Hash", &SearchHashReset);
+  SearchHashResize(16);
+  
   return true;
 }
 
@@ -89,6 +108,9 @@ void SearchQuit()
   
   // Free the worker thread
   ThreadFree(SearchThread);
+  
+  // Free hash table
+  SearchHashFree();
 }
 
 void SearchThink(const pos_t *SrcPos, ms_t StartTime, ms_t SearchTime, bool Infinite)
@@ -124,6 +146,9 @@ void SearchReset()
 {
   // Clear history tables
   SearchHistoryReset();
+  
+  // Clear hash table
+  SearchHashReset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -153,8 +178,11 @@ void SearchIDLoop(void *Data)
     // Search
     score_t Score=SearchNode(&Node);
     
-    // Time to end?
-    if (SearchIsTimeUp())
+    // Early return? (i.e. out of 'time' and no moves searched)
+    // If we are not using a hash table we cannot trust the move returned.
+    // This is because if we haven't yet searched the previous-depth's best
+    // move, we may choose an inferior earlier move.
+    if (Node.PV[0]==MOVE_NULL || (SearchHashTable==NULL && SearchIsTimeUp()))
       break;
     
     // Update bestmove
@@ -162,6 +190,10 @@ void SearchIDLoop(void *Data)
     
     // Output info
     SearchOutput(&Node, Score);
+    
+    // Time to end?
+    if (SearchIsTimeUp())
+      break;
   }
   
   // Send best move
@@ -208,6 +240,9 @@ score_t SearchNode(node_t *N)
       Alpha=Eval;
   }
   
+  // Check hash table
+  move_t HashMove=(NODE_ISQ(N) ? MOVE_NULL : SearchHashRead(N));
+  
   // Search moves
   score_t BestScore=-SCORE_INF;
   node_t Child;
@@ -216,7 +251,7 @@ score_t SearchNode(node_t *N)
   Child.Ply=N->Ply+1;
   Child.Alpha=-N->Beta;
   Child.Beta=-Alpha;
-  SearchMovesInit(N, MOVE_NULL);
+  SearchMovesInit(N, HashMove);
   move_t Move;
   while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
   {
@@ -273,6 +308,10 @@ score_t SearchNode(node_t *N)
   
   // Update history table
   SearchHistoryUpdate(N);
+  
+  // Update hash table
+  if (!NODE_ISQ(N))
+    SearchHashUpdate(N);
   
   // Return
   return BestScore;
@@ -454,4 +493,70 @@ void SearchHistoryAge()
 void SearchHistoryReset()
 {
   memset(SearchHistory, 0, sizeof(SearchHistory));
+}
+
+void SearchHashResize(int SizeMB)
+{
+  // No hash table wanted?
+  if (SizeMB<1)
+  {
+    SearchHashFree();
+    return;
+  }
+  
+  // Calculate greatest power of two number of entries we can fit in SizeMB
+  uint64_t Entries=(((uint64_t)SizeMB)*1024llu*1024llu)/sizeof(hash_t);
+  Entries=NextPowTwo64(Entries+1)/2;
+  
+  // Attempt to allocate table
+  while(Entries>0)
+  {
+    hash_t *Ptr=realloc(SearchHashTable, Entries*sizeof(hash_t));
+    if (Ptr!=NULL)
+    {
+      SearchHashTable=Ptr;
+      SearchHashTableSize=Entries;
+      return;
+    }
+    Entries/=2;
+  }
+  
+  // Could not allocate
+  SearchHashFree();
+}
+
+void SearchHashFree()
+{
+  free(SearchHashTable);
+  SearchHashTable=NULL;
+  SearchHashTableSize=0;
+}
+
+void SearchHashReset()
+{
+  memset(SearchHashTable, 0, SearchHashTableSize*sizeof(hash_t)); // HACK
+}
+
+move_t SearchHashRead(const node_t *N)
+{
+  if (SearchHashTable==NULL)
+    return MOVE_NULL;
+  
+  int Index=(PosGetKey(N->Pos) & (SearchHashTableSize-1));
+  hash_t *Entry=&SearchHashTable[Index];
+  
+  return Entry->BestMove;
+}
+
+void SearchHashUpdate(const node_t *N)
+{
+  assert(N->PV[0]!=MOVE_NULL);
+  
+  if (SearchHashTable==NULL)
+    return;
+  
+  int Index=(PosGetKey(N->Pos) & (SearchHashTableSize-1));
+  hash_t *Entry=&SearchHashTable[Index];
+  
+  Entry->BestMove=N->PV[0];
 }

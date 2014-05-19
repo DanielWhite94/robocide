@@ -56,6 +56,7 @@ typedef enum
 #define SQ_ISVALID(S) ((S)>=A1 && (S)<=H8)
 #define SQ_X(S) ((S)&7)
 #define SQ_Y(S) ((S)>>3)
+#define SQ_FLIP(S) ((S)^56)
 #define XYTOSQ(X,Y) (((Y)<<3)+(X))
 #define SQTOBB(SQ) (((bb_t)1)<<(SQ))
 

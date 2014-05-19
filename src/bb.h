@@ -10,6 +10,7 @@ extern const bb_t BBFileA, BBFileB, BBFileC, BBFileD,
                   BBFileE, BBFileF, BBFileG, BBFileH;
 extern const bb_t BBRank1, BBRank2, BBRank3, BBRank4,
                   BBRank5, BBRank6, BBRank7, BBRank8;
+extern const bb_t BBLight, BBDark;
 
 extern const int BBScanForwardTable[64];
 
@@ -20,7 +21,12 @@ static inline bb_t BBNorthOne(bb_t Set);
 static inline bb_t BBSouthOne(bb_t Set);
 static inline bb_t BBWestOne(bb_t Set);
 static inline bb_t BBEastOne(bb_t Set);
+static inline bb_t BBNorthFill(bb_t Set);
+static inline bb_t BBSouthFill(bb_t Set);
+static inline bb_t BBFileFill(bb_t Set);
 static inline bb_t BBWingify(bb_t Set);
+static inline int BBPopCount(bb_t X);
+static inline bb_t BBForwardOne(bb_t Set, col_t Colour);
 
 static inline bb_t BBSqToBB(sq_t Sq)
 {
@@ -61,9 +67,44 @@ static inline bb_t BBEastOne(bb_t Set)
   return ((Set & ~BBFileH)<<1);
 }
 
+static inline bb_t BBNorthFill(bb_t Set)
+{
+  Set|=(Set<<8);
+  Set|=(Set<<16);
+  Set|=(Set<<32);
+  return Set;
+}
+
+static inline bb_t BBSouthFill(bb_t Set)
+{
+  Set|=(Set>>8);
+  Set|=(Set>>16);
+  Set|=(Set>>32);
+  return Set;
+}
+
+static inline bb_t BBFileFill(bb_t Set)
+{
+  return (BBNorthFill(Set) | BBSouthFill(Set));
+}
+
 static inline bb_t BBWingify(bb_t Set)
 {
   return (BBWestOne(Set) | BBEastOne(Set));
+}
+
+static inline int BBPopCount(bb_t X)
+{
+  X=X-((X>>1) & 0x5555555555555555llu);
+  X=(X&0x3333333333333333llu)+((X>>2) & 0x3333333333333333llu);
+  X=(X+(X>>4)) & 0x0f0f0f0f0f0f0f0fllu;
+  X=(X*0x0101010101010101llu)>>56;
+  return (int)X;
+}
+
+static inline bb_t BBForwardOne(bb_t Set, col_t Colour)
+{
+  return (Colour==white ? BBNorthOne(Set) : BBSouthOne(Set));
 }
 
 #endif

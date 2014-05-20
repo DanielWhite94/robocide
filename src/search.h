@@ -7,8 +7,9 @@
 
 bool SearchInit();
 void SearchQuit();
-void SearchThink(const pos_t *Pos, ms_t StartTime, ms_t SearchTime, bool Infinite);
+void SearchThink(const pos_t *Pos, ms_t StartTime, ms_t SearchTime, bool Infinite, bool Ponder);
 void SearchStop();
 void SearchReset(); // Clear any data search has collected (e.g. history tables)
+void SearchPonderHit();
 
 #endif

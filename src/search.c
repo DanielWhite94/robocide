@@ -25,6 +25,8 @@ typedef uint64_t movescore_t;
 #define HISTORY_MAX (((movescore_t)1)<<(MOVESCORE_WIDTH-8)) // see SearchScoreMove()
 movescore_t SearchHistory[16][64];
 
+bool SearchPonder=true;
+
 typedef enum
 {
   movesstage_hash,
@@ -78,6 +80,7 @@ void SearchHashFree();
 void SearchHashReset();
 move_t SearchHashRead(const node_t *N);
 void SearchHashUpdate(const node_t *N);
+void SearchSetPonder(bool Ponder);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -98,6 +101,9 @@ bool SearchInit()
   UCIOptionNewButton("Clear Hash", &SearchHashReset);
   SearchHashResize(16);
   
+  // Init pondering
+  UCIOptionNewCheck("Ponder", &SearchSetPonder, SearchPonder);
+  
   return true;
 }
 
@@ -113,7 +119,7 @@ void SearchQuit()
   SearchHashFree();
 }
 
-void SearchThink(const pos_t *SrcPos, ms_t StartTime, ms_t SearchTime, bool Infinite)
+void SearchThink(const pos_t *SrcPos, ms_t StartTime, ms_t SearchTime, bool Infinite, bool Ponder)
 {
   // Make sure we finish previous search
   SearchStop();
@@ -124,7 +130,7 @@ void SearchThink(const pos_t *SrcPos, ms_t StartTime, ms_t SearchTime, bool Infi
   if (Pos==NULL)
     return;
   SearchNodeCount=0;
-  SearchInfinite=Infinite;
+  SearchInfinite=(Infinite || Ponder);
   SearchStopFlag=false;
   SearchStartTime=StartTime;
   SearchEndTime=StartTime+SearchTime;
@@ -149,6 +155,11 @@ void SearchReset()
   
   // Clear hash table
   SearchHashReset();
+}
+
+void SearchPonderHit()
+{
+  SearchInfinite=false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -196,10 +207,17 @@ void SearchIDLoop(void *Data)
       break;
   }
   
-  // Send best move
+  // Send best move (and potentially ponder move)
   char Str[8];
   PosMoveToStr(BestMove, Str);
-  printf("bestmove %s\n", Str);
+  if (SearchPonder && Node.PV[1]!=MOVE_NULL)
+  {
+    char Str2[8];
+    PosMoveToStr(Node.PV[1], Str2);
+    printf("bestmove %s ponder %s\n", Str, Str2);
+  }
+  else
+    printf("bestmove %s\n", Str);
   
   // Free position
   PosFree(Node.Pos);
@@ -559,4 +577,9 @@ void SearchHashUpdate(const node_t *N)
   hash_t *Entry=&SearchHashTable[Index];
   
   Entry->BestMove=N->PV[0];
+}
+
+void SearchSetPonder(bool Ponder)
+{
+  SearchPonder=Ponder;
 }

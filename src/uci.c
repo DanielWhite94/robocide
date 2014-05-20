@@ -128,7 +128,7 @@ void UCILoop()
       // Parse arguments
       ms_t MoveTime=0, TotalTime=0, IncTime=0;
       int MovesToGo=0;
-      bool Infinite=false;
+      bool Infinite=false, Ponder=false;
       
       while((Part=strtok_r(NULL, " ", &SavePtr))!=NULL)
       {
@@ -156,6 +156,8 @@ void UCILoop()
         }
         else if (!strcmp(Part, "infinite"))
           Infinite=true;
+        else if (!strcmp(Part, "ponder"))
+          Ponder=true;
       }
       
       // Decide how to use our time
@@ -168,7 +170,7 @@ void UCILoop()
         MoveTime=MaxTime;
       
       // Search
-      SearchThink(Pos, RecvTime, MoveTime, Infinite);
+      SearchThink(Pos, RecvTime, MoveTime, Infinite, Ponder);
     }
     else if (!strcmp(Part, "position"))
     {
@@ -208,6 +210,8 @@ void UCILoop()
         }
       }
     }
+    else if (!strcmp(Part, "ponderhit"))
+      SearchPonderHit();
     else if (!strcmp(Part, "isready"))
       puts("readyok");
     else if (!strcmp(Part, "stop"))

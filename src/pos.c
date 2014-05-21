@@ -598,7 +598,32 @@ bool PosIsDraw(const pos_t *Pos, int Ply)
     return true;
   
   // Insufficient material
-  // TODO: Insufficient material draws
+  // Any pawns, rooks or queens are potential mate-givers
+  uint64_t Mat=PosGetMat(Pos);
+  uint64_t PRQMask=(POSMAT_MASK(wpawn)|POSMAT_MASK(wrook)|POSMAT_MASK(wqueen)|
+                    POSMAT_MASK(bpawn)|POSMAT_MASK(brook)|POSMAT_MASK(bqueen));
+  if (!(Mat & PRQMask))
+  {
+    // Special case: only material is bishops of a single colour
+    // (this also covers KvK, with '0 bishops' as it were)
+    bb_t WAll=(PosGetBBColour(Pos, white) & ~PosGetBBPiece(Pos, wking));
+    bb_t BAll=(PosGetBBColour(Pos, black) & ~PosGetBBPiece(Pos, bking));
+    bb_t WB=PosGetBBPiece(Pos, wbishop), BB=PosGetBBPiece(Pos, bbishop);
+    bb_t WLB=(WB & BBLight), WDB=(WB & BBDark);
+    bb_t BLB=(BB & BBLight), BDB=(BB & BBDark);
+    if ((WAll==WLB && BAll==BLB) || (WAll==WDB && BAll==BDB))
+      return true;
+    
+    // Only one side with material?
+    if (!WAll || !BAll)
+    {
+      int NCount=PosPieceCount(Pos, wknight)+PosPieceCount(Pos, bknight);
+      bool LB=((WLB | BLB)!=0);
+      bool DB=((WDB | BDB)!=0);
+      if (NCount<2 && !(LB && DB) && (!NCount || !(LB || DB)))
+        return true;
+    }
+  }
   
   return false;
 }

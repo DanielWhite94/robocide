@@ -623,6 +623,20 @@ inline hkey_t PosGetPawnKey(const pos_t *Pos)
   return Pos->PawnKey;
 }
 
+inline uint64_t PosGetMat(const pos_t *Pos)
+{
+  // This is all a HUGE hack...
+  
+  // Grab piece offsets and subtract 'base' to give literal piece counts
+  const uint64_t *PieceListNext=((uint64_t *)Pos->PieceListNext);
+  uint64_t White=PieceListNext[0]-0x7060504030201000llu;
+  uint64_t Black=PieceListNext[1]-0xF0E0D0C0B0A09080llu;
+  
+  // Interleave white and black into a single 64 bit integer (we only need 4
+  // bits per piece)
+  return ((Black<<4) | White);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////

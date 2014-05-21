@@ -5,6 +5,11 @@
 #include "bb.h"
 #include "types.h"
 
+// Macros for use with PosGetMat()
+#define POSMAT_SHIFT(P) (8*PIECE_TYPE(P)+4*PIECE_COLOUR(P))
+#define POSMAT_MASK(P) (15llu<<POSMAT_SHIFT(P))
+#define POSMAT_GET(MAT, P) ((int)(((MAT)>>POSMAT_SHIFT(P)) & 15))
+
 typedef struct pos_t pos_t;
 
 void PosInit();
@@ -41,6 +46,7 @@ inline hkey_t PosGetKey(const pos_t *Pos);
 inline hkey_t PosGetPawnKey(const pos_t *Pos);
 bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move);
 static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move);
+inline uint64_t PosGetMat(const pos_t *Pos); // Use macros above to access
 
 static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move)
 {

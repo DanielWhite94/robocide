@@ -23,6 +23,7 @@ const spair_t EvalMaterial[8]={{0,0},{90,130},{325,325},{325,325},{500,500},{100
 const spair_t EvalPawnDoubled={-13,-13};
 const spair_t EvalPawnIsolated={-30,-30};
 const spair_t EvalPawnBlocked={-10,-10};
+const spair_t EvalPawnPassed[8]={{0,0},{5,15},{30,35},{65,65},{110,105},{175,155},{250,215},{0,0}};
 const spair_t EvalKnightPawnAffinity={6,6};
 const spair_t EvalBishopPair={50,50};
 const spair_t EvalRookPawnAffinity={-13,-13};
@@ -217,6 +218,8 @@ inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
   bb_t AttacksB=BBSouthOne(BBWingify(BP));
   bb_t AttacksWFill=BBFileFill(AttacksW);
   bb_t AttacksBFill=BBFileFill(AttacksB);
+  bb_t PotPassedW=~(BBWingify(FrontSpanB) | FrontSpanB);
+  bb_t PotPassedB=~(BBWingify(FrontSpanW) | FrontSpanW);
   
   Sq=PosGetPieceListStart(Pos, wpawn);
   SqEnd=PosGetPieceListEnd(Pos, wpawn);
@@ -227,11 +230,14 @@ inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
     bool Doubled=((BB & RearSpanW)!=0);
     bool Isolated=((BB & AttacksWFill)==0);
     bool Blocked=((BB & BBSouthOne(Occ))!=0);
+    bool Passed=((BB & PotPassedW)!=0);
     
     // Calculate score
     EvalSPairAdd(&Data->Score, EvalPawnPST[*Sq]);
     if (Doubled)
       EvalSPairAdd(&Data->Score, EvalPawnDoubled);
+    else if (Passed)
+      EvalSPairAdd(&Data->Score, EvalPawnPassed[SQ_Y(*Sq)]);
     if (Isolated)
       EvalSPairAdd(&Data->Score, EvalPawnIsolated);
     if (Blocked)
@@ -246,11 +252,14 @@ inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
     bool Doubled=((BB & RearSpanB)!=0);
     bool Isolated=((BB & AttacksBFill)==0);
     bool Blocked=((BB & BBNorthOne(Occ))!=0);
+    bool Passed=((BB & PotPassedB)!=0);
     
     // Calculate score
     EvalSPairSub(&Data->Score, EvalPawnPST[SQ_FLIP(*Sq)]);
     if (Doubled)
       EvalSPairSub(&Data->Score, EvalPawnDoubled);
+    else if (Passed)
+      EvalSPairSub(&Data->Score, EvalPawnPassed[SQ_Y(SQ_FLIP(*Sq))]);
     if (Isolated)
       EvalSPairSub(&Data->Score, EvalPawnIsolated);
     if (Blocked)

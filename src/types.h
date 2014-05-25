@@ -2,6 +2,8 @@
 #define TYPES_H
 
 #include <inttypes.h>
+#include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef uint64_t bb_t;
@@ -25,7 +27,6 @@ typedef uint16_t move_t;
 #define MOVE_EXTRAQUEEN   (0x3000u)
 #define MOVE_GETTOSQ(M) (((M)>>MOVE_SHIFTTOSQ) & 63)
 #define MOVE_GETFROMSQ(M) (((M)>>MOVE_SHIFTFROMSQ) & 63)
-#define MOVE_GETPROMO(M) ((((M)^MOVE_MASKPROMO)>>MOVE_SHIFTEXTRA)+2) // HACK: Assumes a lot
 #define MOVE_GETCOLOUR(M) ((M)>>MOVE_SHIFTCOLOUR)
 #define MOVE_ISCAST(M) (((M)&(MOVE_MASKPROMO|MOVE_MASKEXTRA))==MOVE_EXTRACAST)
 #define MOVE_ISEP(M)   (((M)&(MOVE_MASKPROMO|MOVE_MASKEXTRA))==MOVE_EXTRAEP)
@@ -57,6 +58,7 @@ typedef enum
 #define SQ_X(S) ((S)&7)
 #define SQ_Y(S) ((S)>>3)
 #define SQ_FLIP(S) ((S)^56)
+#define SQ_ISLIGHT(S) ((((S)>>3)^(S))&1)
 #define XYTOSQ(X,Y) (((Y)<<3)+(X))
 #define SQTOBB(SQ) (((bb_t)1)<<(SQ))
 
@@ -65,26 +67,25 @@ typedef enum
   empty=0,
   pawn=1,
   knight=2,
-  bishop=3,
-  rook=4,
-  queen=5,
-  king=6,
-  pieceall=7, // Should only be used inside pos.c
+  bishopl=3,
+  bishopd=4,
+  rook=5,
+  queen=6,
+  king=7,
   wpawn=pawn,
   wknight=knight,
-  wbishop=bishop,
+  wbishopl=bishopl,
+  wbishopd=bishopd,
   wrook=rook,
   wqueen=queen,
   wking=king,
-  wall=pieceall, // Should only be used inside pos.c
-  pall=8|empty,  // Should only be used inside pos.c
   bpawn=8|pawn,
   bknight=8|knight,
-  bbishop=8|bishop,
+  bbishopl=8|bishopl,
+  bbishopd=8|bishopd,
   brook=8|rook,
   bqueen=8|queen,
   bking=8|king,
-  ball=8|pieceall  // Should only be used inside pos.c
 }piece_t;
 #define PIECE_ISVALID(P) (((P)>=wpawn && (P)<=wking) || \
                          ((P)>=bpawn && (P)<=bking))
@@ -121,5 +122,22 @@ typedef int16_t score_t;
 
 typedef uint64_t hkey_t;
 #define PRIxkey PRIx64
+
+static inline piece_t MOVE_GETPROMO(move_t Move)
+{
+  // Complicated because we consider light and dark bishops distinct
+  assert(MOVE_ISPROMO(Move));
+  col_t Colour=MOVE_GETCOLOUR(Move);
+  switch(Move & MOVE_MASKEXTRA)
+  {
+    case MOVE_EXTRAKNIGHT: return PIECE_MAKE(knight, Colour); break;
+    case MOVE_EXTRABISHOP:
+      return PIECE_MAKE((SQ_ISLIGHT(MOVE_GETTOSQ(Move)) ? bishopl : bishopd), Colour);
+    break;
+    case MOVE_EXTRAROOK: return PIECE_MAKE(rook, Colour); break;
+    case MOVE_EXTRAQUEEN: return PIECE_MAKE(queen, Colour); break;
+    default: assert(false); return empty;
+  }
+}
 
 #endif

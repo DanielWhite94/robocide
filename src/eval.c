@@ -19,7 +19,7 @@ typedef struct
 }evalpawndata_t;
 
 // Tunable values
-const spair_t EvalMaterial[8]={{0,0},{90,130},{325,325},{325,325},{500,500},{1000,1000},{0,0},{0,0}};
+const spair_t EvalMaterial[8]={{0,0},{90,130},{325,325},{325,325},{325,325},{500,500},{1000,1000},{0,0}};
 const spair_t EvalPawnDoubled={-13,-13};
 const spair_t EvalPawnIsolated={-30,-30};
 const spair_t EvalPawnBlocked={-10,-10};
@@ -101,7 +101,7 @@ void EvalInit()
   {
     EvalSPairAdd(&EvalPawnPST[Sq], EvalMaterial[pawn]);
     EvalSPairAdd(&EvalKnightPST[Sq], EvalMaterial[knight]);
-    EvalSPairAdd(&EvalBishopPST[Sq], EvalMaterial[bishop]);
+    EvalSPairAdd(&EvalBishopPST[Sq], EvalMaterial[bishopl]);
   }
   
   // Init pawn hash table
@@ -135,12 +135,20 @@ score_t Evaluate(const pos_t *Pos)
     EvalSPairSub(&Score, EvalKnight(Pos, *Sq, black));
   
   // Bishops
-  Sq=PosGetPieceListStart(Pos, wbishop);
-  SqEnd=PosGetPieceListEnd(Pos, wbishop);
+  Sq=PosGetPieceListStart(Pos, wbishopl);
+  SqEnd=PosGetPieceListEnd(Pos, wbishopl);
   for(;Sq<SqEnd;++Sq)
     EvalSPairAdd(&Score, EvalBishop(Pos, *Sq, white));
-  Sq=PosGetPieceListStart(Pos, bbishop);
-  SqEnd=PosGetPieceListEnd(Pos, bbishop);
+  Sq=PosGetPieceListStart(Pos, wbishopd);
+  SqEnd=PosGetPieceListEnd(Pos, wbishopd);
+  for(;Sq<SqEnd;++Sq)
+    EvalSPairAdd(&Score, EvalBishop(Pos, *Sq, white));
+  Sq=PosGetPieceListStart(Pos, bbishopl);
+  SqEnd=PosGetPieceListEnd(Pos, bbishopl);
+  for(;Sq<SqEnd;++Sq)
+    EvalSPairSub(&Score, EvalBishop(Pos, *Sq, black));
+  Sq=PosGetPieceListStart(Pos, bbishopd);
+  SqEnd=PosGetPieceListEnd(Pos, bbishopd);
   for(;Sq<SqEnd;++Sq)
     EvalSPairSub(&Score, EvalBishop(Pos, *Sq, black));
   
@@ -169,11 +177,10 @@ score_t Evaluate(const pos_t *Pos)
   EvalSPairSub(&Score, EvalKing(Pos, PosGetKingSq(Pos, black), black));
   
   // Bishop pair
-  bb_t BishopW=PosGetBBPiece(Pos, wbishop);
-  bb_t BishopB=PosGetBBPiece(Pos, bbishop);
-  if ((BishopW & BBLight) && (BishopW & BBDark))
+  uint64_t Mat=PosGetMat(Pos);
+  if ((Mat & POSMAT_MASK(wbishopl)) && (Mat & POSMAT_MASK(wbishopd)))
     EvalSPairAdd(&Score, EvalBishopPair);
-  if ((BishopB & BBLight) && (BishopB & BBDark))
+  if ((Mat & POSMAT_MASK(bbishopl)) && (Mat & POSMAT_MASK(bbishopd)))
     EvalSPairSub(&Score, EvalBishopPair);
   
   // Interpolate score based on phase of the game
@@ -340,10 +347,11 @@ inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour)
 inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score)
 {
   // Find weights of middle/endgame
-  int MinCount=PosPieceCount(Pos, wknight)+PosPieceCount(Pos, wbishop)+
-                        PosPieceCount(Pos, bknight)+PosPieceCount(Pos, bbishop);
-  int RCount=PosPieceCount(Pos, wrook)+PosPieceCount(Pos, brook);
-  int QCount=PosPieceCount(Pos, wqueen)+PosPieceCount(Pos, bqueen);
+  uint64_t Mat=PosGetMat(Pos);
+  int MinCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd)+
+               POSMAT_GET(Mat, bknight)+POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd);
+  int RCount=POSMAT_GET(Mat, wrook)+POSMAT_GET(Mat, brook);
+  int QCount=POSMAT_GET(Mat, wqueen)+POSMAT_GET(Mat, bqueen);
   int W=MinCount+2*RCount+4*QCount;
   int WeightEG=floorf(256.0*exp2f(-((W*W)/144.0)));
   int WeightMG=256-WeightEG;

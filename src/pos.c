@@ -29,11 +29,12 @@ typedef struct
 
 struct pos_t
 {
-  bb_t BB[16]; // [piecetype], with wall, ball and all squeezed in
+  bb_t BB[16]; // [piecetype]
   uint8_t Array64[64]; // [sq], gives index to PieceList
   sq_t PieceList[16*16]; // [piecetype*16+n], 0<=n<16
   uint8_t PieceListNext[16]; // [piecetype], gives next empty slot
   posdata_t *DataStart, *DataEnd, *Data;
+  bb_t BBCol[2], BBAll;
   col_t STM;
   unsigned int FullMoveNumber;
   hkey_t PawnKey;
@@ -77,20 +78,23 @@ void PosInit()
   PosPieceToCharArray[empty]='.';
   PosPieceToCharArray[wpawn]='P';
   PosPieceToCharArray[wknight]='N';
-  PosPieceToCharArray[wbishop]='B';
+  PosPieceToCharArray[wbishopl]='B';
+  PosPieceToCharArray[wbishopd]='B';
   PosPieceToCharArray[wrook]='R';
   PosPieceToCharArray[wqueen]='Q';
   PosPieceToCharArray[wking]='K';
   PosPieceToCharArray[bpawn]='p';
   PosPieceToCharArray[bknight]='n';
-  PosPieceToCharArray[bbishop]='b';
+  PosPieceToCharArray[bbishopl]='b';
+  PosPieceToCharArray[bbishopd]='b';
   PosPieceToCharArray[brook]='r';
   PosPieceToCharArray[bqueen]='q';
   PosPieceToCharArray[bking]='k';
   
   memset(PosPromoCharArray, '?', 16);
   PosPromoCharArray[wknight]=PosPromoCharArray[bknight]='n';
-  PosPromoCharArray[wbishop]=PosPromoCharArray[bbishop]='b';
+  PosPromoCharArray[wbishopl]=PosPromoCharArray[bbishopl]='b';
+  PosPromoCharArray[wbishopd]=PosPromoCharArray[bbishopd]='b';
   PosPromoCharArray[wrook]=PosPromoCharArray[brook]='r';
   PosPromoCharArray[wqueen]=PosPromoCharArray[bqueen]='q';
   
@@ -116,13 +120,15 @@ void PosInit()
   {
     PosKeyPiece[wpawn][I]=PosRandKey();
     PosKeyPiece[wknight][I]=PosRandKey();
-    PosKeyPiece[wbishop][I]=PosRandKey();
+    PosKeyPiece[wbishopl][I]=PosRandKey();
+    PosKeyPiece[wbishopd][I]=PosRandKey();
     PosKeyPiece[wrook][I]=PosRandKey();
     PosKeyPiece[wqueen][I]=PosRandKey();
     PosKeyPiece[wking][I]=PosRandKey();
     PosKeyPiece[bpawn][I]=PosRandKey();
     PosKeyPiece[bknight][I]=PosRandKey();
-    PosKeyPiece[bbishop][I]=PosRandKey();
+    PosKeyPiece[bbishopl][I]=PosRandKey();
+    PosKeyPiece[bbishopd][I]=PosRandKey();
     PosKeyPiece[brook][I]=PosRandKey();
     PosKeyPiece[bqueen][I]=PosRandKey();
     PosKeyPiece[bking][I]=PosRandKey();
@@ -270,12 +276,12 @@ inline piece_t PosGetPieceOnSq(const pos_t *Pos, sq_t Sq)
 
 inline bb_t PosGetBBAll(const pos_t *Pos)
 {
-  return Pos->BB[pall];
+  return Pos->BBAll;
 }
 
 inline bb_t PosGetBBColour(const pos_t *Pos, col_t Colour)
 {
-  return Pos->BB[PIECE_MAKE(pieceall, Colour)];
+  return Pos->BBCol[Colour];
 }
 
 inline bb_t PosGetBBPiece(const pos_t *Pos, piece_t Piece)
@@ -422,34 +428,34 @@ void PosUndoMove(pos_t *Pos)
 
 bool PosIsSqAttackedByColour(const pos_t *Pos, sq_t Sq, col_t C)
 {
-  piece_t ColMask=PIECE_MAKE(empty, C);
   bb_t Occ=PosGetBBAll(Pos);
   
   /* Pawns */
-  if ((C==white ? BBSouthOne(BBWingify(BBSqToBB(Sq))) : BBNorthOne(BBWingify(BBSqToBB(Sq))))
-      & Pos->BB[ColMask|pawn])
+  if (BBForwardOne(BBWingify(PosGetBBPiece(Pos, PIECE_MAKE(pawn, C))), C) &
+      BBSqToBB(Sq))
     return true;
   
   /* Knights */
-  if (AttacksKnight(Sq) & Pos->BB[ColMask|knight])
+  if (AttacksKnight(Sq) & PosGetBBPiece(Pos, PIECE_MAKE(knight, C)))
     return true;
   
   /* Bishops */
   bb_t BishopSet=AttacksBishop(Sq, Occ);
-  if (BishopSet & Pos->BB[ColMask|bishop])
+  if (BishopSet & (PosGetBBPiece(Pos, PIECE_MAKE(bishopl, C)) |
+                   PosGetBBPiece(Pos, PIECE_MAKE(bishopd, C))))
     return true;
   
   /* Rooks */
   bb_t RookSet=AttacksRook(Sq, Occ);
-  if (RookSet & Pos->BB[ColMask|rook])
+  if (RookSet & PosGetBBPiece(Pos, PIECE_MAKE(rook, C)))
     return true;
   
   /* Queens */
-  if ((BishopSet | RookSet) & Pos->BB[ColMask|queen])
+  if ((BishopSet | RookSet) & PosGetBBPiece(Pos, PIECE_MAKE(queen, C)))
     return true;
   
   /* King */
-  if (AttacksKing(Sq) & Pos->BB[ColMask|king])
+  if (AttacksKing(Sq) & PosGetBBPiece(Pos, PIECE_MAKE(king, C)))
     return true;
   
   return false;
@@ -604,22 +610,22 @@ bool PosIsDraw(const pos_t *Pos, int Ply)
                     POSMAT_MASK(bpawn)|POSMAT_MASK(brook)|POSMAT_MASK(bqueen));
   if (!(Mat & PRQMask))
   {
+    // Remove kings from mat
+    Mat&=~(POSMAT_MASK(wking) | POSMAT_MASK(bking));
+    
     // Special case: only material is bishops of a single colour
     // (this also covers KvK, with '0 bishops' as it were)
-    bb_t WAll=(PosGetBBColour(Pos, white) & ~PosGetBBPiece(Pos, wking));
-    bb_t BAll=(PosGetBBColour(Pos, black) & ~PosGetBBPiece(Pos, bking));
-    bb_t WB=PosGetBBPiece(Pos, wbishop), BB=PosGetBBPiece(Pos, bbishop);
-    bb_t WLB=(WB & BBLight), WDB=(WB & BBDark);
-    bb_t BLB=(BB & BBLight), BDB=(BB & BBDark);
-    if ((WAll==WLB && BAll==BLB) || (WAll==WDB && BAll==BDB))
+    uint64_t BishopLMask=(POSMAT_MASK(wbishopl) | POSMAT_MASK(bbishopl));
+    uint64_t BishopDMask=(POSMAT_MASK(wbishopd) | POSMAT_MASK(bbishopd));
+    if ((Mat & ~BishopLMask)==0 ||
+        (Mat & ~BishopDMask)==0)
       return true;
     
     // Only one side with material?
-    if (!WAll || !BAll)
+    if ((Mat & POSMAT_MASKCOL(white))==0 || (Mat & POSMAT_MASKCOL(black))==0)
     {
-      int NCount=PosPieceCount(Pos, wknight)+PosPieceCount(Pos, bknight);
-      bool LB=((WLB | BLB)!=0);
-      bool DB=((WDB | BDB)!=0);
+      int NCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, bknight);
+      int LB=(Mat & BishopLMask), DB=(Mat & BishopDMask);
       if (NCount<2 && !(LB && DB) && (!NCount || !(LB || DB)))
         return true;
     }
@@ -650,11 +656,9 @@ inline hkey_t PosGetPawnKey(const pos_t *Pos)
 
 inline uint64_t PosGetMat(const pos_t *Pos)
 {
-  // This is all a HUGE hack...
-  
   // Grab piece offsets and subtract 'base' to give literal piece counts
   const uint64_t *PieceListNext=((uint64_t *)Pos->PieceListNext);
-  uint64_t White=PieceListNext[0]-0x7060504030201000llu;
+  uint64_t White=PieceListNext[0]-0x7060504030201000llu; // HACK assumes a lot
   uint64_t Black=PieceListNext[1]-0xF0E0D0C0B0A09080llu;
   
   // Interleave white and black into a single 64 bit integer (we only need 4
@@ -673,6 +677,7 @@ void PosClean(pos_t *Pos)
   int I;
   for(I=0;I<16;++I)
     Pos->PieceListNext[I]=16*I;
+  Pos->BBCol[white]=Pos->BBCol[black]=Pos->BBAll=0;
   Pos->STM=white;
   Pos->FullMoveNumber=1;
   Pos->PawnKey=0;
@@ -695,8 +700,8 @@ inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq)
   
   // Update pieces
   Pos->BB[Piece]^=BBSqToBB(Sq);
-  Pos->BB[PIECE_MAKE(pieceall,PIECE_COLOUR(Piece))]^=BBSqToBB(Sq);
-  Pos->BB[pall]^=BBSqToBB(Sq);
+  Pos->BBCol[PIECE_COLOUR(Piece)]^=BBSqToBB(Sq);
+  Pos->BBAll^=BBSqToBB(Sq);
   uint8_t Index=(Pos->PieceListNext[Piece]++);
   Pos->Array64[Sq]=Index;
   Pos->PieceList[Index]=Sq;
@@ -716,8 +721,8 @@ inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
   uint8_t Index=Pos->Array64[Sq];
   piece_t Piece=(Index>>4);
   Pos->BB[Piece]^=BBSqToBB(Sq);
-  Pos->BB[PIECE_MAKE(pieceall,PIECE_COLOUR(Piece))]^=BBSqToBB(Sq);
-  Pos->BB[pall]^=BBSqToBB(Sq);
+  Pos->BBCol[PIECE_COLOUR(Piece)]^=BBSqToBB(Sq);
+  Pos->BBAll^=BBSqToBB(Sq);
   uint8_t LastIndex=(--Pos->PieceListNext[Piece]);
   Pos->PieceList[Index]=Pos->PieceList[LastIndex];
   Pos->Array64[Pos->PieceList[Index]]=Index; // Easy to forget this line...
@@ -739,8 +744,8 @@ inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq)
   uint8_t Index=Pos->Array64[FromSq];
   piece_t Piece=(Index>>4);
   Pos->BB[Piece]^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
-  Pos->BB[PIECE_MAKE(pieceall,PIECE_COLOUR(Piece))]^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
-  Pos->BB[pall]^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
+  Pos->BBCol[PIECE_COLOUR(Piece)]^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
+  Pos->BBAll^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
   Pos->Array64[ToSq]=Index;
   Pos->Array64[FromSq]=(empty<<4);
   Pos->PieceList[Index]=ToSq;
@@ -786,8 +791,18 @@ inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t Allowed)
       *Moves++=(RawMove | BBScanReset(&Set));
   }
   
-  // Bishops
-  Piece=PIECE_MAKE(bishop, Pos->STM);
+  // Bishops (these are split into light/dark squared, so include both)
+  Piece=PIECE_MAKE(bishopl, Pos->STM);
+  Sq=PosGetPieceListStart(Pos, Piece);
+  EndSq=PosGetPieceListEnd(Pos, Piece);
+  for(;Sq<EndSq;++Sq)
+  {
+    RawMove=(MoveColour | ((*Sq)<<MOVE_SHIFTFROMSQ));
+    Set=(AttacksBishop(*Sq, Occ) & Allowed);
+    while(Set)
+      *Moves++=(RawMove | BBScanReset(&Set));
+  }
+  Piece=PIECE_MAKE(bishopd, Pos->STM);
   Sq=PosGetPieceListStart(Pos, Piece);
   EndSq=PosGetPieceListEnd(Pos, Piece);
   for(;Sq<EndSq;++Sq)
@@ -1093,14 +1108,14 @@ bool PosIsConsistent(const pos_t *Pos)
     WAll|=Pos->BB[PIECE_MAKE(Piece, white)];
     BAll|=Pos->BB[PIECE_MAKE(Piece, black)];
   }
-  if (WAll!=Pos->BB[wall] || BAll!=Pos->BB[ball])
+  if (WAll!=Pos->BBCol[white] || BAll!=Pos->BBCol[black])
   {
-    strcpy(Error, "Bitboard 'wall' or 'ball' error.\n");
+    strcpy(Error, "Bitboard 'col[white]' or 'col[black]' error.\n");
     goto error;
   }
-  if ((WAll | BAll)!=Pos->BB[pall])
+  if ((WAll | BAll)!=Pos->BBAll)
   {
-    strcpy(Error, "Bitboard 'pall' error.\n");
+    strcpy(Error, "Bitboard 'all' error.\n");
     goto error;
   }
   
@@ -1119,7 +1134,7 @@ bool PosIsConsistent(const pos_t *Pos)
     }
     if (Index==0)
     {
-      if (Pos->BB[pall] & BBSqToBB(Sq))
+      if (Pos->BBAll & BBSqToBB(Sq))
       {
         sprintf(Error, "Piece exists in bitboards but not in array (%c%c).\n",
                 SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
@@ -1160,6 +1175,15 @@ bool PosIsConsistent(const pos_t *Pos)
                        SQ_Y(Pos->PieceList[Index])+'1');
         goto error;
       }
+  }
+  
+  // Test correct bishop pieces are correct (either light or dark)
+  for(Sq=0;Sq<64;++Sq)
+  {
+    if ((PosGetPieceOnSq(Pos, Sq)==wbishopl || PosGetPieceOnSq(Pos, Sq)==bbishopl) && !SQ_ISLIGHT(Sq))
+      return false;
+    if ((PosGetPieceOnSq(Pos, Sq)==wbishopd || PosGetPieceOnSq(Pos, Sq)==bbishopd) && SQ_ISLIGHT(Sq))
+      return false;
   }
   
   // Test hash keys match
@@ -1319,7 +1343,8 @@ bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move)
     case knight:
       return ((DX==2 && DY==1) || (DX==1 && DY==2));
     break;
-    case bishop:
+    case bishopl:
+    case bishopd:
       return ((AttacksBishop(FromSq, PosGetBBAll(Pos)) & SQTOBB(ToSq))!=0);
     break;
     case rook:

@@ -48,13 +48,13 @@ bool FENRead(fen_t *Data, const char *String)
       break;
       case 'P': Data->Array[XYTOSQ(X++,Y)]=wpawn; break;
       case 'N': Data->Array[XYTOSQ(X++,Y)]=wknight; break;
-      case 'B': Data->Array[XYTOSQ(X++,Y)]=wbishop; break;
+      case 'B': Data->Array[XYTOSQ(X,Y)]=(SQ_ISLIGHT(XYTOSQ(X,Y)) ? wbishopl : wbishopd); ++X; break;
       case 'R': Data->Array[XYTOSQ(X++,Y)]=wrook; break;
       case 'Q': Data->Array[XYTOSQ(X++,Y)]=wqueen; break;
       case 'K': Data->Array[XYTOSQ(X++,Y)]=wking; break;
       case 'p': Data->Array[XYTOSQ(X++,Y)]=bpawn; break;
       case 'n': Data->Array[XYTOSQ(X++,Y)]=bknight; break;
-      case 'b': Data->Array[XYTOSQ(X++,Y)]=bbishop; break;
+      case 'b': Data->Array[XYTOSQ(X,Y)]=(SQ_ISLIGHT(XYTOSQ(X,Y)) ? bbishopl : bbishopd); ++X; break;
       case 'r': Data->Array[XYTOSQ(X++,Y)]=brook; break;
       case 'q': Data->Array[XYTOSQ(X++,Y)]=bqueen; break;
       case 'k': Data->Array[XYTOSQ(X++,Y)]=bking; break;

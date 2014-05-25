@@ -6,8 +6,9 @@
 #include "types.h"
 
 // Macros for use with PosGetMat()
-#define POSMAT_SHIFT(P) (8*PIECE_TYPE(P)+4*PIECE_COLOUR(P))
+#define POSMAT_SHIFT(P) (4*(2*PIECE_TYPE(P)+PIECE_COLOUR(P)))
 #define POSMAT_MASK(P) (15llu<<POSMAT_SHIFT(P))
+#define POSMAT_MASKCOL(C) (0x0F0F0F0F0F0F0F0Fllu<<(4*C))
 #define POSMAT_GET(MAT, P) ((int)(((MAT)>>POSMAT_SHIFT(P)) & 15))
 
 typedef struct pos_t pos_t;

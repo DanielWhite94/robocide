@@ -37,7 +37,7 @@ struct pos_t
   bb_t BBCol[2], BBAll;
   col_t STM;
   unsigned int FullMoveNumber;
-  hkey_t PawnKey;
+  hkey_t PawnKey, MatKey;
 };
 
 char PosPieceToCharArray[16];
@@ -47,6 +47,7 @@ castrights_t PosCastUpdate[64];
 
 hkey_t PosKeySTM, PosKeyPiece[16][64], PosKeyEP[128], PosKeyCastling[16];
 hkey_t PosPawnKeyPiece[16][64];
+hkey_t PosMatKey[256];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -65,6 +66,7 @@ bool PosIsConsistent(const pos_t *Pos);
 char PosPromoChar(piece_t Piece);
 hkey_t PosComputeKey(const pos_t *Pos);
 hkey_t PosComputePawnKey(const pos_t *Pos);
+hkey_t PosComputeMatKey(const pos_t *Pos);
 hkey_t PosRandKey();
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -153,6 +155,10 @@ void PosInit()
   PosKeyCastling[castrights_Kkq]=PosKeyCastling[castrights_Kk]^PosKeyCastling[castrights_q];
   PosKeyCastling[castrights_Qkq]=PosKeyCastling[castrights_Qk]^PosKeyCastling[castrights_q];
   PosKeyCastling[castrights_KQkq]=PosKeyCastling[castrights_KQ]^PosKeyCastling[castrights_kq];
+  
+  PosMatKey[0]=0; // for empty squares
+  for(I=1;I<256;++I)
+    PosMatKey[I]=PosRandKey();
 }
 
 pos_t *PosNew(const char *gFEN)
@@ -654,6 +660,11 @@ inline hkey_t PosGetPawnKey(const pos_t *Pos)
   return Pos->PawnKey;
 }
 
+inline hkey_t PosGetMatKey(const pos_t *Pos)
+{
+  return Pos->MatKey;
+}
+
 inline uint64_t PosGetMat(const pos_t *Pos)
 {
   // Grab piece offsets and subtract 'base' to give literal piece counts
@@ -681,6 +692,7 @@ void PosClean(pos_t *Pos)
   Pos->STM=white;
   Pos->FullMoveNumber=1;
   Pos->PawnKey=0;
+  Pos->MatKey=0;
   Pos->Data=Pos->DataStart;
   Pos->Data->LastMove=MOVE_NULL;
   Pos->Data->HalfMoveClock=0;
@@ -709,6 +721,7 @@ inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq)
   // Update hash keys
   Pos->Data->Key^=PosKeyPiece[Piece][Sq];
   Pos->PawnKey^=PosPawnKeyPiece[Piece][Sq];
+  Pos->MatKey^=PosMatKey[Index];
 }
 
 inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
@@ -731,6 +744,7 @@ inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
   // Update hash keys
   Pos->Data->Key^=PosKeyPiece[Piece][Sq];
   Pos->PawnKey^=PosPawnKeyPiece[Piece][Sq];
+  Pos->MatKey^=PosMatKey[LastIndex];
 }
 
 inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq)
@@ -1206,6 +1220,16 @@ bool PosIsConsistent(const pos_t *Pos)
     goto error;
   }
   
+  // Test mat hash keys match
+  hkey_t TrueMatKey=PosComputeMatKey(Pos);
+  hkey_t MatKey=PosGetMatKey(Pos);
+  if (MatKey!=TrueMatKey)
+  {
+    sprintf(Error, "Mat key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
+            MatKey, TrueMatKey);
+    goto error;
+  }
+  
   return true;
   
   error:
@@ -1251,6 +1275,16 @@ hkey_t PosComputePawnKey(const pos_t *Pos)
   sq_t Sq;
   for(Sq=0;Sq<64;++Sq)
     Key^=PosPawnKeyPiece[PosGetPieceOnSq(Pos, Sq)][Sq];
+  
+  return Key;
+}
+
+hkey_t PosComputeMatKey(const pos_t *Pos)
+{
+  hkey_t Key=0;
+  sq_t Sq;
+  for(Sq=0;Sq<64;++Sq)
+    Key^=PosMatKey[Pos->Array64[Sq]];
   
   return Key;
 }

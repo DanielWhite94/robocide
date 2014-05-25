@@ -45,6 +45,7 @@ inline unsigned int PosGetHalfMoveClock(const pos_t *Pos);
 bool PosLegalMoveExist(pos_t *Pos);
 inline hkey_t PosGetKey(const pos_t *Pos);
 inline hkey_t PosGetPawnKey(const pos_t *Pos);
+inline hkey_t PosGetMatKey(const pos_t *Pos);
 bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move);
 static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move);
 inline uint64_t PosGetMat(const pos_t *Pos); // Use macros above to access

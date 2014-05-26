@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include "eval.h"
 #include "util.h"
 
@@ -74,20 +75,22 @@ size_t EvalPawnTableSize=0;
 ////////////////////////////////////////////////////////////////////////////////
 
 evalpawndata_t EvalPawns(const pos_t *Pos);
-inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data);
-inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour);
-inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour);
-inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour);
-inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour);
-inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour);
-inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score);
+static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data);
+static inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour);
+static inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour);
+static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour);
+static inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour);
+static inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour);
+static inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score);
 void EvalPawnResize(size_t SizeMB);
-inline bool EvalPawnRead(const pos_t *Pos, evalpawndata_t *Data);
-inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data);
-inline void EvalSPairAdd(spair_t *A, spair_t B);
-inline void EvalSPairSub(spair_t *A, spair_t B);
-inline void EvalSPairAddMul(spair_t *A, spair_t B, int C);
-inline void EvalSPairSubMul(spair_t *A, spair_t B, int C);
+void EvalPawnFree();
+void EvalPawnReset();
+static inline bool EvalPawnRead(const pos_t *Pos, evalpawndata_t *Data);
+static inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data);
+static inline void EvalSPairAdd(spair_t *A, spair_t B);
+static inline void EvalSPairSub(spair_t *A, spair_t B);
+static inline void EvalSPairAddMul(spair_t *A, spair_t B, int C);
+static inline void EvalSPairSubMul(spair_t *A, spair_t B, int C);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -209,7 +212,7 @@ evalpawndata_t EvalPawns(const pos_t *Pos)
   return PawnData;
 }
 
-inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
+static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
 {
   // Init
   bb_t WP=Data->Pawns[white]=PosGetBBPiece(Pos, wpawn);
@@ -274,7 +277,7 @@ inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
   }
 }
 
-inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour)
+static inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour)
 {
   spair_t Score={0,0};
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
@@ -289,7 +292,7 @@ inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour)
   return Score;
 }
 
-inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour)
+static inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour)
 {
   spair_t Score={0,0};
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
@@ -300,7 +303,7 @@ inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour)
   return Score;
 }
 
-inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour)
+static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour)
 {
   spair_t Score={0,0};
   
@@ -314,7 +317,7 @@ inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour)
   return Score;
 }
 
-inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour)
+static inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour)
 {
   spair_t Score={0,0};
   
@@ -324,7 +327,7 @@ inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour)
   return Score;
 }
 
-inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour)
+static inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour)
 {
   spair_t Score={0,0};
   bb_t BB=SQTOBB(Sq), Set;
@@ -344,7 +347,7 @@ inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour)
   return Score;
 }
 
-inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score)
+static inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score)
 {
   // Find weights of middle/endgame
   uint64_t Mat=PosGetMat(Pos);
@@ -374,34 +377,50 @@ void EvalPawnResize(size_t SizeMB)
     evalpawndata_t *Ptr=realloc(EvalPawnTable, Entries*sizeof(evalpawndata_t));
     if (Ptr!=NULL)
     {
+      // Update table
       EvalPawnTable=Ptr;
       EvalPawnTableSize=Entries;
+      
+      // Clear entries
+      EvalPawnReset();
+      
       return;
     }
     Entries/=2;
   }
   
   // Could not allocate 
+  EvalPawnFree();
+}
+
+void EvalPawnFree()
+{
   free(EvalPawnTable);
   EvalPawnTable=NULL;
   EvalPawnTableSize=0;
 }
 
-inline bool EvalPawnRead(const pos_t *Pos, evalpawndata_t *Data)
+void EvalPawnReset()
+{
+  memset(EvalPawnTable, 0, EvalPawnTableSize*sizeof(evalpawndata_t)); // HACK
+}
+
+static inline bool EvalPawnRead(const pos_t *Pos, evalpawndata_t *Data)
 {
   if (EvalPawnTable==NULL)
     return false;
   
   int Index=(PosGetPawnKey(Pos) & (EvalPawnTableSize-1));
-  if (Data->Pawns[white]!=PosGetBBPiece(Pos, wpawn) ||
-      Data->Pawns[black]!=PosGetBBPiece(Pos, bpawn))
+  evalpawndata_t *Entry=&EvalPawnTable[Index];
+  if (Entry->Pawns[white]!=PosGetBBPiece(Pos, wpawn) ||
+      Entry->Pawns[black]!=PosGetBBPiece(Pos, bpawn))
     return false;
   
-  *Data=EvalPawnTable[Index];
+  *Data=*Entry;
   return true;
 }
 
-inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data)
+static inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data)
 {
   if (EvalPawnTable==NULL)
     return;
@@ -409,25 +428,25 @@ inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data)
   EvalPawnTable[Index]=*Data;
 }
 
-inline void EvalSPairAdd(spair_t *A, spair_t B)
+static inline void EvalSPairAdd(spair_t *A, spair_t B)
 {
   A->MG+=B.MG;
   A->EG+=B.EG;
 }
 
-inline void EvalSPairSub(spair_t *A, spair_t B)
+static inline void EvalSPairSub(spair_t *A, spair_t B)
 {
   A->MG-=B.MG;
   A->EG-=B.EG;
 }
 
-inline void EvalSPairAddMul(spair_t *A, spair_t B, int C)
+static inline void EvalSPairAddMul(spair_t *A, spair_t B, int C)
 {
   A->MG+=B.MG*C;
   A->EG+=B.EG*C;
 }
 
-inline void EvalSPairSubMul(spair_t *A, spair_t B, int C)
+static inline void EvalSPairSubMul(spair_t *A, spair_t B, int C)
 {
   A->MG-=B.MG*C;
   A->EG-=B.EG*C;

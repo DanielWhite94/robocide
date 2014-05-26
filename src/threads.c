@@ -133,6 +133,7 @@ lock_t *LockInit(unsigned int Value)
 void LockFree(lock_t *Lock)
 {
   sem_destroy(&Lock->Lock);
+  free(Lock);
 }
 
 void LockWait(lock_t *Lock)

@@ -65,13 +65,13 @@ size_t SearchHashTableSize=0;
 
 void SearchIDLoop(void *Data);
 score_t SearchNode(node_t *Node);
-inline bool SearchIsTimeUp();
+static inline bool SearchIsTimeUp();
 void SearchOutput(node_t *N, score_t Score);
 void SearchScoreToStr(score_t Score, char Str[static 16]);
 void SearchMovesInit(node_t *N, move_t HashMove);
 move_t SearchMovesNext(moves_t *Moves);
 void SearchSortMoves(moves_t *Moves);
-inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move);
+static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move);
 void SearchHistoryUpdate(const node_t *N);
 void SearchHistoryAge();
 void SearchHistoryReset();
@@ -335,7 +335,7 @@ score_t SearchNode(node_t *N)
   return BestScore;
 }
 
-inline bool SearchIsTimeUp()
+static inline bool SearchIsTimeUp()
 {
   if (SearchStopFlag)
     return true;
@@ -464,7 +464,7 @@ void SearchSortMoves(moves_t *Moves)
   }
 }
 
-inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move)
+static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move)
 {
   movescore_t Score=0;
   
@@ -532,8 +532,13 @@ void SearchHashResize(int SizeMB)
     hash_t *Ptr=realloc(SearchHashTable, Entries*sizeof(hash_t));
     if (Ptr!=NULL)
     {
+      // Update table
       SearchHashTable=Ptr;
       SearchHashTableSize=Entries;
+      
+      // Clear entries
+      SearchHashReset();
+      
       return;
     }
     Entries/=2;

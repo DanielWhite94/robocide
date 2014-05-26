@@ -31,7 +31,7 @@ typedef uint16_t move_t;
 #define MOVE_ISCAST(M) (((M)&(MOVE_MASKPROMO|MOVE_MASKEXTRA))==MOVE_EXTRACAST)
 #define MOVE_ISEP(M)   (((M)&(MOVE_MASKPROMO|MOVE_MASKEXTRA))==MOVE_EXTRAEP)
 #define MOVE_ISDP(M)   (((M)&(MOVE_MASKPROMO|MOVE_MASKEXTRA))==MOVE_EXTRADP)
-#define MOVE_ISPROMO(M) ((M) & MOVE_MASKPROMO)
+#define MOVE_ISPROMO(M) (((M) & MOVE_MASKPROMO)!=0)
 #define MOVE_NULL 0 // a1a1 is an invalid move anyway
 #define MOVES_MAX 256
 

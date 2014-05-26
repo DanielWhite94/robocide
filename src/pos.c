@@ -54,14 +54,14 @@ hkey_t PosMatKey[256];
 ////////////////////////////////////////////////////////////////////////////////
 
 void PosClean(pos_t *Pos);
-inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq);
-inline void PosPieceRemove(pos_t *Pos, sq_t Sq);
-inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq);
-inline void PosPieceMoveChange(pos_t *Pos, sq_t FromSq, sq_t ToSq, piece_t ToPiece);
-inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t Allowed);
-inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves);
-inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves);
-inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves);
+static inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq);
+static inline void PosPieceRemove(pos_t *Pos, sq_t Sq);
+static inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq);
+static inline void PosPieceMoveChange(pos_t *Pos, sq_t FromSq, sq_t ToSq, piece_t ToPiece);
+static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t Allowed);
+static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves);
+static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves);
+static inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves);
 bool PosIsConsistent(const pos_t *Pos);
 char PosPromoChar(piece_t Piece);
 hkey_t PosComputeKey(const pos_t *Pos);
@@ -703,7 +703,7 @@ void PosClean(pos_t *Pos)
   Pos->Data->Key=0;
 }
 
-inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq)
+static inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq)
 {
   // Sanity checks
   assert(PIECE_ISVALID(Piece));
@@ -724,7 +724,7 @@ inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq)
   Pos->MatKey^=PosMatKey[Index];
 }
 
-inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
+static inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
 {
   // Sanity checks
   assert(SQ_ISVALID(Sq));
@@ -747,7 +747,7 @@ inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
   Pos->MatKey^=PosMatKey[LastIndex];
 }
 
-inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq)
+static inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq)
 {
   // Sanity checks
   assert(SQ_ISVALID(FromSq) && SQ_ISVALID(ToSq));
@@ -769,7 +769,7 @@ inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq)
   Pos->PawnKey^=PosPawnKeyPiece[Piece][FromSq]^PosPawnKeyPiece[Piece][ToSq];
 }
 
-inline void PosPieceMoveChange(pos_t *Pos, sq_t FromSq, sq_t ToSq, piece_t ToPiece)
+static inline void PosPieceMoveChange(pos_t *Pos, sq_t FromSq, sq_t ToSq, piece_t ToPiece)
 {
   // Sanity checks
   assert(SQ_ISVALID(FromSq) && SQ_ISVALID(ToSq));
@@ -783,7 +783,7 @@ inline void PosPieceMoveChange(pos_t *Pos, sq_t FromSq, sq_t ToSq, piece_t ToPie
   PosPieceAdd(Pos, ToPiece, ToSq);
 }
 
-inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t Allowed)
+static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t Allowed)
 {
   bb_t Friendly=PosGetBBColour(Pos, Pos->STM);
   Allowed&=~Friendly; // Don't want to self-capture
@@ -861,7 +861,7 @@ inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t Allowed)
   return Moves;
 }
 
-inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
+static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
 {
   bb_t Opp=PosGetBBColour(Pos, COL_SWAP(Pos->STM));
   bb_t Empty=~PosGetBBAll(Pos);
@@ -1024,7 +1024,7 @@ inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
   return Moves;
 }
 
-inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves)
+static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves)
 {
   bb_t Occ=PosGetBBAll(Pos);
   bb_t Empty=~Occ;
@@ -1071,7 +1071,7 @@ inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves)
   return Moves;
 }
 
-inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves)
+static inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves)
 {
   bb_t Occ=PosGetBBAll(Pos);
   if (Pos->STM==white)
@@ -1179,13 +1179,23 @@ bool PosIsConsistent(const pos_t *Pos)
   }
   
   // Test piece lists are correct
-  for(Piece=0;Piece<16;++Piece)
+  for(Piece=pawn;Piece<=king;++Piece)
   {
-    for(Index=(Piece<<4);Index<Pos->PieceListNext[Piece];++Index)
-      if ((Pos->BB[Piece] & BBSqToBB(Pos->PieceList[Index]))==0)
+    Piece2=PIECE_MAKE(Piece, white);
+    for(Index=(Piece2<<4);Index<Pos->PieceListNext[Piece2];++Index)
+      if ((Pos->BB[Piece2] & BBSqToBB(Pos->PieceList[Index]))==0)
       {
         sprintf(Error, "Piece list thinks piece %i exists on %c%c but bitboards"
-                       " do not.\n", Piece, SQ_X(Pos->PieceList[Index])+'a',
+                       " do not.\n", Piece2, SQ_X(Pos->PieceList[Index])+'a',
+                       SQ_Y(Pos->PieceList[Index])+'1');
+        goto error;
+      }
+    Piece2=PIECE_MAKE(Piece, black);
+    for(Index=(Piece2<<4);Index<Pos->PieceListNext[Piece2];++Index)
+      if ((Pos->BB[Piece2] & BBSqToBB(Pos->PieceList[Index]))==0)
+      {
+        sprintf(Error, "Piece list thinks piece %i exists on %c%c but bitboards"
+                       " do not.\n", Piece2, SQ_X(Pos->PieceList[Index])+'a',
                        SQ_Y(Pos->PieceList[Index])+'1');
         goto error;
       }

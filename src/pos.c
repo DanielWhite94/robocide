@@ -631,7 +631,7 @@ bool PosIsDraw(const pos_t *Pos, int Ply)
     if ((Mat & POSMAT_MASKCOL(white))==0 || (Mat & POSMAT_MASKCOL(black))==0)
     {
       int NCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, bknight);
-      int LB=(Mat & BishopLMask), DB=(Mat & BishopDMask);
+      bool LB=((Mat & BishopLMask)!=0), DB=((Mat & BishopDMask)!=0);
       if (NCount<2 && !(LB && DB) && (!NCount || !(LB || DB)))
         return true;
     }

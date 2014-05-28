@@ -24,6 +24,7 @@ static inline bb_t BBEastOne(bb_t Set);
 static inline bb_t BBNorthFill(bb_t Set);
 static inline bb_t BBSouthFill(bb_t Set);
 static inline bb_t BBFileFill(bb_t Set);
+static inline bb_t BBSqToRank(sq_t Sq);
 static inline bb_t BBWingify(bb_t Set);
 static inline int BBPopCount(bb_t X);
 static inline bb_t BBForwardOne(bb_t Set, col_t Colour);
@@ -86,6 +87,11 @@ static inline bb_t BBSouthFill(bb_t Set)
 static inline bb_t BBFileFill(bb_t Set)
 {
   return (BBNorthFill(Set) | BBSouthFill(Set));
+}
+
+static inline bb_t BBSqToRank(sq_t Sq)
+{
+  return (BBRank1<<(SQ_Y(Sq)*8));
 }
 
 static inline bb_t BBWingify(bb_t Set)

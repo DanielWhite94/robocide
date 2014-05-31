@@ -265,7 +265,6 @@ score_t SearchNode(node_t *N)
   score_t BestScore=-SCORE_INF;
   node_t Child;
   Child.Pos=N->Pos;
-  Child.Depth=N->Depth-1;
   Child.Ply=N->Ply+1;
   Child.Alpha=-N->Beta;
   Child.Beta=-Alpha;
@@ -277,6 +276,9 @@ score_t SearchNode(node_t *N)
     if (!PosMakeMove(N->Pos, Move))
       continue;
     Child.InCheck=PosIsSTMInCheck(N->Pos);
+    Child.Depth=N->Depth-1;
+    if (!NODE_ISQ(N) && Child.InCheck)
+      Child.Depth++; // Check extension
     score_t Score=-SearchNode(&Child);
     PosUndoMove(N->Pos);
     

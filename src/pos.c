@@ -62,12 +62,14 @@ static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t A
 static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves);
 static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves);
 static inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves);
-bool PosIsConsistent(const pos_t *Pos);
+bool PosIsConsistent(pos_t *Pos);
 char PosPromoChar(piece_t Piece);
 hkey_t PosComputeKey(const pos_t *Pos);
 hkey_t PosComputePawnKey(const pos_t *Pos);
 hkey_t PosComputeMatKey(const pos_t *Pos);
 hkey_t PosRandKey();
+bool PosIsEPCap(pos_t *Pos, sq_t Sq);
+bool PosIsPiecePinned(const pos_t *Pos, sq_t PinnedSq, sq_t VictimSq);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -246,11 +248,12 @@ bool PosSetToFEN(pos_t *Pos, const char *String)
   Pos->FullMoveNumber=FEN.FullMoveNumber;
   Pos->Data->LastMove=MOVE_NULL;
   Pos->Data->HalfMoveClock=FEN.HalfMoveClock;
-  Pos->Data->EPSq=FEN.EPSq; // TODO: Only set EPSq if legal ep capture possible
   Pos->Data->CastRights=FEN.CastRights;
   Pos->Data->CapPiece=empty;
   Pos->Data->CapSq=sqinvalid;
   Pos->Data->Key=PosComputeKey(Pos);
+  if (FEN.EPSq!=sqinvalid && PosIsEPCap(Pos, FEN.EPSq))
+    Pos->Data->EPSq=FEN.EPSq;
   
   assert(PosIsConsistent(Pos));
   
@@ -366,7 +369,11 @@ bool PosMakeMove(pos_t *Pos, move_t Move)
     
     // If double pawn move check set EP capture square (for next move)
     if (MOVE_ISDP(Move))
-      Pos->Data->EPSq=(ToSq+FromSq)/2; // TODO: Only set EPSq if legal ep capture possible
+    {
+      sq_t EPSq=(ToSq+FromSq)/2;
+      if (PosIsEPCap(Pos, EPSq))
+        Pos->Data->EPSq=EPSq;
+     }
   }
   else
   {
@@ -383,16 +390,16 @@ bool PosMakeMove(pos_t *Pos, move_t Move)
     }
   }
   
-  // Update key
-  Pos->Data->Key^=PosKeySTM^PosKeyCastling[Pos->Data->CastRights^(Pos->Data-1)->CastRights]^
-                  PosKeyEP[Pos->Data->EPSq]^PosKeyEP[(Pos->Data-1)->EPSq];
-  
   // Does move leave STM in check?
   if (PosIsXSTMInCheck(Pos))
   {
     PosUndoMove(Pos);
     return false;
   }
+  
+  // Update key
+  Pos->Data->Key^=PosKeySTM^PosKeyCastling[Pos->Data->CastRights^(Pos->Data-1)->CastRights]^
+                  PosKeyEP[Pos->Data->EPSq]^PosKeyEP[(Pos->Data-1)->EPSq];
   
   assert(PosIsConsistent(Pos));
   
@@ -1096,7 +1103,7 @@ static inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves)
   return Moves;
 }
 
-bool PosIsConsistent(const pos_t *Pos)
+bool PosIsConsistent(pos_t *Pos)
 {
   char Error[512];
   
@@ -1208,6 +1215,14 @@ bool PosIsConsistent(const pos_t *Pos)
       return false;
     if ((PosGetPieceOnSq(Pos, Sq)==wbishopd || PosGetPieceOnSq(Pos, Sq)==bbishopd) && SQ_ISLIGHT(Sq))
       return false;
+  }
+  
+  // Test EP square is valid
+  if (Pos->Data->EPSq!=sqinvalid && !PosIsEPCap(Pos, Pos->Data->EPSq))
+  {
+    sprintf(Error, "Position has invalid ep capture sq %c%c.\n",
+            SQ_X(Pos->Data->EPSq)+'a', SQ_Y(Pos->Data->EPSq)+'1');
+    goto error;
   }
   
   // Test hash keys match
@@ -1405,4 +1420,54 @@ bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move)
       return false;
     break;
   }
+}
+
+bool PosIsEPCap(pos_t *Pos, sq_t Sq)
+{
+  // Need to test that a pawn exists to capture, and that it is not pinned
+  col_t Colour=PosGetSTM(Pos);
+  piece_t Attacker=PIECE_MAKE(pawn, Colour);
+  sq_t VictimSq=Sq^8;
+  piece_t Victim=PosGetPieceOnSq(Pos, VictimSq);
+  assert(Victim==PIECE_MAKE(pawn, COL_SWAP(Colour)));
+  sq_t KingSq=PosGetKingSq(Pos, Colour);
+  PosPieceRemove(Pos, VictimSq);
+  bool Return=((SQ_X(VictimSq)>0 && PosGetPieceOnSq(Pos, VictimSq-1)==Attacker && !PosIsPiecePinned(Pos, VictimSq-1, KingSq)) ||
+               (SQ_Y(VictimSq)<7 && PosGetPieceOnSq(Pos, VictimSq+1)==Attacker && !PosIsPiecePinned(Pos, VictimSq+1, KingSq)));
+  PosPieceAdd(Pos, Victim, VictimSq);
+  return Return;
+}
+
+bool PosIsPiecePinned(const pos_t *Pos, sq_t PinnedSq, sq_t VictimSq)
+{
+  bb_t All=PosGetBBAll(Pos);
+  col_t AtkColour=COL_SWAP(PIECE_COLOUR(PosGetPieceOnSq(Pos, PinnedSq)));
+  
+  // Anything between victim and 'pinned' piece?
+  bb_t Between=BBBetween[PinnedSq][VictimSq];
+  if (Between & All)
+    return false;
+  
+  // Test if the victim would be attacked if the 'pinned' piece is removed
+  bb_t Set=(All & ~ BBSqToBB(PinnedSq));
+  bb_t Beyond=BBBeyond[VictimSq][PinnedSq];
+  int X1=SQ_X(PinnedSq), Y1=SQ_Y(PinnedSq);
+  int X2=SQ_X(VictimSq), Y2=SQ_Y(VictimSq);
+  if (X1==X2 || Y1==Y2) // Horizontal/vertical
+  {
+    bb_t Ray=(AttacksRook(VictimSq, Set) & Beyond);
+    if (Ray & (PosGetBBPiece(Pos, PIECE_MAKE(rook, AtkColour)) |
+               PosGetBBPiece(Pos, PIECE_MAKE(queen, AtkColour))))
+      return true;
+  }
+  else if (X1-Y1==X2-Y2 || Y1-X1==X2-Y2) // Major/minor diagonal
+  {
+    bb_t Ray=(AttacksBishop(VictimSq, Set) & Beyond);
+    if (Ray & (PosGetBBPiece(Pos, PIECE_MAKE(bishopl, AtkColour)) |
+               PosGetBBPiece(Pos, PIECE_MAKE(bishopd, AtkColour)) |
+               PosGetBBPiece(Pos, PIECE_MAKE(queen, AtkColour))))
+      return true;
+  }
+  
+  return false;
 }

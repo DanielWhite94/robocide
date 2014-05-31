@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <string.h>
 #include "bb.h"
 
 const bb_t BBB1=(((bb_t)1)<< 1), BBC1=(((bb_t)1)<< 2), BBD1=(((bb_t)1)<< 3),
@@ -14,6 +16,8 @@ const bb_t BBRank1=0x00000000000000FFllu, BBRank2=0x000000000000FF00llu,
            BBRank7=0x00FF000000000000llu, BBRank8=0xFF00000000000000llu;
 const bb_t BBLight=0x55AA55AA55AA55AAllu, BBDark=0xAA55AA55AA55AA55llu;
 
+bb_t BBBetween[64][64], BBBeyond[64][64];
+
 const int BBScanForwardTable[64]={
    0, 47,  1, 56, 48, 27,  2, 60,
   57, 49, 41, 37, 28, 16,  3, 61,
@@ -24,3 +28,51 @@ const int BBScanForwardTable[64]={
   25, 39, 14, 33, 19, 30,  9, 24,
   13, 18,  8, 12,  7,  6,  5, 63
 };
+
+void BBInit()
+{
+  // Note: The code below uses 0x88 coordinates
+# define TOSQ(S) ((((S)&0xF0)>>1)|((S)&0x07))
+  memset(BBBetween, 0, sizeof(bb_t)*64*64);
+  memset(BBBeyond, 0, sizeof(bb_t)*64*64);
+  unsigned int Sq1, Sq2, Sq3;
+  int DirI, Dir, Dirs[8]={-17,-16,-15,-1,+1,+15,+16,+17};
+  // Loop over every square, then every direction, then every square in that
+  // direction
+  for(Sq1=0;Sq1<128;Sq1=((Sq1+9)&~8))
+    for(DirI=0;DirI<8;++DirI)
+    {
+      sq_t Sq164=TOSQ(Sq1);
+      Dir=Dirs[DirI];
+      bb_t Set=0;
+      for(Sq2=Sq1+Dir;;Sq2+=Dir)
+      {
+        // Bad square?
+        if (Sq2 & 0x88)
+          break;
+        
+        // Set BB_Between array
+        sq_t Sq264=TOSQ(Sq2);
+        BBBetween[Sq164][Sq264]=Set;
+        
+        // Set BB_Beyond array
+        for(Sq3=Sq2+Dir;!(Sq3 & 0x88);Sq3+=Dir)
+          BBBeyond[Sq164][Sq264]|=BBSqToBB(TOSQ(Sq3));
+        
+        // Add current square to set
+        Set|=BBSqToBB(Sq264);
+      }
+    }
+# undef TOSQ
+}
+
+void BBDraw(bb_t Set)
+{
+  int X, Y;
+  for(Y=7;Y>=0;--Y)
+  {
+    for(X=0;X<8;++X)
+      printf(" %i", (BBSqToBB(XYTOSQ(X,Y)) & Set)!=0);
+    printf("\n");
+  }
+}

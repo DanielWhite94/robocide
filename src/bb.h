@@ -12,8 +12,11 @@ extern const bb_t BBRank1, BBRank2, BBRank3, BBRank4,
                   BBRank5, BBRank6, BBRank7, BBRank8;
 extern const bb_t BBLight, BBDark;
 
+extern bb_t BBBetween[64][64], BBBeyond[64][64];
+
 extern const int BBScanForwardTable[64];
 
+void BBInit();
 static inline bb_t BBSqToBB(sq_t Sq);
 static inline sq_t BBScanReset(bb_t *Set);
 static inline sq_t BBScanForward(bb_t Set);
@@ -28,6 +31,7 @@ static inline bb_t BBSqToRank(sq_t Sq);
 static inline bb_t BBWingify(bb_t Set);
 static inline int BBPopCount(bb_t X);
 static inline bb_t BBForwardOne(bb_t Set, col_t Colour);
+void BBDraw(bb_t Set);
 
 static inline bb_t BBSqToBB(sq_t Sq)
 {

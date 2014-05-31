@@ -1,4 +1,5 @@
 #include "attacks.h"
+#include "bb.h"
 #include "eval.h"
 #include "pos.h"
 #include "search.h"
@@ -6,6 +7,7 @@
 
 int main()
 {
+  BBInit();
   AttacksInit();
   PosInit();
   EvalInit();

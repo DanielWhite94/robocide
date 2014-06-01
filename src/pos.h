@@ -2,6 +2,7 @@
 #define POS_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "bb.h"
 #include "types.h"
 
@@ -9,6 +10,7 @@
 #define POSMAT_SHIFT(P) (4*(2*PIECE_TYPE(P)+PIECE_COLOUR(P)))
 #define POSMAT_MASK(P) (15llu<<POSMAT_SHIFT(P))
 #define POSMAT_MASKCOL(C) (0x0F0F0F0F0F0F0F0Fllu<<(4*C))
+#define POSMAT_MAKE(P,Num) (((uint64_t)Num)<<POSMAT_SHIFT(P))
 #define POSMAT_GET(MAT, P) ((int)(((MAT)>>POSMAT_SHIFT(P)) & 15))
 
 typedef struct pos_t pos_t;

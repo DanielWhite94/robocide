@@ -20,6 +20,14 @@ typedef struct
   spair_t Score;
 }evalpawndata_t;
 
+typedef struct
+{
+  hkey_t Mat;
+  spair_t (*Function)(const pos_t *Pos);
+  spair_t Offset, Tempo;
+  uint8_t Factor, WeightEG;
+}evalmatdata_t;
+
 // Tunable values
 const spair_t EvalMaterial[8]={{0,0},{90,130},{325,325},{325,325},{325,325},{500,500},{1000,1000},{0,0}};
 const spair_t EvalPawnDoubled={-10,-20};
@@ -36,6 +44,8 @@ const spair_t EvalRookSemiOpenFile={5,2};
 const spair_t EvalRookOn7th={5,10};
 const spair_t EvalKingShieldClose={15,0};
 const spair_t EvalKingShieldFar={5,0};
+const spair_t EvalTempoDefault={0,0};
+
 spair_t EvalPawnPST[64]={
 {  -3, -41},{ -15, -40},{ -23, -38},{ -27, -37},{ -27, -37},{ -23, -38},{ -15, -40},{  -3, -41},
 { -15, -38},{   0, -35},{  -6, -34},{  -9, -32},{  -9, -32},{  -6, -34},{   0, -35},{ -15, -38},
@@ -75,11 +85,16 @@ const spair_t EvalKingPST[64]={
 
 evalpawndata_t *EvalPawnTable=NULL;
 size_t EvalPawnTableSize=0;
+evalmatdata_t *EvalMatTable=NULL;
+size_t EvalMatTableSize=0;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
+spair_t EvaluateDefault(const pos_t *Pos);
+evalmatdata_t EvalMatCombo(const pos_t *Pos);
+void EvalComputeMat(const pos_t *Pos, evalmatdata_t *Data);
 evalpawndata_t EvalPawns(const pos_t *Pos);
 static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data);
 static inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
@@ -87,12 +102,17 @@ static inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const 
 static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
 static inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
 static inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score);
+static inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score, const evalmatdata_t *Data);
 void EvalPawnResize(size_t SizeMB);
 void EvalPawnFree();
 void EvalPawnReset();
 static inline bool EvalPawnRead(const pos_t *Pos, evalpawndata_t *Data);
 static inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data);
+void EvalMatResize(size_t SizeKB);
+void EvalMatFree();
+void EvalMatReset();
+static inline bool EvalMatRead(const pos_t *Pos, evalmatdata_t *Data);
+static inline void EvalMatWrite(const pos_t *Pos, evalmatdata_t *Data);
 static inline void EvalSPairAdd(spair_t *A, spair_t B);
 static inline void EvalSPairSub(spair_t *A, spair_t B);
 static inline void EvalSPairAddMul(spair_t *A, spair_t B, int C);
@@ -113,18 +133,52 @@ void EvalInit()
     EvalSPairAdd(&EvalBishopPST[Sq], EvalMaterial[bishopl]);
   }
   
-  // Init pawn hash table
+  // Init pawn and mat hash tables
   EvalPawnResize(1); // 1mb
+  EvalMatResize(16); // 16kb
 }
 
 void EvalQuit()
 {
-  free(EvalPawnTable);
-  EvalPawnTable=NULL;
-  EvalPawnTableSize=0;
+  EvalPawnFree();
+  EvalMatFree();
 }
 
 score_t Evaluate(const pos_t *Pos)
+{
+  // Evaluation function depends on material combination
+  evalmatdata_t Data=EvalMatCombo(Pos);
+  
+  // Evaluate
+  spair_t Score=(*Data.Function)(Pos);
+  
+  // Material combination offset
+  EvalSPairAdd(&Score, Data.Offset);
+  
+  // Tempo bonus
+  if (PosGetSTM(Pos)==white)
+    EvalSPairAdd(&Score, Data.Tempo);
+  else
+    EvalSPairSub(&Score, Data.Tempo);
+  
+  // Interpolate score based on phase of the game
+  score_t ScalarScore=EvalInterpolate(Pos, &Score, &Data);
+  
+  // Material combination scaling
+  ScalarScore=(ScalarScore*(((int32_t)Data.Factor)))/128;
+  
+  // Adjust for side to move
+  if (PosGetSTM(Pos)==black)
+    ScalarScore=-ScalarScore;
+  
+  return ScalarScore;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Private functions
+////////////////////////////////////////////////////////////////////////////////
+
+spair_t EvaluateDefault(const pos_t *Pos)
 {
   spair_t Score={0,0};
   const sq_t *Sq, *SqEnd;
@@ -185,26 +239,71 @@ score_t Evaluate(const pos_t *Pos)
   EvalSPairAdd(&Score, EvalKing(Pos, PosGetKingSq(Pos, white), white, &PawnData));
   EvalSPairSub(&Score, EvalKing(Pos, PosGetKingSq(Pos, black), black, &PawnData));
   
-  // Bishop pair
-  uint64_t Mat=PosGetMat(Pos);
-  if ((Mat & POSMAT_MASK(wbishopl)) && (Mat & POSMAT_MASK(wbishopd)))
-    EvalSPairAdd(&Score, EvalBishopPair);
-  if ((Mat & POSMAT_MASK(bbishopl)) && (Mat & POSMAT_MASK(bbishopd)))
-    EvalSPairSub(&Score, EvalBishopPair);
-  
-  // Interpolate score based on phase of the game
-  score_t ScalarScore=EvalInterpolate(Pos, &Score);
-  
-  // Adjust for side to move
-  if (PosGetSTM(Pos)==black)
-    ScalarScore=-ScalarScore;
-  
-  return ScalarScore;
+  return Score;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Private functions
-////////////////////////////////////////////////////////////////////////////////
+evalmatdata_t EvalMatCombo(const pos_t *Pos)
+{
+  evalmatdata_t Data;
+  if (!EvalMatRead(Pos, &Data))
+  {
+    EvalComputeMat(Pos, &Data);
+    EvalMatWrite(Pos, &Data);
+  }
+  
+  return Data;
+}
+
+void EvalComputeMat(const pos_t *Pos, evalmatdata_t *Data)
+{
+  #define M(P,N) (POSMAT_MAKE((P),(N)))
+  
+  // Init data
+  Data->Mat=PosGetMat(Pos);
+  Data->Function=&EvaluateDefault;
+  Data->Offset.MG=Data->Offset.EG=0;
+  Data->Tempo=EvalTempoDefault;
+  Data->Factor=128;
+  uint64_t Mat=(Data->Mat & ~(POSMAT_MASK(wking) | POSMAT_MASK(bking)));
+  assert(Mat!=0);
+  bool WBishopL=((Mat & POSMAT_MASK(wbishopl))!=0);
+  bool WBishopD=((Mat & POSMAT_MASK(wbishopd))!=0);
+  bool BBishopL=((Mat & POSMAT_MASK(bbishopl))!=0);
+  bool BBishopD=((Mat & POSMAT_MASK(bbishopd))!=0);
+  
+  // Find weight for endgame
+  int MinCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd)+
+               POSMAT_GET(Mat, bknight)+POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd);
+  int RCount=POSMAT_GET(Mat, wrook)+POSMAT_GET(Mat, brook);
+  int QCount=POSMAT_GET(Mat, wqueen)+POSMAT_GET(Mat, bqueen);
+  int Weight=MinCount+2*RCount+4*QCount;
+  Data->WeightEG=floorf(255.0*exp2f(-((Weight*Weight)/144.0)));
+  
+  // Knight pawn affinity
+  int KnightAffW=POSMAT_GET(Mat, wknight)*(POSMAT_GET(Mat, wpawn)-5);
+  int KnightAffB=POSMAT_GET(Mat, bknight)*(POSMAT_GET(Mat, bpawn)-5);
+  EvalSPairAddMul(&Data->Offset, EvalKnightPawnAffinity, KnightAffW-KnightAffB);
+  
+  // Rook material
+  EvalSPairAddMul(&Data->Offset, EvalMaterial[rook], POSMAT_GET(Mat, wrook)-POSMAT_GET(Mat, brook));
+  
+  // Rook pawn affinity
+  int RookAffW=POSMAT_GET(Mat, wrook)*(POSMAT_GET(Mat, wpawn)-5);
+  int RookAffB=POSMAT_GET(Mat, brook)*(POSMAT_GET(Mat, bpawn)-5);
+  EvalSPairAddMul(&Data->Offset, EvalRookPawnAffinity, RookAffW-RookAffB);
+  
+  // Queen material
+  EvalSPairAddMul(&Data->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
+  
+  // Bishop pair bonus
+  if (WBishopL && WBishopD)
+    EvalSPairAdd(&Data->Offset, EvalBishopPair);
+  if (BBishopL && BBishopD)
+    EvalSPairSub(&Data->Offset, EvalBishopPair);
+  
+  #undef M
+  return;
+}
 
 evalpawndata_t EvalPawns(const pos_t *Pos)
 {
@@ -312,9 +411,7 @@ static inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const 
   // PST (and material)
   EvalSPairAdd(&Score, EvalKnightPST[AdjSq]);
   
-  // Pawn affinity
-  int PawnCount=PosPieceCount(Pos, PIECE_MAKE(pawn, Colour));
-  EvalSPairAddMul(&Score, EvalKnightPawnAffinity, PawnCount-5);
+  // Pawn affinity in mat table
   
   return Score;
 }
@@ -337,12 +434,7 @@ static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   bb_t Rank=BBSqToRank(Sq);
   
-  // Material
-  EvalSPairAdd(&Score, EvalMaterial[rook]);
-  
-  // Pawn affinity
-  int PawnCount=PosPieceCount(Pos, PIECE_MAKE(pawn, Colour));
-  EvalSPairAddMul(&Score, EvalRookPawnAffinity, PawnCount-5);
+  // Material and pawn affinity in mat table
   
   // Mobility
   bb_t Attacks=AttacksRook(Sq, PosGetBBAll(Pos));
@@ -369,8 +461,7 @@ static inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const e
 {
   spair_t Score={0,0};
   
-  // Material
-  EvalSPairAdd(&Score, EvalMaterial[queen]);
+  // Material in mat table
   
   return Score;
 }
@@ -382,7 +473,7 @@ static inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
   bb_t Pawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, Colour));
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   
-  // PST (and material)
+  // PST
   EvalSPairAdd(&Score, EvalKingPST[AdjSq]);
   
   // Pawn shield
@@ -395,20 +486,11 @@ static inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
   return Score;
 }
 
-static inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score)
+static inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score, const evalmatdata_t *Data)
 {
-  // Find weights of middle/endgame
-  uint64_t Mat=PosGetMat(Pos);
-  int MinCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd)+
-               POSMAT_GET(Mat, bknight)+POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd);
-  int RCount=POSMAT_GET(Mat, wrook)+POSMAT_GET(Mat, brook);
-  int QCount=POSMAT_GET(Mat, wqueen)+POSMAT_GET(Mat, bqueen);
-  int W=MinCount+2*RCount+4*QCount;
-  int WeightEG=floorf(256.0*exp2f(-((W*W)/144.0)));
-  int WeightMG=256-WeightEG;
-  assert(WeightMG>=0 && WeightMG<=256 && WeightEG>=0 && WeightEG<=256);
-  
   // Interpolate and also scale to centi-pawns
+  int WeightEG=Data->WeightEG;
+  int WeightMG=255-WeightEG;
   return ((WeightMG*Score->MG+WeightEG*Score->EG)*100)/
           (WeightMG*EvalMaterial[pawn].MG+WeightEG*EvalMaterial[pawn].EG);
 }
@@ -437,7 +519,7 @@ void EvalPawnResize(size_t SizeMB)
     Entries/=2;
   }
   
-  // Could not allocate 
+  // Could not allocate
   EvalPawnFree();
 }
 
@@ -474,6 +556,67 @@ static inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data)
     return;
   int Index=(PosGetPawnKey(Pos) & (EvalPawnTableSize-1));
   EvalPawnTable[Index]=*Data;
+}
+
+void EvalMatResize(size_t SizeKB)
+{
+  // Calculate greatest power of two number of entries we can fit in SizeKB
+  uint64_t Entries=(((uint64_t)SizeKB)*1024llu)/sizeof(evalmatdata_t);
+  Entries=NextPowTwo64(Entries+1)/2;
+  
+  // Attempt to allocate table
+  while(Entries>0)
+  {
+    evalmatdata_t *Ptr=realloc(EvalMatTable, Entries*sizeof(evalmatdata_t));
+    if (Ptr!=NULL)
+    {
+      // Update table
+      EvalMatTable=Ptr;
+      EvalMatTableSize=Entries;
+      
+      // Clear entries
+      EvalMatReset();
+      
+      return;
+    }
+    Entries/=2;
+  }
+  
+  // Could not allocate 
+  EvalMatFree();
+}
+
+void EvalMatFree()
+{
+  free(EvalMatTable);
+  EvalMatTable=NULL;
+  EvalMatTableSize=0;
+}
+void EvalMatReset()
+{
+  memset(EvalMatTable, 0, EvalMatTableSize*sizeof(evalmatdata_t)); // HACK
+}
+
+static inline bool EvalMatRead(const pos_t *Pos, evalmatdata_t *Data)
+{
+  if (EvalMatTable==NULL)
+    return false;
+  
+  int Index=(PosGetMatKey(Pos) & (EvalMatTableSize-1));
+  evalmatdata_t *Entry=&EvalMatTable[Index];
+  if (Entry->Mat!=PosGetMat(Pos))
+    return false;
+  
+  *Data=*Entry;
+  return true;
+}
+
+static inline void EvalMatWrite(const pos_t *Pos, evalmatdata_t *Data)
+{
+  if (EvalMatTable==NULL)
+    return;
+  int Index=(PosGetMatKey(Pos) & (EvalMatTableSize-1));
+  EvalMatTable[Index]=*Data;
 }
 
 static inline void EvalSPairAdd(spair_t *A, spair_t B)

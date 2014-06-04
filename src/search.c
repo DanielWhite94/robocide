@@ -64,7 +64,9 @@ size_t SearchHashTableSize=0;
 ////////////////////////////////////////////////////////////////////////////////
 
 void SearchIDLoop(void *Data);
-score_t SearchNode(node_t *Node);
+score_t SearchPVNode(node_t *Node);
+score_t SearchZWNode(node_t *Node);
+score_t SearchQNode(node_t *Node);
 static inline bool SearchIsTimeUp();
 void SearchOutput(node_t *N, score_t Score);
 void SearchScoreToStr(score_t Score, char Str[static 16]);
@@ -187,7 +189,7 @@ void SearchIDLoop(void *Data)
   for(Node.Depth=1;Node.Depth<SEARCH_MAXPLY;++Node.Depth)
   {
     // Search
-    score_t Score=SearchNode(&Node);
+    score_t Score=SearchPVNode(&Node);
     
     // Early return? (i.e. out of 'time' and no moves searched)
     // If we are not using a hash table we cannot trust the move returned.
@@ -223,45 +225,45 @@ void SearchIDLoop(void *Data)
   PosFree(Node.Pos);
 }
 
-score_t SearchNode(node_t *N)
+score_t SearchPVNode(node_t *N)
 {
   // Sanity checks
   assert(-SCORE_INF<=N->Alpha && N->Alpha<N->Beta && N->Beta<=SCORE_INF);
   assert(N->InCheck==PosIsSTMInCheck(N->Pos));
+  assert(N->Ply>=0);
   
-  // Init
+  // Set null move now in case of early return
   N->PV[0]=MOVE_NULL;
-  ++SearchNodeCount;
-  score_t Alpha=N->Alpha;
   
-  // Ply limit reached?
-  if (N->Ply>=SEARCH_MAXPLY)
-    return Evaluate(N->Pos);
+  // Q node? (or ply limit reached)
+  if (NODE_ISQ(N) || N->Ply>=SEARCH_MAXPLY)
+    return SearchQNode(N);
   
   // Test for draws (and rare checkmates)
-  if (N->Ply>=1 && PosIsDraw(N->Pos, N->Ply))
+  if (N->Ply>0 && PosIsDraw(N->Pos, N->Ply))
   {
     // In rare cases checkmate can be given on 100th half move
     if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
+    {
+      assert(PosIsMate(N->Pos));
       return SCORE_MATEDIN(N->Ply);
+    }
     else
       return SCORE_DRAW;
   }
-
-  // Standing pat (qsearch only)
-  if (NODE_ISQ(N) && !N->InCheck)
-  {
-    score_t Eval=Evaluate(N->Pos);
-    if (Eval>=N->Beta)
-      return N->Beta;
-    if (Eval>Alpha)
-      Alpha=Eval;
-  }
+  
+  // Init
+  ++SearchNodeCount;
   
   // Check hash table
-  move_t HashMove=(NODE_ISQ(N) ? MOVE_NULL : SearchHashRead(N));
+  move_t HashMove=SearchHashRead(N);
+  
+  // temp
+  if (!PosIsMovePseudoLegal(N->Pos, HashMove))
+    HashMove=MOVE_NULL;
   
   // Search moves
+  score_t Alpha=N->Alpha;
   score_t BestScore=-SCORE_INF;
   node_t Child;
   Child.Pos=N->Pos;
@@ -276,10 +278,29 @@ score_t SearchNode(node_t *N)
     if (!PosMakeMove(N->Pos, Move))
       continue;
     Child.InCheck=PosIsSTMInCheck(N->Pos);
-    Child.Depth=N->Depth-1;
-    if (!NODE_ISQ(N) && Child.InCheck)
-      Child.Depth++; // Check extension
-    score_t Score=-SearchNode(&Child);
+    Child.Depth=N->Depth-!Child.InCheck; // Check extension
+    
+    // PVS search
+    /*
+    want to try zero-window search first if we are reasonably confident there
+    has already been a move better than this one searched
+    this could be the case because:
+    * 
+    */
+    score_t Score;
+    if (Alpha>N->Alpha)
+    {
+      // We have found a good move, try zero window search (no need to update
+      // Child.Alpha as ZW-search only uses Child.Beta
+      Score=-SearchZWNode(&Child);
+      
+      // Research?
+      if (Score>Alpha && Score<N->Beta)
+        Score=-SearchPVNode(&Child);
+    }
+    else
+      Score=-SearchPVNode(&Child);
+    
     PosUndoMove(N->Pos);
     
     // Out of time? (previous search result is invalid)
@@ -311,15 +332,19 @@ score_t SearchNode(node_t *N)
     }
   }
   
-  // Test for checkmate or stalemate
+  // Test for checkmate or stalemate [shouldn't really happen in root]
   if (BestScore==-SCORE_INF)
   {
     if (N->InCheck)
-      return SCORE_MATEDIN(N->Ply); // We always try every move when in check
-    else if (!NODE_ISQ(N) || !PosLegalMoveExist(N->Pos))
-      return SCORE_DRAW;
+    {
+      assert(PosIsMate(N->Pos));
+      return SCORE_MATEDIN(N->Ply);
+    }
     else
-      return Alpha; // qsearch standing pat
+    {
+      assert(PosIsStalemate(N->Pos));
+      return SCORE_DRAW;
+    }
   }
   
   // We now know the best move
@@ -330,11 +355,210 @@ score_t SearchNode(node_t *N)
   SearchHistoryUpdate(N);
   
   // Update hash table
-  if (!NODE_ISQ(N))
-    SearchHashUpdate(N);
+  SearchHashUpdate(N);
   
   // Return
   return BestScore;
+}
+
+score_t SearchZWNode(node_t *N)
+{
+  // Sanity checks
+  assert(-SCORE_INF<=N->Beta && N->Beta<=SCORE_INF); // N->Alpha is undefined
+  assert(N->InCheck==PosIsSTMInCheck(N->Pos));
+  assert(N->Ply>=1);
+  
+  // Q node? (or ply limit reached)
+  if (NODE_ISQ(N) || N->Ply>=SEARCH_MAXPLY)
+  {
+    score_t OldAlpha=N->Alpha; // HACK
+    N->Alpha=N->Beta-1;
+    score_t Score=SearchQNode(N);
+    N->Alpha=OldAlpha;
+    return Score;
+  }
+  
+  // Init
+  ++SearchNodeCount;
+  
+  // Test for draws (and rare checkmates)
+  if (PosIsDraw(N->Pos, N->Ply))
+  {
+    // In rare cases checkmate can be given on 100th half move
+    if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
+    {
+      assert(PosIsMate(N->Pos));
+      return SCORE_MATEDIN(N->Ply);
+    }
+    else
+      return SCORE_DRAW;
+  }
+  
+  // Check hash table
+  move_t HashMove=SearchHashRead(N);
+  
+  // Search moves
+  score_t BestScore=-SCORE_INF;
+  N->PV[0]=MOVE_NULL; // 'bestmove'=MOVE_NULL
+  node_t Child;
+  Child.Pos=N->Pos;
+  Child.Ply=N->Ply+1;
+  Child.Beta=1-N->Beta; // = -Alpha
+  SearchMovesInit(N, HashMove);
+  move_t Move;
+  while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
+  {
+    // Search move
+    if (!PosMakeMove(N->Pos, Move))
+      continue;
+    Child.InCheck=PosIsSTMInCheck(N->Pos);
+    Child.Depth=N->Depth-!Child.InCheck; // Check extension
+    score_t Score=-SearchZWNode(&Child);
+    PosUndoMove(N->Pos);
+    
+    // Out of time? (previous search result is invalid)
+    if (SearchIsTimeUp())
+      return BestScore;
+    
+    // Better move?
+    if (Score>BestScore)
+    {
+      // Update best score and move
+      BestScore=Score;
+      N->PV[0]=Move;
+      
+      // Cutoff?
+      if (Score>=N->Beta)
+        goto cutoff;
+    }
+  }
+  
+  // Test for checkmate or stalemate
+  if (BestScore==-SCORE_INF)
+  {
+    if (N->InCheck)
+    {
+      assert(PosIsMate(N->Pos));
+      return SCORE_MATEDIN(N->Ply);
+    }
+    else
+    {
+      assert(PosIsStalemate(N->Pos));
+      return SCORE_DRAW;
+    }
+  }
+  
+  // We now know the best move
+  cutoff:
+  assert(N->PV[0]!=MOVE_NULL);
+  
+  // Update history table
+  SearchHistoryUpdate(N);
+  
+  // Update hash table
+  SearchHashUpdate(N);
+  
+  // Return
+  return BestScore;
+}
+
+score_t SearchQNode(node_t *N)
+{
+  // Sanity checks
+  assert(-SCORE_INF<=N->Alpha && N->Alpha<N->Beta && N->Beta<=SCORE_INF);
+  assert(N->InCheck==PosIsSTMInCheck(N->Pos));
+  assert(NODE_ISQ(N));
+  assert(N->Ply>=1);
+  
+  // Init
+  ++SearchNodeCount;
+  score_t Alpha=N->Alpha;
+  
+  // Test for draws (and rare checkmates)
+  if (PosIsDraw(N->Pos, N->Ply))
+  {
+    // In rare cases checkmate can be given on 100th half move (however unlikely
+    // this actually occurs in q-search...)
+    if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
+      return SCORE_MATEDIN(N->Ply);
+    else
+      return SCORE_DRAW;
+  }
+
+  // Standing pat (when not in check)
+  if (!N->InCheck)
+  {
+    score_t Eval=Evaluate(N->Pos);
+    if (Eval>=N->Beta)
+      return N->Beta;
+    if (Eval>Alpha)
+      Alpha=Eval;
+  }
+  
+  // Search moves
+  node_t Child;
+  Child.Pos=N->Pos;
+  Child.Depth=N->Depth-1;
+  Child.Ply=N->Ply+1;
+  Child.Alpha=-N->Beta;
+  Child.Beta=-Alpha;
+  SearchMovesInit(N, MOVE_NULL);
+  move_t Move;
+  bool NoLegalMove=true;
+  while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
+  {
+    // Search move
+    if (!PosMakeMove(N->Pos, Move))
+      continue;
+    Child.InCheck=PosIsSTMInCheck(N->Pos);
+    score_t Score=-SearchQNode(&Child);
+    PosUndoMove(N->Pos);
+    
+    // Out of time? (previous search result is invalid)
+    if (SearchIsTimeUp())
+      return Alpha;
+    
+    // We have a legal move
+    NoLegalMove=false;
+    
+    // Better move?
+    if (Score>Alpha)
+    {
+      // Update alpha
+      Alpha=Score;
+      Child.Beta=-Alpha;
+      
+      // Cutoff?
+      if (Score>=N->Beta)
+        goto cutoff;
+    }
+  }
+  
+  // Test for checkmate or stalemate
+  if (NoLegalMove)
+  {
+    if (N->InCheck)
+    {
+      // We always try every move when in check
+      assert(PosIsMate(N->Pos));
+      return SCORE_MATEDIN(N->Ply);
+    }
+    else if (!PosLegalMoveExist(N->Pos))
+    {
+      assert(PosIsStalemate(N->Pos));
+      return SCORE_DRAW;
+    }
+    else
+      // else there are quiet moves available, assume one is good
+      return Alpha;
+  }
+  
+  // We now know the best move
+  cutoff:
+  assert(!NoLegalMove);
+  
+  // Return
+  return Alpha;
 }
 
 static inline bool SearchIsTimeUp()

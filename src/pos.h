@@ -43,6 +43,8 @@ const sq_t *PosGetPieceListEnd(const pos_t *Pos, piece_t Piece);
 void PosMoveToStr(move_t Move, char Str[static 6]);
 move_t PosStrToMove(const pos_t *Pos, const char Str[static 6]);
 bool PosIsDraw(const pos_t *Pos, int Ply);
+bool PosIsMate(pos_t *Pos);
+bool PosIsStalemate(pos_t *Pos);
 unsigned int PosGetHalfMoveClock(const pos_t *Pos);
 bool PosLegalMoveExist(pos_t *Pos);
 hkey_t PosGetKey(const pos_t *Pos);

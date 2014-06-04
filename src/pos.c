@@ -647,6 +647,16 @@ bool PosIsDraw(const pos_t *Pos, int Ply)
   return false;
 }
 
+inline bool PosIsMate(pos_t *Pos)
+{
+  return (PosIsSTMInCheck(Pos) && PosGenLegalMove(Pos)==MOVE_NULL);
+}
+
+inline bool PosIsStalemate(pos_t *Pos)
+{
+  return (!PosIsSTMInCheck(Pos) && PosGenLegalMove(Pos)==MOVE_NULL);
+}
+
 inline unsigned int PosGetHalfMoveClock(const pos_t *Pos)
 {
   return Pos->Data->HalfMoveClock;

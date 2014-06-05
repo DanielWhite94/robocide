@@ -4,8 +4,8 @@
 #include <assert.h>
 #include "types.h"
 
-extern const bb_t BBB1, BBC1, BBD1, BBE1, BBF1, BBG1,
-                  BBB8, BBC8, BBD8, BBE8, BBF8, BBG8;
+extern const bb_t BBA1, BBB1, BBC1, BBD1, BBE1, BBF1, BBG1, BBH1,
+                  BBA8, BBB8, BBC8, BBD8, BBE8, BBF8, BBG8, BBH8;
 extern const bb_t BBFileA, BBFileB, BBFileC, BBFileD,
                   BBFileE, BBFileF, BBFileG, BBFileH;
 extern const bb_t BBRank1, BBRank2, BBRank3, BBRank4,

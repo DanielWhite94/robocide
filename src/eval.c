@@ -42,6 +42,7 @@ const spair_t EvalRookMobRank={10,20};
 const spair_t EvalRookOpenFile={100,50};
 const spair_t EvalRookSemiOpenFile={50,20};
 const spair_t EvalRookOn7th={50,100};
+const spair_t EvalRookTrapped={-400,0};
 const spair_t EvalKingShieldClose={150,0};
 const spair_t EvalKingShieldFar={50,0};
 const spair_t EvalTempoDefault={0,0};
@@ -453,6 +454,21 @@ static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
                                      SQ_FLIP(PosGetKingSq(Pos, white)));
   if (SQ_Y(AdjSq)==6 && ((Rank & OppPawns) || SQ_Y(AdjOppKingSq)==7))
     EvalSPairAdd(&Score, EvalRookOn7th);
+  
+  // Trapped
+  bb_t KingBB=PosGetBBPiece(Pos, PIECE_MAKE(king, Colour));
+  if (Colour==white)
+  {
+    if (((BB & (BBG1 | BBH1)) && (KingBB & (BBF1 | BBG1))) ||
+        ((BB & (BBA1 | BBB1)) && (KingBB & (BBB1 | BBC1))))
+      EvalSPairAdd(&Score, EvalRookTrapped);
+  }
+  else
+  {
+    if (((BB & (BBG8 | BBH8)) && (KingBB & (BBF8 | BBG8))) ||
+        ((BB & (BBA8 | BBB8)) && (KingBB & (BBB8 | BBC8))))
+      EvalSPairAdd(&Score, EvalRookTrapped);
+  }
   
   return Score;
 }

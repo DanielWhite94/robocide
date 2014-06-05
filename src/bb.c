@@ -2,10 +2,10 @@
 #include <string.h>
 #include "bb.h"
 
-const bb_t BBB1=(((bb_t)1)<< 1), BBC1=(((bb_t)1)<< 2), BBD1=(((bb_t)1)<< 3),
-           BBE1=(((bb_t)1)<< 4), BBF1=(((bb_t)1)<< 5), BBG1=(((bb_t)1)<< 6),
-           BBB8=(((bb_t)1)<<57), BBC8=(((bb_t)1)<<58), BBD8=(((bb_t)1)<<59),
-           BBE8=(((bb_t)1)<<60), BBF8=(((bb_t)1)<<61), BBG8=(((bb_t)1)<<62);
+const bb_t BBA1=(((bb_t)1)<<A1), BBB1=(((bb_t)1)<<B1), BBC1=(((bb_t)1)<<C1), BBD1=(((bb_t)1)<<D1),
+           BBE1=(((bb_t)1)<<E1), BBF1=(((bb_t)1)<<F1), BBG1=(((bb_t)1)<<G1), BBH1=(((bb_t)1)<<H1),
+           BBA8=(((bb_t)1)<<A8), BBB8=(((bb_t)1)<<B8), BBC8=(((bb_t)1)<<C8), BBD8=(((bb_t)1)<<D8),
+           BBE8=(((bb_t)1)<<E8), BBF8=(((bb_t)1)<<F8), BBG8=(((bb_t)1)<<G8), BBH8=(((bb_t)1)<<H8);
 const bb_t BBFileA=0x0101010101010101llu, BBFileB=0x0202020202020202llu,
            BBFileC=0x0404040404040404llu, BBFileD=0x0808080808080808llu,
            BBFileE=0x1010101010101010llu, BBFileF=0x2020202020202020llu,

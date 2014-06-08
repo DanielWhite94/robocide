@@ -54,8 +54,17 @@ typedef struct
 
 typedef struct
 {
+  hkey_t Key;
   move_t Move;
+  score_t Score;
+  uint8_t Depth;
+  uint8_t Type;
+  uint16_t Dummy;
 }tt_t;
+#define NODETYPE_NONE (0u)
+#define NODETYPE_LOWER (1u)
+#define NODETYPE_UPPER (2u)
+#define NODETYPE_EXACT (NODETYPE_LOWER | NODETYPE_UPPER)
 tt_t *SearchTT=NULL;
 size_t SearchTTSize=0;
 
@@ -80,9 +89,11 @@ void SearchHistoryReset();
 void SearchTTResize(int SizeMB);
 void SearchTTFree();
 void SearchTTReset();
-move_t SearchTTRead(const node_t *N);
-void SearchTTWrite(const node_t *N);
+bool SearchTTRead(const node_t *N, move_t *Move, score_t *Score);
+void SearchTTWrite(const node_t *N, score_t Score);
 static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE);
+static inline score_t SearchTTToScore(score_t S, int Ply);
+static inline score_t SearchScoreToTT(score_t S, int Ply);
 void SearchSetPonder(bool Ponder);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -240,6 +251,9 @@ score_t SearchPVNode(node_t *N)
   if (NODE_ISQ(N) || N->Ply>=SEARCH_MAXPLY)
     return SearchQNode(N);
   
+  // Node begins
+  ++SearchNodeCount;
+  
   // Test for draws (and rare checkmates)
   if (N->Ply>0 && PosIsDraw(N->Pos, N->Ply))
   {
@@ -253,15 +267,19 @@ score_t SearchPVNode(node_t *N)
       return SCORE_DRAW;
   }
   
-  // Init
-  ++SearchNodeCount;
-  
   // Check TT table
-  move_t TTMove=SearchTTRead(N);
+  move_t TTMove=MOVE_NULL;
+  score_t TTScore;
+  if (SearchTTRead(N, &TTMove, &TTScore))
+  {
+    N->PV[0]=TTMove;
+    N->PV[1]=MOVE_NULL;
+    return TTScore;
+  }
   
   // Search moves
   score_t Alpha=N->Alpha;
-  score_t BestScore=-SCORE_INF;
+  score_t BestScore=SCORE_NONE;
   node_t Child;
   Child.Pos=N->Pos;
   Child.Ply=N->Ply+1;
@@ -281,16 +299,23 @@ score_t SearchPVNode(node_t *N)
     score_t Score;
     if (Alpha>N->Alpha)
     {
-      // We have found a good move, try zero window search (no need to update
-      // Child.Alpha as ZW-search only uses Child.Beta
+      // We have found a good move, try zero window search
+      assert(Child.Alpha==Child.Beta-1);
       Score=-SearchZWNode(&Child);
       
       // Research?
       if (Score>Alpha && Score<N->Beta)
+      {
+        Child.Alpha=-N->Beta;
         Score=-SearchPVNode(&Child);
+        Child.Alpha=Child.Beta-1;
+      }
     }
     else
+    {
+      assert(Child.Alpha==-N->Beta);
       Score=-SearchPVNode(&Child);
+    }
     
     PosUndoMove(N->Pos);
     
@@ -318,13 +343,14 @@ score_t SearchPVNode(node_t *N)
       if (Score>Alpha)
       {
         Alpha=Score;
+        Child.Alpha=-Alpha-1;
         Child.Beta=-Alpha;
       }
     }
   }
   
   // Test for checkmate or stalemate [shouldn't really happen in root]
-  if (BestScore==-SCORE_INF)
+  if (BestScore==SCORE_NONE)
   {
     if (N->InCheck)
     {
@@ -346,7 +372,7 @@ score_t SearchPVNode(node_t *N)
   SearchHistoryUpdate(N);
   
   // Update TT table
-  SearchTTWrite(N);
+  SearchTTWrite(N, BestScore);
   
   // Return
   return BestScore;
@@ -355,21 +381,15 @@ score_t SearchPVNode(node_t *N)
 score_t SearchZWNode(node_t *N)
 {
   // Sanity checks
-  assert(-SCORE_INF<=N->Beta && N->Beta<=SCORE_INF); // N->Alpha is undefined
+  assert(-SCORE_INF<=N->Alpha && N->Alpha+1==N->Beta && N->Beta<=SCORE_INF);
   assert(N->InCheck==PosIsSTMInCheck(N->Pos));
   assert(N->Ply>=1);
   
   // Q node? (or ply limit reached)
   if (NODE_ISQ(N) || N->Ply>=SEARCH_MAXPLY)
-  {
-    score_t OldAlpha=N->Alpha; // HACK
-    N->Alpha=N->Beta-1;
-    score_t Score=SearchQNode(N);
-    N->Alpha=OldAlpha;
-    return Score;
-  }
+    return SearchQNode(N);
   
-  // Init
+  // Node begins
   ++SearchNodeCount;
   
   // Test for draws (and rare checkmates)
@@ -386,15 +406,19 @@ score_t SearchZWNode(node_t *N)
   }
   
   // Check TT table
-  move_t TTMove=SearchTTRead(N);
+  move_t TTMove=MOVE_NULL;
+  score_t TTScore;
+  if (SearchTTRead(N, &TTMove, &TTScore))
+    return TTScore;
   
   // Search moves
-  score_t BestScore=-SCORE_INF;
-  N->PV[0]=MOVE_NULL; // 'bestmove'=MOVE_NULL
+  score_t BestScore=SCORE_NONE;
+  N->PV[0]=MOVE_NULL;
   node_t Child;
   Child.Pos=N->Pos;
   Child.Ply=N->Ply+1;
-  Child.Beta=1-N->Beta; // = -Alpha
+  Child.Alpha=-N->Beta;
+  Child.Beta=-N->Alpha;
   SearchMovesInit(N, TTMove);
   move_t Move;
   while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
@@ -425,7 +449,7 @@ score_t SearchZWNode(node_t *N)
   }
   
   // Test for checkmate or stalemate
-  if (BestScore==-SCORE_INF)
+  if (BestScore==SCORE_NONE)
   {
     if (N->InCheck)
     {
@@ -447,7 +471,7 @@ score_t SearchZWNode(node_t *N)
   SearchHistoryUpdate(N);
   
   // Update TT table
-  SearchTTWrite(N);
+  SearchTTWrite(N, BestScore);
   
   // Return
   return BestScore;
@@ -779,11 +803,11 @@ void SearchTTReset()
   memset(SearchTT, 0, SearchTTSize*sizeof(tt_t)); // HACK
 }
 
-move_t SearchTTRead(const node_t *N)
+bool SearchTTRead(const node_t *N, move_t *Move, score_t *Score)
 {
   // No TT?
   if (SearchTT==NULL)
-    return MOVE_NULL;
+    return false;
   
   // Grab entry
   int Index=(PosGetKey(N->Pos) & (SearchTTSize-1));
@@ -791,15 +815,27 @@ move_t SearchTTRead(const node_t *N)
   
   // Match?
   if (!SearchTTMatch(N, TTE))
-    return MOVE_NULL;
+    return false;
   
-  return TTE->Move;
+  // Set move and score
+  *Move=TTE->Move;
+  *Score=SearchScoreToTT(TTE->Score, N->Ply);
+  
+  // Cutoff possible?
+  if (TTE->Depth>=N->Depth &&
+      ((TTE->Type==NODETYPE_EXACT) ||
+       ((TTE->Type & NODETYPE_LOWER) && *Score>=N->Beta) ||
+       ((TTE->Type & NODETYPE_UPPER) && *Score<=N->Alpha)))
+    return true;
+  
+  return false;
 }
 
-void SearchTTWrite(const node_t *N)
+void SearchTTWrite(const node_t *N, score_t Score)
 {
   // Sanity checks
   assert(N->PV[0]!=MOVE_NULL);
+  assert(SCORE_ISVALID(Score));
   
   // No TT?
   if (SearchTT==NULL)
@@ -809,17 +845,52 @@ void SearchTTWrite(const node_t *N)
   int Index=(PosGetKey(N->Pos) & (SearchTTSize-1));
   tt_t *TTE=&SearchTT[Index];
   
-  // Set move
-  TTE->Move=N->PV[0];
+  // Replace/update?
+  if (!SearchTTMatch(N, TTE) || N->Depth>=TTE->Depth)
+  {
+    // Find node type
+    uint8_t Type=NODETYPE_NONE;
+    if (Score>N->Alpha)
+      Type|=NODETYPE_LOWER;
+    if (Score<N->Beta)
+      Type|=NODETYPE_UPPER;
+    
+    // Update entry
+    TTE->Key=PosGetKey(N->Pos);
+    TTE->Move=N->PV[0];
+    TTE->Score=SearchScoreToTT(Score, N->Ply);
+    TTE->Depth=N->Depth;
+    TTE->Type=Type;
+  }
 }
 
 static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE)
 {
+  // Key match?
+  if (TTE->Key!=PosGetKey(N->Pos))
+    return false;
+  
   // TT move pseudo-legal?
   if (TTE->Move!=MOVE_NULL && !PosIsMovePseudoLegal(N->Pos, TTE->Move))
     return false;
   
   return true;
+}
+
+static inline score_t SearchTTToScore(score_t S, int Ply)
+{
+  if (SCORE_ISMATE(S))
+    return (S>0 ? S+Ply : S-Ply); // Adjust to distance from root [to mate]
+  else
+    return S;
+}
+
+static inline score_t SearchScoreToTT(score_t S, int Ply)
+{
+  if (SCORE_ISMATE(S))
+    return (S>0 ? S-Ply : S+Ply); // Adjust to distance from this node [to mate]
+  else
+    return S;
 }
 
 void SearchSetPonder(bool Ponder)

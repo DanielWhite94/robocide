@@ -115,10 +115,12 @@ typedef enum
 
 typedef int16_t score_t;
 #define SCORE_INF 32000
+#define SCORE_NONE -32100
 #define SCORE_DRAW 0
 #define SCORE_MATEDIN(P) ((P)-31000)
 #define SCORE_ISMATE(S)   (abs(abs(S)+SCORE_MATEDIN(0))<512)
 #define SCORE_MATEDIST(S) ((1-abs(S)-SCORE_MATEDIN(0))/2)
+#define SCORE_ISVALID(S) ((S)>=-SCORE_INF && (S)<=SCORE_INF)
 
 typedef uint64_t hkey_t;
 #define PRIxkey PRIx64

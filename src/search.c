@@ -29,7 +29,7 @@ bool SearchPonder=true;
 
 typedef enum
 {
-  movesstage_hash,
+  movesstage_tt,
   movesstage_main,
 }movesstage_t;
 
@@ -37,7 +37,7 @@ typedef struct
 {
   move_t Moves[MOVES_MAX], *End;
   movesstage_t Stage;
-  move_t HashMove;
+  move_t TTMove;
   const pos_t *Pos;
 }moves_t;
 
@@ -54,10 +54,10 @@ typedef struct
 
 typedef struct
 {
-  move_t BestMove;
-}hash_t;
-hash_t *SearchHashTable=NULL;
-size_t SearchHashTableSize=0;
+  move_t Move;
+}tt_t;
+tt_t *SearchTT=NULL;
+size_t SearchTTSize=0;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -70,18 +70,19 @@ score_t SearchQNode(node_t *Node);
 static inline bool SearchIsTimeUp();
 void SearchOutput(node_t *N, score_t Score);
 void SearchScoreToStr(score_t Score, char Str[static 16]);
-void SearchMovesInit(node_t *N, move_t HashMove);
+void SearchMovesInit(node_t *N, move_t TTMove);
 move_t SearchMovesNext(moves_t *Moves);
 void SearchSortMoves(moves_t *Moves);
 static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move);
 void SearchHistoryUpdate(const node_t *N);
 void SearchHistoryAge();
 void SearchHistoryReset();
-void SearchHashResize(int SizeMB);
-void SearchHashFree();
-void SearchHashReset();
-move_t SearchHashRead(const node_t *N);
-void SearchHashUpdate(const node_t *N);
+void SearchTTResize(int SizeMB);
+void SearchTTFree();
+void SearchTTReset();
+move_t SearchTTRead(const node_t *N);
+void SearchTTWrite(const node_t *N);
+static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE);
 void SearchSetPonder(bool Ponder);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,10 +99,10 @@ bool SearchInit()
   // Init history tables
   SearchHistoryReset();
   
-  // Init hash table
-  UCIOptionNewSpin("Hash", &SearchHashResize, 0, 16*1024, 16);
-  UCIOptionNewButton("Clear Hash", &SearchHashReset);
-  SearchHashResize(16);
+  // Init TT table
+  UCIOptionNewSpin("Hash", &SearchTTResize, 0, 16*1024, 16);
+  UCIOptionNewButton("Clear Hash", &SearchTTReset);
+  SearchTTResize(16);
   
   // Init pondering
   UCIOptionNewCheck("Ponder", &SearchSetPonder, SearchPonder);
@@ -117,8 +118,8 @@ void SearchQuit()
   // Free the worker thread
   ThreadFree(SearchThread);
   
-  // Free hash table
-  SearchHashFree();
+  // Free TT table
+  SearchTTFree();
 }
 
 void SearchThink(const pos_t *SrcPos, ms_t StartTime, ms_t SearchTime, bool Infinite, bool Ponder)
@@ -155,8 +156,8 @@ void SearchReset()
   // Clear history tables
   SearchHistoryReset();
   
-  // Clear hash table
-  SearchHashReset();
+  // Clear TT table
+  SearchTTReset();
 }
 
 void SearchPonderHit()
@@ -192,10 +193,10 @@ void SearchIDLoop(void *Data)
     score_t Score=SearchPVNode(&Node);
     
     // Early return? (i.e. out of 'time' and no moves searched)
-    // If we are not using a hash table we cannot trust the move returned.
+    // If we are not using a TT we cannot trust the move returned.
     // This is because if we haven't yet searched the previous-depth's best
     // move, we may choose an inferior earlier move.
-    if (Node.PV[0]==MOVE_NULL || (SearchHashTable==NULL && SearchIsTimeUp()))
+    if (Node.PV[0]==MOVE_NULL || (SearchTT==NULL && SearchIsTimeUp()))
       break;
     
     // Update bestmove
@@ -255,12 +256,8 @@ score_t SearchPVNode(node_t *N)
   // Init
   ++SearchNodeCount;
   
-  // Check hash table
-  move_t HashMove=SearchHashRead(N);
-  
-  // temp
-  if (!PosIsMovePseudoLegal(N->Pos, HashMove))
-    HashMove=MOVE_NULL;
+  // Check TT table
+  move_t TTMove=SearchTTRead(N);
   
   // Search moves
   score_t Alpha=N->Alpha;
@@ -270,7 +267,7 @@ score_t SearchPVNode(node_t *N)
   Child.Ply=N->Ply+1;
   Child.Alpha=-N->Beta;
   Child.Beta=-Alpha;
-  SearchMovesInit(N, HashMove);
+  SearchMovesInit(N, TTMove);
   move_t Move;
   while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
   {
@@ -281,12 +278,6 @@ score_t SearchPVNode(node_t *N)
     Child.Depth=N->Depth-!Child.InCheck; // Check extension
     
     // PVS search
-    /*
-    want to try zero-window search first if we are reasonably confident there
-    has already been a move better than this one searched
-    this could be the case because:
-    * 
-    */
     score_t Score;
     if (Alpha>N->Alpha)
     {
@@ -354,8 +345,8 @@ score_t SearchPVNode(node_t *N)
   // Update history table
   SearchHistoryUpdate(N);
   
-  // Update hash table
-  SearchHashUpdate(N);
+  // Update TT table
+  SearchTTWrite(N);
   
   // Return
   return BestScore;
@@ -394,8 +385,8 @@ score_t SearchZWNode(node_t *N)
       return SCORE_DRAW;
   }
   
-  // Check hash table
-  move_t HashMove=SearchHashRead(N);
+  // Check TT table
+  move_t TTMove=SearchTTRead(N);
   
   // Search moves
   score_t BestScore=-SCORE_INF;
@@ -404,7 +395,7 @@ score_t SearchZWNode(node_t *N)
   Child.Pos=N->Pos;
   Child.Ply=N->Ply+1;
   Child.Beta=1-N->Beta; // = -Alpha
-  SearchMovesInit(N, HashMove);
+  SearchMovesInit(N, TTMove);
   move_t Move;
   while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
   {
@@ -455,8 +446,8 @@ score_t SearchZWNode(node_t *N)
   // Update history table
   SearchHistoryUpdate(N);
   
-  // Update hash table
-  SearchHashUpdate(N);
+  // Update TT table
+  SearchTTWrite(N);
   
   // Return
   return BestScore;
@@ -604,7 +595,7 @@ void SearchScoreToStr(score_t Score, char Str[static 16])
     sprintf(Str, "cp %i", Score);
 }
 
-void SearchMovesInit(node_t *N, move_t HashMove)
+void SearchMovesInit(node_t *N, move_t TTMove)
 {
   if (NODE_ISQ(N))
   {
@@ -621,11 +612,13 @@ void SearchMovesInit(node_t *N, move_t HashMove)
   }
   else
   {
+    assert(TTMove==MOVE_NULL || PosIsMovePseudoLegal(N->Pos, TTMove));
+    
     N->Moves.End=N->Moves.Moves;
-    N->Moves.Stage=movesstage_hash;
-    N->Moves.HashMove=HashMove;
-    *N->Moves.End=HashMove;
-    N->Moves.End+=PosIsMovePseudoLegal(N->Pos, HashMove);
+    N->Moves.Stage=movesstage_tt;
+    N->Moves.TTMove=TTMove;
+    *N->Moves.End=TTMove;
+    N->Moves.End+=(TTMove!=MOVE_NULL);
     N->Moves.Pos=N->Pos;
   }
 }
@@ -642,13 +635,13 @@ move_t SearchMovesNext(moves_t *Moves)
     move_t *Move;
     switch(Moves->Stage)
     {
-      case movesstage_hash:
+      case movesstage_tt:
         // Generate moves
         Moves->End=PosGenPseudoMoves(Moves->Pos, Moves->Moves);
         
-        // Remove hash move
+        // Remove TT move
         for(Move=Moves->Moves;Move<Moves->End;++Move)
-          if (*Move==Moves->HashMove)
+          if (*Move==Moves->TTMove)
           {
             *Move=*--Moves->End;
             break;
@@ -739,31 +732,31 @@ void SearchHistoryReset()
   memset(SearchHistory, 0, sizeof(SearchHistory));
 }
 
-void SearchHashResize(int SizeMB)
+void SearchTTResize(int SizeMB)
 {
-  // No hash table wanted?
+  // No TT wanted?
   if (SizeMB<1)
   {
-    SearchHashFree();
+    SearchTTFree();
     return;
   }
   
   // Calculate greatest power of two number of entries we can fit in SizeMB
-  uint64_t Entries=(((uint64_t)SizeMB)*1024llu*1024llu)/sizeof(hash_t);
+  uint64_t Entries=(((uint64_t)SizeMB)*1024llu*1024llu)/sizeof(tt_t);
   Entries=NextPowTwo64(Entries+1)/2;
   
   // Attempt to allocate table
   while(Entries>0)
   {
-    hash_t *Ptr=realloc(SearchHashTable, Entries*sizeof(hash_t));
+    tt_t *Ptr=realloc(SearchTT, Entries*sizeof(tt_t));
     if (Ptr!=NULL)
     {
       // Update table
-      SearchHashTable=Ptr;
-      SearchHashTableSize=Entries;
+      SearchTT=Ptr;
+      SearchTTSize=Entries;
       
       // Clear entries
-      SearchHashReset();
+      SearchTTReset();
       
       return;
     }
@@ -771,43 +764,62 @@ void SearchHashResize(int SizeMB)
   }
   
   // Could not allocate
-  SearchHashFree();
+  SearchTTFree();
 }
 
-void SearchHashFree()
+void SearchTTFree()
 {
-  free(SearchHashTable);
-  SearchHashTable=NULL;
-  SearchHashTableSize=0;
+  free(SearchTT);
+  SearchTT=NULL;
+  SearchTTSize=0;
 }
 
-void SearchHashReset()
+void SearchTTReset()
 {
-  memset(SearchHashTable, 0, SearchHashTableSize*sizeof(hash_t)); // HACK
+  memset(SearchTT, 0, SearchTTSize*sizeof(tt_t)); // HACK
 }
 
-move_t SearchHashRead(const node_t *N)
+move_t SearchTTRead(const node_t *N)
 {
-  if (SearchHashTable==NULL)
+  // No TT?
+  if (SearchTT==NULL)
     return MOVE_NULL;
   
-  int Index=(PosGetKey(N->Pos) & (SearchHashTableSize-1));
-  hash_t *Entry=&SearchHashTable[Index];
+  // Grab entry
+  int Index=(PosGetKey(N->Pos) & (SearchTTSize-1));
+  tt_t *TTE=&SearchTT[Index];
   
-  return Entry->BestMove;
+  // Match?
+  if (!SearchTTMatch(N, TTE))
+    return MOVE_NULL;
+  
+  return TTE->Move;
 }
 
-void SearchHashUpdate(const node_t *N)
+void SearchTTWrite(const node_t *N)
 {
+  // Sanity checks
   assert(N->PV[0]!=MOVE_NULL);
   
-  if (SearchHashTable==NULL)
+  // No TT?
+  if (SearchTT==NULL)
     return;
   
-  int Index=(PosGetKey(N->Pos) & (SearchHashTableSize-1));
-  hash_t *Entry=&SearchHashTable[Index];
+  // Grab entry
+  int Index=(PosGetKey(N->Pos) & (SearchTTSize-1));
+  tt_t *TTE=&SearchTT[Index];
   
-  Entry->BestMove=N->PV[0];
+  // Set move
+  TTE->Move=N->PV[0];
+}
+
+static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE)
+{
+  // TT move pseudo-legal?
+  if (TTE->Move!=MOVE_NULL && !PosIsMovePseudoLegal(N->Pos, TTE->Move))
+    return false;
+  
+  return true;
 }
 
 void SearchSetPonder(bool Ponder)

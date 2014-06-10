@@ -73,8 +73,7 @@ size_t SearchTTSize=0;
 ////////////////////////////////////////////////////////////////////////////////
 
 void SearchIDLoop(void *Data);
-score_t SearchPVNode(node_t *Node);
-score_t SearchZWNode(node_t *Node);
+score_t SearchNode(node_t *Node);
 score_t SearchQNode(node_t *Node);
 static inline bool SearchIsTimeUp();
 void SearchOutput(node_t *N);
@@ -195,7 +194,7 @@ void SearchIDLoop(void *Data)
   for(Node.Depth=1;Node.Depth<SEARCH_MAXPLY;++Node.Depth)
   {
     // Search
-    SearchPVNode(&Node);
+    SearchNode(&Node);
     
     // No moves searched? (i.e. out of 'time')
     if (Node.Move==MOVE_NULL || (SearchTT==NULL && SearchIsTimeUp()))
@@ -242,7 +241,7 @@ void SearchIDLoop(void *Data)
   PosFree(Node.Pos);
 }
 
-score_t SearchPVNode(node_t *N)
+score_t SearchNode(node_t *N)
 {
   // Sanity checks
   assert(-SCORE_INF<=N->Alpha && N->Alpha<N->Beta && N->Beta<=SCORE_INF);
@@ -303,20 +302,20 @@ score_t SearchPVNode(node_t *N)
     {
       // We have found a good move, try zero window search
       assert(Child.Alpha==Child.Beta-1);
-      Score=-SearchZWNode(&Child);
+      Score=-SearchNode(&Child);
       
       // Research?
       if (Score>Alpha && Score<N->Beta)
       {
         Child.Alpha=-N->Beta;
-        Score=-SearchPVNode(&Child);
+        Score=-SearchNode(&Child);
         Child.Alpha=Child.Beta-1;
       }
     }
     else
     {
       assert(Child.Alpha==-N->Beta);
-      Score=-SearchPVNode(&Child);
+      Score=-SearchNode(&Child);
     }
     
     PosUndoMove(N->Pos);
@@ -359,113 +358,6 @@ score_t SearchPVNode(node_t *N)
     }
   }
   
-  // Test for checkmate or stalemate [shouldn't really happen in root]
-  if (N->Score==SCORE_NONE)
-  {
-    if (N->InCheck)
-    {
-      assert(PosIsMate(N->Pos));
-      return SCORE_MATEDIN(N->Ply);
-    }
-    else
-    {
-      assert(PosIsStalemate(N->Pos));
-      return SCORE_DRAW;
-    }
-  }
-  
-  // We now know the best move
-  cutoff:
-  assert(N->Move!=MOVE_NULL);
-  assert(N->Score!=SCORE_NONE);
-  
-  // Update history table
-  SearchHistoryUpdate(N);
-  
-  // Update TT table
-  SearchTTWrite(N);
-  
-  return N->Score;
-}
-
-score_t SearchZWNode(node_t *N)
-{
-  // Sanity checks
-  assert(-SCORE_INF<=N->Alpha && N->Alpha+1==N->Beta && N->Beta<=SCORE_INF);
-  assert(N->InCheck==PosIsSTMInCheck(N->Pos));
-  assert(N->Ply>=1);
-  
-  // Q node? (or ply limit reached)
-  if (NODE_ISQ(N) || N->Ply>=SEARCH_MAXPLY)
-    return SearchQNode(N);
-  
-  // Node begins
-  ++SearchNodeCount;
-  N->Move=MOVE_NULL;
-  
-  // Test for draws (and rare checkmates)
-  if (PosIsDraw(N->Pos, N->Ply))
-  {
-    N->Type=NODETYPE_EXACT;
-    
-    // In rare cases checkmate can be given on 100th half move
-    if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
-    {
-      assert(PosIsMate(N->Pos));
-      return N->Score=SCORE_MATEDIN(N->Ply);
-    }
-    else
-      return N->Score=SCORE_DRAW;
-  }
-  
-  // Check TT table
-  move_t TTMove=MOVE_NULL;
-  if (SearchTTRead(N, &TTMove))
-    return N->Score;
-  
-  // Search moves
-  N->Score=SCORE_NONE;
-  N->Type=NODETYPE_UPPER;
-  node_t Child;
-  Child.Pos=N->Pos;
-  Child.Ply=N->Ply+1;
-  Child.Alpha=-N->Beta;
-  Child.Beta=-N->Alpha;
-  SearchMovesInit(N, TTMove);
-  move_t Move;
-  while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
-  {
-    // Search move
-    if (!PosMakeMove(N->Pos, Move))
-      continue;
-    Child.InCheck=PosIsSTMInCheck(N->Pos);
-    Child.Depth=N->Depth-!Child.InCheck; // Check extension
-    score_t Score=-SearchZWNode(&Child);
-    PosUndoMove(N->Pos);
-    
-    // Out of time? (previous search result is invalid)
-    if (SearchIsTimeUp())
-    {
-      N->Type=NODETYPE_NONE;
-      return N->Score;
-    }
-    
-    // Better move?
-    if (Score>N->Score)
-    {
-      // Update best score and move
-      N->Score=Score;
-      N->Move=Move;
-      
-      // Cutoff?
-      if (Score>=N->Beta)
-      {
-        N->Type=NODETYPE_LOWER;
-        goto cutoff;
-      }
-    }
-  }
-  
   // Test for checkmate or stalemate
   if (N->Score==SCORE_NONE)
   {
@@ -485,6 +377,7 @@ score_t SearchZWNode(node_t *N)
   cutoff:
   assert(N->Move!=MOVE_NULL);
   assert(N->Score!=SCORE_NONE);
+  assert(N->Type!=NODETYPE_NONE);
   
   // Update history table
   SearchHistoryUpdate(N);

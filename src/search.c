@@ -44,11 +44,11 @@ typedef struct
 typedef struct
 {
   pos_t *Pos;
-  int Depth, Ply;
-  score_t Alpha, Beta;
+  int Depth, Ply, Type;
+  score_t Alpha, Beta, Score;
   bool InCheck;
-  move_t PV[SEARCH_MAXPLY];
   moves_t Moves;
+  move_t Move;
 }node_t;
 #define NODE_ISQ(N) ((N)->Depth<1)
 
@@ -77,8 +77,8 @@ score_t SearchPVNode(node_t *Node);
 score_t SearchZWNode(node_t *Node);
 score_t SearchQNode(node_t *Node);
 static inline bool SearchIsTimeUp();
-void SearchOutput(node_t *N, score_t Score);
-void SearchScoreToStr(score_t Score, char Str[static 16]);
+void SearchOutput(node_t *N);
+void SearchScoreToStr(score_t Score, int Type, char Str[static 32]);
 void SearchMovesInit(node_t *N, move_t TTMove);
 move_t SearchMovesNext(moves_t *Moves);
 void SearchSortMoves(moves_t *Moves);
@@ -89,8 +89,8 @@ void SearchHistoryReset();
 void SearchTTResize(int SizeMB);
 void SearchTTFree();
 void SearchTTReset();
-bool SearchTTRead(const node_t *N, move_t *Move, score_t *Score);
-void SearchTTWrite(const node_t *N, score_t Score);
+bool SearchTTRead(node_t *N, move_t *Move);
+void SearchTTWrite(const node_t *N);
 static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE);
 static inline score_t SearchTTToScore(score_t S, int Ply);
 static inline score_t SearchScoreToTT(score_t S, int Ply);
@@ -190,31 +190,23 @@ void SearchIDLoop(void *Data)
   Node.Beta=SCORE_INF;
   Node.InCheck=PosIsSTMInCheck(Node.Pos);
   
-  // Choose a legal move in case we don't even complete a single ply search
-  move_t BestMove=PosGenLegalMove(Node.Pos);
-  
-  // Setup the PV array
-  Node.PV[0]=BestMove;
-  Node.PV[1]=MOVE_NULL;
-  
   // Loop increasing search depth until we run out of 'time'
+  move_t BestMove=MOVE_NULL;
   for(Node.Depth=1;Node.Depth<SEARCH_MAXPLY;++Node.Depth)
   {
     // Search
-    score_t Score=SearchPVNode(&Node);
+    SearchPVNode(&Node);
     
-    // Early return? (i.e. out of 'time' and no moves searched)
-    // If we are not using a TT we cannot trust the move returned.
-    // This is because if we haven't yet searched the previous-depth's best
-    // move, we may choose an inferior earlier move.
-    if (Node.PV[0]==MOVE_NULL || (SearchTT==NULL && SearchIsTimeUp()))
+    // No moves searched? (i.e. out of 'time')
+    if (Node.Move==MOVE_NULL || (SearchTT==NULL && SearchIsTimeUp()))
       break;
+    assert(SCORE_ISVALID(Node.Score));
     
     // Update bestmove
-    BestMove=Node.PV[0];
+    BestMove=Node.Move;
     
     // Output info
-    SearchOutput(&Node, Score);
+    SearchOutput(&Node);
     
     // Time to end?
     if (SearchIsTimeUp())
@@ -222,12 +214,25 @@ void SearchIDLoop(void *Data)
   }
   
   // Send best move (and potentially ponder move)
+  if (BestMove==MOVE_NULL)
+    SearchTTRead(&Node, &BestMove); // Worth a try
+  if (BestMove==MOVE_NULL)
+    BestMove=PosGenLegalMove(Node.Pos); // Might as well choose a move
   char Str[8];
   PosMoveToStr(BestMove, Str);
-  if (SearchPonder && Node.PV[1]!=MOVE_NULL)
+  
+  move_t PonderMove=MOVE_NULL;
+  if (SearchPonder && BestMove!=MOVE_NULL)
+  {
+    PosMakeMove(Node.Pos, BestMove);
+    SearchTTRead(&Node, &PonderMove);
+    PosUndoMove(Node.Pos);
+  }
+  
+  if (PonderMove!=MOVE_NULL)
   {
     char Str2[8];
-    PosMoveToStr(Node.PV[1], Str2);
+    PosMoveToStr(PonderMove, Str2);
     printf("bestmove %s ponder %s\n", Str, Str2);
   }
   else
@@ -244,42 +249,39 @@ score_t SearchPVNode(node_t *N)
   assert(N->InCheck==PosIsSTMInCheck(N->Pos));
   assert(N->Ply>=0);
   
-  // Set null move now in case of early return
-  N->PV[0]=MOVE_NULL;
-  
   // Q node? (or ply limit reached)
   if (NODE_ISQ(N) || N->Ply>=SEARCH_MAXPLY)
     return SearchQNode(N);
   
   // Node begins
   ++SearchNodeCount;
+  N->Type=NODETYPE_NONE;
+  N->Move=MOVE_NULL;
   
   // Test for draws (and rare checkmates)
   if (N->Ply>0 && PosIsDraw(N->Pos, N->Ply))
   {
+    N->Type=NODETYPE_EXACT;
+    
     // In rare cases checkmate can be given on 100th half move
     if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
     {
       assert(PosIsMate(N->Pos));
-      return SCORE_MATEDIN(N->Ply);
+      return N->Score=SCORE_MATEDIN(N->Ply);
     }
     else
-      return SCORE_DRAW;
+      return N->Score=SCORE_DRAW;
   }
   
   // Check TT table
   move_t TTMove=MOVE_NULL;
-  score_t TTScore;
-  if (SearchTTRead(N, &TTMove, &TTScore))
-  {
-    N->PV[0]=TTMove;
-    N->PV[1]=MOVE_NULL;
-    return TTScore;
-  }
+  if (SearchTTRead(N, &TTMove))
+    return N->Score;
   
   // Search moves
   score_t Alpha=N->Alpha;
-  score_t BestScore=SCORE_NONE;
+  N->Score=SCORE_NONE;
+  N->Type=NODETYPE_UPPER;
   node_t Child;
   Child.Pos=N->Pos;
   Child.Ply=N->Ply+1;
@@ -321,23 +323,30 @@ score_t SearchPVNode(node_t *N)
     
     // Out of time? (previous search result is invalid)
     if (SearchIsTimeUp())
-      return BestScore;
+    {
+      // Node type is tricky as we haven't yet searched all moves
+      N->Type&=~NODETYPE_UPPER;
+      
+      // We may have useful info, update TT
+      if (N->Type!=NODETYPE_NONE)
+        SearchTTWrite(N);
+  
+      return N->Score;
+    }
     
     // Better move?
-    if (Score>BestScore)
+    if (Score>N->Score)
     {
-      // Update best score and PV
-      BestScore=Score;
-      N->PV[0]=Move;
-      move_t *PVPtr=N->PV+1, *SubPVPtr=Child.PV;
-      do
-      {
-        *PVPtr++=*SubPVPtr;
-      }while(*SubPVPtr++!=MOVE_NULL);
+      // Update best score and move
+      N->Score=Score;
+      N->Move=Move;
       
       // Cutoff?
       if (Score>=N->Beta)
+      {
+        N->Type=NODETYPE_LOWER;
         goto cutoff;
+      }
       
       // Update alpha
       if (Score>Alpha)
@@ -345,12 +354,13 @@ score_t SearchPVNode(node_t *N)
         Alpha=Score;
         Child.Alpha=-Alpha-1;
         Child.Beta=-Alpha;
+        N->Type=NODETYPE_EXACT;
       }
     }
   }
   
   // Test for checkmate or stalemate [shouldn't really happen in root]
-  if (BestScore==SCORE_NONE)
+  if (N->Score==SCORE_NONE)
   {
     if (N->InCheck)
     {
@@ -366,16 +376,16 @@ score_t SearchPVNode(node_t *N)
   
   // We now know the best move
   cutoff:
-  assert(N->PV[0]!=MOVE_NULL);
+  assert(N->Move!=MOVE_NULL);
+  assert(N->Score!=SCORE_NONE);
   
   // Update history table
   SearchHistoryUpdate(N);
   
   // Update TT table
-  SearchTTWrite(N, BestScore);
+  SearchTTWrite(N);
   
-  // Return
-  return BestScore;
+  return N->Score;
 }
 
 score_t SearchZWNode(node_t *N)
@@ -391,29 +401,31 @@ score_t SearchZWNode(node_t *N)
   
   // Node begins
   ++SearchNodeCount;
+  N->Move=MOVE_NULL;
   
   // Test for draws (and rare checkmates)
   if (PosIsDraw(N->Pos, N->Ply))
   {
+    N->Type=NODETYPE_EXACT;
+    
     // In rare cases checkmate can be given on 100th half move
     if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
     {
       assert(PosIsMate(N->Pos));
-      return SCORE_MATEDIN(N->Ply);
+      return N->Score=SCORE_MATEDIN(N->Ply);
     }
     else
-      return SCORE_DRAW;
+      return N->Score=SCORE_DRAW;
   }
   
   // Check TT table
   move_t TTMove=MOVE_NULL;
-  score_t TTScore;
-  if (SearchTTRead(N, &TTMove, &TTScore))
-    return TTScore;
+  if (SearchTTRead(N, &TTMove))
+    return N->Score;
   
   // Search moves
-  score_t BestScore=SCORE_NONE;
-  N->PV[0]=MOVE_NULL;
+  N->Score=SCORE_NONE;
+  N->Type=NODETYPE_UPPER;
   node_t Child;
   Child.Pos=N->Pos;
   Child.Ply=N->Ply+1;
@@ -433,23 +445,29 @@ score_t SearchZWNode(node_t *N)
     
     // Out of time? (previous search result is invalid)
     if (SearchIsTimeUp())
-      return BestScore;
+    {
+      N->Type=NODETYPE_NONE;
+      return N->Score;
+    }
     
     // Better move?
-    if (Score>BestScore)
+    if (Score>N->Score)
     {
       // Update best score and move
-      BestScore=Score;
-      N->PV[0]=Move;
+      N->Score=Score;
+      N->Move=Move;
       
       // Cutoff?
       if (Score>=N->Beta)
+      {
+        N->Type=NODETYPE_LOWER;
         goto cutoff;
+      }
     }
   }
   
   // Test for checkmate or stalemate
-  if (BestScore==SCORE_NONE)
+  if (N->Score==SCORE_NONE)
   {
     if (N->InCheck)
     {
@@ -465,16 +483,16 @@ score_t SearchZWNode(node_t *N)
   
   // We now know the best move
   cutoff:
-  assert(N->PV[0]!=MOVE_NULL);
+  assert(N->Move!=MOVE_NULL);
+  assert(N->Score!=SCORE_NONE);
   
   // Update history table
   SearchHistoryUpdate(N);
   
   // Update TT table
-  SearchTTWrite(N, BestScore);
+  SearchTTWrite(N);
   
-  // Return
-  return BestScore;
+  return N->Score;
 }
 
 score_t SearchQNode(node_t *N)
@@ -495,9 +513,9 @@ score_t SearchQNode(node_t *N)
     // In rare cases checkmate can be given on 100th half move (however unlikely
     // this actually occurs in q-search...)
     if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
-      return SCORE_MATEDIN(N->Ply);
+      return N->Score=SCORE_MATEDIN(N->Ply);
     else
-      return SCORE_DRAW;
+      return N->Score=SCORE_DRAW;
   }
 
   // Standing pat (when not in check)
@@ -505,13 +523,14 @@ score_t SearchQNode(node_t *N)
   {
     score_t Eval=Evaluate(N->Pos);
     if (Eval>=N->Beta)
-      return N->Beta;
+      return N->Score=N->Beta;
     if (Eval>Alpha)
       Alpha=Eval;
   }
   
   // Search moves
   node_t Child;
+  N->Score=SCORE_NONE;
   Child.Pos=N->Pos;
   Child.Depth=N->Depth-1;
   Child.Ply=N->Ply+1;
@@ -531,7 +550,7 @@ score_t SearchQNode(node_t *N)
     
     // Out of time? (previous search result is invalid)
     if (SearchIsTimeUp())
-      return Alpha;
+      return N->Score;
     
     // We have a legal move
     NoLegalMove=false;
@@ -572,8 +591,7 @@ score_t SearchQNode(node_t *N)
   cutoff:
   assert(!NoLegalMove);
   
-  // Return
-  return Alpha;
+  return N->Score=Alpha;
 }
 
 static inline bool SearchIsTimeUp()
@@ -588,35 +606,63 @@ static inline bool SearchIsTimeUp()
   return true;
 }
 
-void SearchOutput(node_t *N, score_t Score)
+void SearchOutput(node_t *N)
 {
+  assert(SCORE_ISVALID(N->Score));
+  assert(N->Move!=MOVE_NULL);
+  assert(N->Type!=NODETYPE_NONE);
+  
+  // Various bits of data
   ms_t Time=TimeGet()-SearchStartTime;
-  char Str[16];
-  SearchScoreToStr(Score, Str);
+  char Str[32];
+  SearchScoreToStr(N->Score, N->Type, Str);
   printf("info depth %u score %s nodes %llu time %llu", N->Depth, Str,
          SearchNodeCount, (unsigned long long int)Time);
   if (Time>0)
     printf(" nps %llu", (SearchNodeCount*1000llu)/Time);
+  
+  // PV (extracted from TT, mostly)
   printf(" pv");
-  const move_t *Move;
-  for(Move=N->PV;*Move!=MOVE_NULL;++Move)
+  int Ply;
+  move_t Move=N->Move;
+  for(Ply=0;;++Ply)
   {
-    PosMoveToStr(*Move, Str);
-    if (!PosMakeMove(N->Pos, *Move))
+    // Terminate PV if any of the following are true:
+    // * no move
+    // * drawn position (we don't want infinite PVs in case of repetition)
+    // * the move is not legal (we check this last to avoid undo logic)
+    if (Move==MOVE_NULL || (Ply>0 && PosIsDraw(N->Pos, Ply)) || !PosMakeMove(N->Pos, Move))
       break;
+    
+    // Print move
+    PosMoveToStr(Move, Str);
     printf(" %s", Str);
+    
+    // Read next move from TT
+    Move=MOVE_NULL;
+    SearchTTRead(N, &Move);
   }
-  for(--Move;Move>=N->PV;--Move)
+  
+  // Return position to initial state
+  for(;Ply>0;--Ply)
     PosUndoMove(N->Pos);
+  
   printf("\n");
 }
 
-void SearchScoreToStr(score_t Score, char Str[static 16])
+void SearchScoreToStr(score_t Score, int Type, char Str[static 32])
 {
+  // Basic score (either in centipawns or distance to mate)
   if (SCORE_ISMATE(Score))
     sprintf(Str, "mate %i", ((Score<0) ? -SCORE_MATEDIST(Score) : SCORE_MATEDIST(Score)));
   else
     sprintf(Str, "cp %i", Score);
+  
+  // Upper/lowerbound?
+  if (Type==NODETYPE_LOWER)
+    strcat(Str, " lowerbound");
+  if (Type==NODETYPE_UPPER)
+    strcat(Str, " upperbound");
 }
 
 void SearchMovesInit(node_t *N, move_t TTMove)
@@ -729,7 +775,7 @@ static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move)
 void SearchHistoryUpdate(const node_t *N)
 {
   /* Only consider non-capture moves */
-  move_t Move=N->PV[0];
+  move_t Move=N->Move;
   if (!PosIsMoveCapture(N->Pos, Move))
   {
     /* Increment count in table */
@@ -803,7 +849,7 @@ void SearchTTReset()
   memset(SearchTT, 0, SearchTTSize*sizeof(tt_t)); // HACK
 }
 
-bool SearchTTRead(const node_t *N, move_t *Move, score_t *Score)
+bool SearchTTRead(node_t *N, move_t *Move)
 {
   // No TT?
   if (SearchTT==NULL)
@@ -819,23 +865,28 @@ bool SearchTTRead(const node_t *N, move_t *Move, score_t *Score)
   
   // Set move and score
   *Move=TTE->Move;
-  *Score=SearchScoreToTT(TTE->Score, N->Ply);
+  N->Score=SearchScoreToTT(TTE->Score, N->Ply);
   
   // Cutoff possible?
   if (TTE->Depth>=N->Depth &&
       ((TTE->Type==NODETYPE_EXACT) ||
-       ((TTE->Type & NODETYPE_LOWER) && *Score>=N->Beta) ||
-       ((TTE->Type & NODETYPE_UPPER) && *Score<=N->Alpha)))
+       ((TTE->Type & NODETYPE_LOWER) && N->Score>=N->Beta) ||
+       ((TTE->Type & NODETYPE_UPPER) && N->Score<=N->Alpha)))
+  {
+    N->Move=TTE->Move;
+    N->Type=TTE->Type;
     return true;
+  }
   
   return false;
 }
 
-void SearchTTWrite(const node_t *N, score_t Score)
+void SearchTTWrite(const node_t *N)
 {
   // Sanity checks
-  assert(N->PV[0]!=MOVE_NULL);
-  assert(SCORE_ISVALID(Score));
+  assert(N->Move!=MOVE_NULL);
+  assert(SCORE_ISVALID(N->Score));
+  assert(N->Type!=NODETYPE_NONE);
   
   // No TT?
   if (SearchTT==NULL)
@@ -848,19 +899,11 @@ void SearchTTWrite(const node_t *N, score_t Score)
   // Replace/update?
   if (!SearchTTMatch(N, TTE) || N->Depth>=TTE->Depth)
   {
-    // Find node type
-    uint8_t Type=NODETYPE_NONE;
-    if (Score>N->Alpha)
-      Type|=NODETYPE_LOWER;
-    if (Score<N->Beta)
-      Type|=NODETYPE_UPPER;
-    
-    // Update entry
     TTE->Key=PosGetKey(N->Pos);
-    TTE->Move=N->PV[0];
-    TTE->Score=SearchScoreToTT(Score, N->Ply);
+    TTE->Move=N->Move;
+    TTE->Score=SearchScoreToTT(N->Score, N->Ply);
     TTE->Depth=N->Depth;
-    TTE->Type=Type;
+    TTE->Type=N->Type;
   }
 }
 

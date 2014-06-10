@@ -16,7 +16,7 @@ typedef struct
 
 typedef struct
 {
-  bb_t Pawns[2], Passed[2], Doubled[2], SemiOpenFiles[2], OpenFiles;
+  bb_t Pawns[2], Passed[2], SemiOpenFiles[2], OpenFiles;
   spair_t Score;
 }evalpawndata_t;
 
@@ -344,7 +344,6 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
   Data->SemiOpenFiles[black]=(FillW & ~FillB);
   Data->OpenFiles=~(FillW | FillB);
   Data->Passed[white]=Data->Passed[black]=0;
-  Data->Doubled[white]=Data->Doubled[black]=0;
   
   // Loop over every pawn
   Sq=PosGetPieceListStart(Pos, wpawn);
@@ -361,10 +360,7 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
     // Calculate score
     EvalSPairAdd(&Data->Score, EvalPawnPST[*Sq]);
     if (Doubled)
-    {
       EvalSPairAdd(&Data->Score, EvalPawnDoubled);
-      Data->Doubled[white]|=BB;
-    }
     else if (Passed)
     {
       EvalSPairAdd(&Data->Score, EvalPawnPassed[SQ_Y(*Sq)]);
@@ -389,10 +385,7 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
     // Calculate score
     EvalSPairSub(&Data->Score, EvalPawnPST[SQ_FLIP(*Sq)]);
     if (Doubled)
-    {
       EvalSPairSub(&Data->Score, EvalPawnDoubled);
-      Data->Doubled[black]|=BB;
-    }
     else if (Passed)
     {
       EvalSPairSub(&Data->Score, EvalPawnPassed[SQ_Y(SQ_FLIP(*Sq))]);

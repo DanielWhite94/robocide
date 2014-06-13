@@ -25,6 +25,8 @@ typedef uint64_t movescore_t;
 #define HISTORY_MAX (((movescore_t)1)<<(MOVESCORE_WIDTH-8)) // see SearchScoreMove()
 movescore_t SearchHistory[16][64];
 
+const int SearchNullReduction=2;
+
 bool SearchPonder=true;
 
 typedef enum
@@ -46,11 +48,12 @@ typedef struct
   pos_t *Pos;
   int Depth, Ply, Type;
   score_t Alpha, Beta, Score;
-  bool InCheck;
+  bool InCheck, CanNull;
   moves_t Moves;
   move_t Move;
 }node_t;
 #define NODE_ISQ(N) ((N)->Depth<1)
+#define NODE_ISPV(N) ((N)->Beta-(N)->Alpha>1)
 
 typedef struct
 {
@@ -94,6 +97,7 @@ static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE);
 static inline score_t SearchTTToScore(score_t S, int Ply);
 static inline score_t SearchScoreToTT(score_t S, int Ply);
 void SearchSetPonder(bool Ponder);
+static inline bool SearchIsZugzwang(const node_t *N);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -188,6 +192,7 @@ void SearchIDLoop(void *Data)
   Node.Alpha=-SCORE_INF;
   Node.Beta=SCORE_INF;
   Node.InCheck=PosIsSTMInCheck(Node.Pos);
+  Node.CanNull=true;
   
   // Loop increasing search depth until we run out of 'time'
   move_t BestMove=MOVE_NULL;
@@ -277,14 +282,32 @@ score_t SearchNode(node_t *N)
   if (SearchTTRead(N, &TTMove))
     return N->Score;
   
-  // Search moves
-  score_t Alpha=N->Alpha;
-  N->Score=SCORE_NONE;
-  N->Type=NODETYPE_UPPER;
+  // Null move pruning
   node_t Child;
   Child.Pos=N->Pos;
   Child.Ply=N->Ply+1;
   Child.Alpha=-N->Beta;
+  Child.CanNull=true;
+  if (N->CanNull && !NODE_ISPV(N) && (N->Depth-SearchNullReduction)>=1 &&
+      !SCORE_ISMATE(N->Beta) && !SearchIsZugzwang(N) && Evaluate(N->Pos)>=N->Beta)
+  {
+    assert(!N->InCheck);
+    
+    PosMakeNullMove(N->Pos);
+    Child.InCheck=false;
+    Child.Depth=N->Depth-SearchNullReduction;
+    Child.Beta=1-N->Beta;
+    score_t Score=-SearchNode(&Child);
+    PosUndoNullMove(N->Pos);
+    
+    if (Score>=N->Beta)
+      return N->Score=N->Beta;
+  }
+  
+  // Search moves
+  score_t Alpha=N->Alpha;
+  N->Score=SCORE_NONE;
+  N->Type=NODETYPE_UPPER;
   Child.Beta=-Alpha;
   SearchMovesInit(N, TTMove);
   move_t Move;
@@ -832,4 +855,9 @@ static inline score_t SearchScoreToTT(score_t S, int Ply)
 void SearchSetPonder(bool Ponder)
 {
   SearchPonder=Ponder;
+}
+
+static inline bool SearchIsZugzwang(const node_t *N)
+{
+  return (N->InCheck || !PosHasPieces(N->Pos, PosGetSTM(N->Pos)));
 }

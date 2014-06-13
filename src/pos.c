@@ -439,6 +439,54 @@ void PosUndoMove(pos_t *Pos)
   assert(PosIsConsistent(Pos));
 }
 
+bool PosMakeNullMove(pos_t *Pos)
+{
+  assert(!PosIsSTMInCheck(Pos));
+  
+  // Use next data entry
+  if (Pos->Data+1>=Pos->DataEnd)
+  {
+    /* We need more space */
+    size_t Size=2*(Pos->DataEnd-Pos->DataStart);
+    posdata_t *Ptr=realloc(Pos->DataStart, Size*sizeof(posdata_t));
+    if (Ptr==NULL)
+      return false;
+    int DataOffset=Pos->Data-Pos->DataStart;
+    Pos->DataStart=Ptr;
+    Pos->DataEnd=Ptr+Size;
+    Pos->Data=Ptr+DataOffset;
+  }
+  ++Pos->Data;
+  
+  // Update position data
+  Pos->Data->LastMove=MOVE_NULL;
+  Pos->Data->HalfMoveClock=(Pos->Data-1)->HalfMoveClock+1;
+  Pos->Data->EPSq=sqinvalid;
+  Pos->Data->CastRights=(Pos->Data-1)->CastRights;
+  Pos->Data->CapSq=sqinvalid;
+  Pos->Data->CapPiece=empty;
+  Pos->Data->Key=(Pos->Data-1)->Key^PosKeySTM^PosKeyEP[(Pos->Data-1)->EPSq];
+  Pos->FullMoveNumber+=(Pos->STM==black); // Inc after black's move
+  Pos->STM=COL_SWAP(Pos->STM);
+  
+  assert(PosIsConsistent(Pos));
+  
+  return true;
+}
+
+void PosUndoNullMove(pos_t *Pos)
+{
+  assert(Pos->Data->LastMove==MOVE_NULL);
+  
+  Pos->STM=COL_SWAP(Pos->STM);
+  Pos->FullMoveNumber-=(Pos->STM==black);
+  
+  // Discard data
+  --Pos->Data;
+  
+  assert(PosIsConsistent(Pos));
+}
+
 bool PosIsSqAttackedByColour(const pos_t *Pos, sq_t Sq, col_t C)
 {
   bb_t Occ=PosGetBBAll(Pos);

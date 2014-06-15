@@ -663,16 +663,16 @@ static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move)
 {
   movescore_t Score=0;
   
-  /* Sort first by captured/promotion piece (most valuable first) */
+  // Sort first by captured/promotion piece (most valuable first)
   piece_t FromPiece=PosGetPieceOnSq(Pos, MOVE_GETFROMSQ(Move));
   piece_t ToPiece=(MOVE_ISPROMO(Move) ? MOVE_GETPROMO(Move) : FromPiece);
   piece_t CapturedPiece=(MOVE_ISEP(Move) ? pawn : PIECE_TYPE(PosGetPieceOnSq(Pos, MOVE_GETTOSQ(Move))));
   Score+=(CapturedPiece+PIECE_TYPE(ToPiece)-PIECE_TYPE(FromPiece))*8*HISTORY_MAX;
   
-  /* Sort second by capturing piece (least valuable first) */
+  // Sort second by capturing piece (least valuable first)
   Score+=(8-PIECE_TYPE(ToPiece))*HISTORY_MAX;
   
-  /* Further sort using history tables */
+  // Further sort using history tables
   Score+=SearchHistory[FromPiece][MOVE_GETTOSQ(Move)];
   
   return Score;
@@ -680,16 +680,16 @@ static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move)
 
 void SearchHistoryUpdate(const node_t *N)
 {
-  /* Only consider non-capture moves */
+  // Only consider non-capture moves
   move_t Move=N->Move;
   if (!PosIsMoveCapture(N->Pos, Move))
   {
-    /* Increment count in table */
+    // Increment count in table
     piece_t FromPiece=PosGetPieceOnSq(N->Pos, MOVE_GETFROMSQ(Move));
     movescore_t *Counter=&SearchHistory[FromPiece][MOVE_GETTOSQ(Move)];
     *Counter+=(((movescore_t)1)<<N->Depth);
     
-    /* Overflow? (not a literal overflow, but beyond desired range) */
+    // Overflow? (not a literal overflow, but beyond desired range)
     if (*Counter>=HISTORY_MAX)
       SearchHistoryAge();
   }

@@ -32,15 +32,16 @@ bool SearchPonder=true;
 typedef enum
 {
   movesstage_tt,
-  movesstage_main,
+  movesstage_main
 }movesstage_t;
 
 typedef struct
 {
-  move_t Moves[MOVES_MAX], *End;
+  move_t Moves[MOVES_MAX], *Next, *End;
   movesstage_t Stage;
   move_t TTMove;
   const pos_t *Pos;
+  move_t * (*Gen)(const pos_t *Pos, move_t *Moves);
 }moves_t;
 
 typedef struct
@@ -81,7 +82,8 @@ score_t SearchQNode(node_t *Node);
 static inline bool SearchIsTimeUp();
 void SearchOutput(node_t *N);
 void SearchScoreToStr(score_t Score, int Type, char Str[static 32]);
-void SearchMovesInit(node_t *N, move_t TTMove);
+static inline void SearchMovesInit(node_t *N, move_t TTMove);
+static inline void SearchMovesRewind(node_t *N, move_t TTMove);
 move_t SearchMovesNext(moves_t *Moves);
 void SearchSortMoves(moves_t *Moves);
 static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move);
@@ -581,69 +583,57 @@ void SearchScoreToStr(score_t Score, int Type, char Str[static 32])
     strcat(Str, " upperbound");
 }
 
-void SearchMovesInit(node_t *N, move_t TTMove)
+static inline void SearchMovesInit(node_t *N, move_t TTMove)
 {
-  if (NODE_ISQ(N))
-  {
-    // Generate moves
-    if (N->InCheck)
-      N->Moves.End=PosGenPseudoMoves(N->Pos, N->Moves.Moves);
-    else
-      N->Moves.End=PosGenPseudoCaptures(N->Pos, N->Moves.Moves);
-    N->Moves.Stage=movesstage_main;
-    N->Moves.Pos=N->Pos;
-    
-    // Score and sort moves
-    SearchSortMoves(&N->Moves);
-  }
-  else
-  {
-    assert(TTMove==MOVE_NULL || PosIsMovePseudoLegal(N->Pos, TTMove));
-    
-    N->Moves.End=N->Moves.Moves;
-    N->Moves.Stage=movesstage_tt;
-    N->Moves.TTMove=TTMove;
-    *N->Moves.End=TTMove;
-    N->Moves.End+=(TTMove!=MOVE_NULL);
-    N->Moves.Pos=N->Pos;
-  }
+  N->Moves.Next=N->Moves.End=N->Moves.Moves;
+  N->Moves.Stage=movesstage_tt;
+  N->Moves.TTMove=TTMove;
+  N->Moves.Pos=N->Pos;
+  N->Moves.Gen=((!NODE_ISQ(N) || N->InCheck) ? &PosGenPseudoMoves : &PosGenPseudoCaptures);
+}
+
+static inline void SearchMovesRewind(node_t *N, move_t TTMove)
+{
+  N->Moves.Next=N->Moves.Moves;
+  N->Moves.Stage=movesstage_tt;
+  N->Moves.TTMove=TTMove;
 }
 
 move_t SearchMovesNext(moves_t *Moves)
 {
-  while(1)
+  switch(Moves->Stage)
   {
-    // If we already have a move waiting, return it
-    if (Moves->End>Moves->Moves)
-      return *--Moves->End;
-    
-    // Otherwise move to next stage
-    move_t *Move;
-    switch(Moves->Stage)
-    {
-      case movesstage_tt:
-        // Generate moves
-        Moves->End=PosGenPseudoMoves(Moves->Pos, Moves->Moves);
-        
-        // Remove TT move
-        for(Move=Moves->Moves;Move<Moves->End;++Move)
-          if (*Move==Moves->TTMove)
-          {
-            *Move=*--Moves->End;
-            break;
-          }
-        
-        // Score and sort
+    case movesstage_tt:
+      // Update stage ready for next call
+      Moves->Stage=movesstage_main;
+      
+      // Do we have a TT move?
+      if (Moves->TTMove!=MOVE_NULL)
+        return Moves->TTMove;
+      
+      // Fall through to generate/choose a move
+    case movesstage_main:
+      // Do we need to generate any moves? (we might have already done this)
+      if (Moves->Gen!=NULL)
+      {
+        assert(Moves->Next==Moves->Moves);
+        Moves->End=Moves->Gen(Moves->Pos, Moves->Moves);
+        Moves->Gen=NULL;
         SearchSortMoves(Moves);
-        
-        // Update stage
-        Moves->Stage=movesstage_main;
-      break;
-      case movesstage_main:
-        return MOVE_NULL; // No more moves
-      break;
-    }
+      }
+      
+      // Choose move
+      while(Moves->Next<Moves->End)
+        if (*Moves->Next++!=Moves->TTMove)
+          return *(Moves->Next-1);
+      
+      // No moves left
+      return MOVE_NULL;
+    break;
   }
+  
+  assert(false);
+  return MOVE_NULL;
 }
 
 void SearchSortMoves(moves_t *Moves)
@@ -654,12 +644,12 @@ void SearchSortMoves(moves_t *Moves)
   for(MovePtr=Moves->Moves,ScorePtr=Scores;MovePtr<Moves->End;++MovePtr)
     *ScorePtr++=SearchScoreMove(Moves->Pos, *MovePtr);
   
-  // Sort (best move last)
+  // Sort (best move first)
   for(MovePtr=Moves->Moves+1,ScorePtr=Scores+1;MovePtr<Moves->End;++MovePtr,++ScorePtr)
   {
     move_t TempMove=*MovePtr, *TempMovePtr;
     movescore_t TempScore=*ScorePtr, *TempScorePtr;
-    for(TempMovePtr=MovePtr-1,TempScorePtr=ScorePtr-1;TempScore<*TempScorePtr && TempScorePtr>=Scores;--TempMovePtr,--TempScorePtr)
+    for(TempMovePtr=MovePtr-1,TempScorePtr=ScorePtr-1;TempScore>*TempScorePtr && TempScorePtr>=Scores;--TempMovePtr,--TempScorePtr)
     {
       *(TempScorePtr+1)=*TempScorePtr;
       *(TempMovePtr+1)=*TempMovePtr;

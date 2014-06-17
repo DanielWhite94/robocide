@@ -771,7 +771,7 @@ bool SearchTTRead(node_t *N, move_t *Move)
   
   // Set move and score
   *Move=TTE->Move;
-  N->Score=SearchScoreToTT(TTE->Score, N->Ply);
+  N->Score=SearchTTToScore(TTE->Score, N->Ply);
   
   // Cutoff possible?
   if (TTE->Depth>=N->Depth &&
@@ -829,7 +829,7 @@ static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE)
 static inline score_t SearchTTToScore(score_t S, int Ply)
 {
   if (SCORE_ISMATE(S))
-    return (S>0 ? S+Ply : S-Ply); // Adjust to distance from root [to mate]
+    return (S>0 ? S-Ply : S+Ply); // Adjust to distance from root [to mate]
   else
     return S;
 }
@@ -837,7 +837,7 @@ static inline score_t SearchTTToScore(score_t S, int Ply)
 static inline score_t SearchScoreToTT(score_t S, int Ply)
 {
   if (SCORE_ISMATE(S))
-    return (S>0 ? S-Ply : S+Ply); // Adjust to distance from this node [to mate]
+    return (S>0 ? S+Ply : S-Ply); // Adjust to distance from this node [to mate]
   else
     return S;
 }

@@ -26,6 +26,8 @@ typedef uint64_t movescore_t;
 movescore_t SearchHistory[16][64];
 
 const int SearchNullReduction=2;
+const int SearchIIDMin=2;
+const int SearchIIDReduction=3;
 
 bool SearchPonder=true;
 
@@ -49,7 +51,7 @@ typedef struct
   pos_t *Pos;
   int Depth, Ply, Type;
   score_t Alpha, Beta, Score;
-  bool InCheck, CanNull;
+  bool InCheck;
   moves_t Moves;
   move_t Move;
 }node_t;
@@ -194,7 +196,6 @@ void SearchIDLoop(void *Data)
   Node.Alpha=-SCORE_INF;
   Node.Beta=SCORE_INF;
   Node.InCheck=PosIsSTMInCheck(Node.Pos);
-  Node.CanNull=true;
   
   // Loop increasing search depth until we run out of 'time'
   move_t BestMove=MOVE_NULL;
@@ -288,9 +289,7 @@ score_t SearchNode(node_t *N)
   node_t Child;
   Child.Pos=N->Pos;
   Child.Ply=N->Ply+1;
-  Child.Alpha=-N->Beta;
-  Child.CanNull=true;
-  if (N->CanNull && !NODE_ISPV(N) && (N->Depth-SearchNullReduction)>=1 &&
+  if (!NODE_ISPV(N) && (N->Depth-SearchNullReduction)>=1 &&
       !SCORE_ISMATE(N->Beta) && !SearchIsZugzwang(N) && Evaluate(N->Pos)>=N->Beta)
   {
     assert(!N->InCheck);
@@ -298,6 +297,7 @@ score_t SearchNode(node_t *N)
     PosMakeNullMove(N->Pos);
     Child.InCheck=false;
     Child.Depth=N->Depth-SearchNullReduction;
+    Child.Alpha=-N->Beta;
     Child.Beta=1-N->Beta;
     score_t Score=-SearchNode(&Child);
     PosUndoNullMove(N->Pos);
@@ -306,100 +306,131 @@ score_t SearchNode(node_t *N)
       return N->Score=N->Beta;
   }
   
-  // Search moves
-  score_t Alpha=N->Alpha;
-  N->Score=SCORE_NONE;
-  N->Type=NODETYPE_UPPER;
-  Child.Beta=-Alpha;
+  // Internal iterative deepening
+  int Depth=N->Depth;
+  if (N->Depth>=SearchIIDMin && NODE_ISPV(N) && TTMove==MOVE_NULL)
+  {
+    int k=(N->Depth-SearchIIDMin)/SearchIIDReduction;
+    Depth=N->Depth-k*SearchIIDReduction;
+    
+    assert(Depth>=SearchIIDMin && Depth<=N->Depth);
+    assert((N->Depth-Depth)%SearchIIDReduction==0);
+  }
+  
+  // Begin IID loop
   SearchMovesInit(N, TTMove);
-  move_t Move;
-  while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
+  do
   {
-    // Search move
-    if (!PosMakeMove(N->Pos, Move))
-      continue;
-    Child.InCheck=PosIsSTMInCheck(N->Pos);
-    Child.Depth=N->Depth-!Child.InCheck; // Check extension
+    assert(Depth>=0 && Depth<=N->Depth);
     
-    // PVS search
-    score_t Score;
-    if (Alpha>N->Alpha)
+    // Prepare to search current depth
+    score_t Alpha=N->Alpha;
+    N->Score=SCORE_NONE;
+    N->Type=NODETYPE_UPPER;
+    N->Move=MOVE_NULL;
+    Child.Alpha=-N->Beta;
+    Child.Beta=-Alpha;
+    move_t Move;
+    while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
     {
-      // We have found a good move, try zero window search
-      assert(Child.Alpha==Child.Beta-1);
-      Score=-SearchNode(&Child);
+      // Make move (might leave us in check, if so skip)
+      if (!PosMakeMove(N->Pos, Move))
+        continue;
       
-      // Research?
-      if (Score>Alpha && Score<N->Beta)
+      // PVS search
+      Child.InCheck=PosIsSTMInCheck(N->Pos);
+      Child.Depth=Depth-!Child.InCheck; // Check extension
+      score_t Score;
+      if (Alpha>N->Alpha)
       {
-        Child.Alpha=-N->Beta;
+        // We have found a good move, try zero window search
+        assert(Child.Alpha==Child.Beta-1);
         Score=-SearchNode(&Child);
-        Child.Alpha=Child.Beta-1;
+        
+        // Research?
+        if (Score>Alpha && Score<N->Beta)
+        {
+          Child.Alpha=-N->Beta;
+          Score=-SearchNode(&Child);
+          Child.Alpha=Child.Beta-1;
+        }
       }
-    }
-    else
-    {
-      assert(Child.Alpha==-N->Beta);
-      Score=-SearchNode(&Child);
-    }
-    
-    PosUndoMove(N->Pos);
-    
-    // Out of time? (previous search result is invalid)
-    if (SearchIsTimeUp())
-    {
-      // Node type is tricky as we haven't yet searched all moves
-      N->Type&=~NODETYPE_UPPER;
-      
-      // We may have useful info, update TT
-      if (N->Type!=NODETYPE_NONE)
-        SearchTTWrite(N);
-  
-      return N->Score;
-    }
-    
-    // Better move?
-    if (Score>N->Score)
-    {
-      // Update best score and move
-      N->Score=Score;
-      N->Move=Move;
-      
-      // Cutoff?
-      if (Score>=N->Beta)
+      else
       {
-        N->Type=NODETYPE_LOWER;
-        goto cutoff;
+        // Full window search
+        assert(Child.Alpha==-N->Beta);
+        Score=-SearchNode(&Child);
       }
       
-      // Update alpha
-      if (Score>Alpha)
+      // Undo move
+      PosUndoMove(N->Pos);
+      
+      // Out of time? (previous search result is invalid)
+      if (SearchIsTimeUp())
       {
-        Alpha=Score;
-        Child.Alpha=-Alpha-1;
-        Child.Beta=-Alpha;
-        N->Type=NODETYPE_EXACT;
+        // Not yet started N->Depth search?
+        if (Depth<N->Depth)
+          return SCORE_NONE;
+        
+        // Node type is tricky as we haven't yet searched all moves
+        N->Type&=~NODETYPE_UPPER;
+        
+        // We may have useful info, update TT
+        if (N->Type!=NODETYPE_NONE)
+          SearchTTWrite(N);
+    
+        return N->Score;
+      }
+      
+      // Better move?
+      if (Score>N->Score)
+      {
+        // Update best score and move
+        N->Score=Score;
+        N->Move=Move;
+        
+        // Cutoff?
+        if (Score>=N->Beta)
+        {
+          N->Type=NODETYPE_LOWER;
+          goto cutoff;
+        }
+        
+        // Update alpha
+        if (Score>Alpha)
+        {
+          Alpha=Score;
+          Child.Alpha=-Alpha-1;
+          Child.Beta=-Alpha;
+          N->Type=NODETYPE_EXACT;
+        }
       }
     }
-  }
-  
-  // Test for checkmate or stalemate
-  if (N->Score==SCORE_NONE)
-  {
-    if (N->InCheck)
+    
+    // Test for checkmate or stalemate
+    if (N->Score==SCORE_NONE)
     {
-      assert(PosIsMate(N->Pos));
-      return SCORE_MATEDIN(N->Ply);
+      if (N->InCheck)
+      {
+        assert(PosIsMate(N->Pos));
+        return SCORE_MATEDIN(N->Ply);
+      }
+      else
+      {
+        assert(PosIsStalemate(N->Pos));
+        return SCORE_DRAW;
+      }
     }
-    else
-    {
-      assert(PosIsStalemate(N->Pos));
-      return SCORE_DRAW;
-    }
-  }
+    
+    cutoff:
+    
+    // Update TTMove and rewind move pointer
+    SearchMovesRewind(N, N->Move);
+    
+    // Continue onto next depth or done
+  }while((Depth+=SearchIIDReduction)<=N->Depth);
   
   // We now know the best move
-  cutoff:
   assert(N->Move!=MOVE_NULL);
   assert(N->Score!=SCORE_NONE);
   assert(N->Type!=NODETYPE_NONE);

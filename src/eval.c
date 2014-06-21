@@ -169,6 +169,10 @@ score_t Evaluate(const pos_t *Pos)
   // Material combination scaling
   ScalarScore=(ScalarScore*(((int32_t)Data.Factor)))/128;
   
+  // Drag score towards 0 as we approach 50-move rule
+  int HMoves=PosGetHalfMoveClock(Pos);
+  ScalarScore*=exp2(-(HMoves*HMoves)/(32*32));
+  
   // Adjust for side to move
   if (PosGetSTM(Pos)==black)
     ScalarScore=-ScalarScore;

@@ -48,7 +48,7 @@ const spair_t EvalKingShieldClose={150,0};
 const spair_t EvalKingShieldFar={50,0};
 const spair_t EvalTempoDefault={0,0};
 
-spair_t EvalPawnPST[64]={
+const spair_t EvalPawnPST[64]={
 {  -30, -410},{ -150, -400},{ -230, -380},{ -270, -370},{ -270, -370},{ -230, -380},{ -150, -400},{  -30, -410},
 { -150, -380},{    0, -350},{  -60, -340},{  -90, -320},{  -90, -320},{  -60, -340},{    0, -350},{ -150, -380},
 { -210, -300},{  -40, -270},{   70, -250},{   40, -220},{   40, -220},{   70, -250},{  -40, -270},{ -210, -300},
@@ -57,7 +57,7 @@ spair_t EvalPawnPST[64]={
 { -100,  120},{   50,  140},{  170,  170},{  150,  200},{  150,  200},{  170,  170},{   50,  140},{ -100,  120},
 {   20,  330},{  180,  350},{  110,  370},{   80,  380},{   80,  380},{  110,  370},{  180,  350},{   20,  330},
 {  210,  580},{   90,  590},{   10,  610},{  -20,  620},{  -20,  620},{   10,  610},{   90,  590},{  210,  58}};
-spair_t EvalKnightPST[64]={
+const spair_t EvalKnightPST[64]={
 { -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
 { -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
 {  -70,  -30},{  -20,   20},{   10,   50},{   20,   60},{   20,   60},{   10,   50},{  -20,   20},{  -70,  -30},
@@ -66,7 +66,7 @@ spair_t EvalKnightPST[64]={
 {    0,  -30},{   40,   20},{   70,   50},{   80,   60},{   80,   60},{   70,   50},{   40,   20},{    0,  -30},
 {  -10,  -60},{   40,  -10},{   70,   20},{   90,   30},{   90,   30},{   70,   20},{   40,  -10},{  -10,  -60},
 {  -20, -120},{   20,  -60},{   60,  -30},{   80,  -10},{   80,  -10},{   60,  -30},{   20,  -60},{  -20, -12}};
-spair_t EvalBishopPST[64]={
+const spair_t EvalBishopPST[64]={
 {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,  -75},
 {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
 {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
@@ -126,15 +126,6 @@ static inline void EvalSPairSubMul(spair_t *A, spair_t B, int C);
 
 void EvalInit()
 {
-  // Add material to PSTs
-  sq_t Sq;
-  for(Sq=0;Sq<64;++Sq)
-  {
-    EvalSPairAdd(&EvalPawnPST[Sq], EvalMaterial[pawn]);
-    EvalSPairAdd(&EvalKnightPST[Sq], EvalMaterial[knight]);
-    EvalSPairAdd(&EvalBishopPST[Sq], EvalMaterial[bishopl]);
-  }
-  
   // Init pawn and mat hash tables
   EvalPawnResize(1); // 1mb
   EvalMatResize(16); // 16kb
@@ -285,21 +276,22 @@ void EvalComputeMat(const pos_t *Pos, evalmatdata_t *Data)
   int Weight=MinCount+2*RCount+4*QCount;
   Data->WeightEG=floorf(255.0*exp2f(-((Weight*Weight)/144.0)));
   
+  // Material
+  EvalSPairAddMul(&Data->Offset, EvalMaterial[pawn], POSMAT_GET(Mat, wpawn)-POSMAT_GET(Mat, bpawn));
+  EvalSPairAddMul(&Data->Offset, EvalMaterial[knight], POSMAT_GET(Mat, wknight)-POSMAT_GET(Mat, bknight));
+  EvalSPairAddMul(&Data->Offset, EvalMaterial[bishopl], (POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd))-(POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd)));
+  EvalSPairAddMul(&Data->Offset, EvalMaterial[rook], POSMAT_GET(Mat, wrook)-POSMAT_GET(Mat, brook));
+  EvalSPairAddMul(&Data->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
+  
   // Knight pawn affinity
   int KnightAffW=POSMAT_GET(Mat, wknight)*(POSMAT_GET(Mat, wpawn)-5);
   int KnightAffB=POSMAT_GET(Mat, bknight)*(POSMAT_GET(Mat, bpawn)-5);
   EvalSPairAddMul(&Data->Offset, EvalKnightPawnAffinity, KnightAffW-KnightAffB);
   
-  // Rook material
-  EvalSPairAddMul(&Data->Offset, EvalMaterial[rook], POSMAT_GET(Mat, wrook)-POSMAT_GET(Mat, brook));
-  
   // Rook pawn affinity
   int RookAffW=POSMAT_GET(Mat, wrook)*(POSMAT_GET(Mat, wpawn)-5);
   int RookAffB=POSMAT_GET(Mat, brook)*(POSMAT_GET(Mat, bpawn)-5);
   EvalSPairAddMul(&Data->Offset, EvalRookPawnAffinity, RookAffW-RookAffB);
-  
-  // Queen material
-  EvalSPairAddMul(&Data->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
   
   // Bishop pair bonus
   if (WBishopL && WBishopD)
@@ -407,10 +399,8 @@ static inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const 
   spair_t Score={0,0};
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   
-  // PST (and material)
+  // PST
   EvalSPairAdd(&Score, EvalKnightPST[AdjSq]);
-  
-  // Pawn affinity in mat table
   
   return Score;
 }
@@ -420,7 +410,7 @@ static inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const 
   spair_t Score={0,0};
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   
-  // PST (and material)
+  // PST
   EvalSPairAdd(&Score, EvalBishopPST[AdjSq]);
   
   // Mobility
@@ -436,8 +426,6 @@ static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
   bb_t BB=SQTOBB(Sq);
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   bb_t Rank=BBSqToRank(Sq);
-  
-  // Material and pawn affinity in mat table
   
   // Mobility
   bb_t Attacks=AttacksRook(Sq, PosGetBBAll(Pos));
@@ -478,8 +466,6 @@ static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
 static inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
 {
   spair_t Score={0,0};
-  
-  // Material in mat table
   
   return Score;
 }

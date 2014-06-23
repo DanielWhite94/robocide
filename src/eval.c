@@ -9,46 +9,48 @@
 // 
 ////////////////////////////////////////////////////////////////////////////////
 
+typedef int32_t value_t;
+
 typedef struct
 {
-  score_t MG, EG;
-}spair_t;
+  value_t MG, EG;
+}vpair_t;
 
 typedef struct
 {
   bb_t Pawns[2], Passed[2], SemiOpenFiles[2], OpenFiles;
-  spair_t Score;
+  vpair_t Score;
 }evalpawndata_t;
 
 typedef struct
 {
   hkey_t Mat;
-  spair_t (*Function)(const pos_t *Pos);
-  spair_t Offset, Tempo;
+  vpair_t (*Function)(const pos_t *Pos);
+  vpair_t Offset, Tempo;
   uint8_t Factor, WeightEG;
 }evalmatdata_t;
 
 // Tunable values
-const spair_t EvalMaterial[8]={{0,0},{900,1300},{3250,3250},{3250,3250},{3250,3250},{5000,5000},{10000,10000},{0,0}};
-const spair_t EvalPawnDoubled={-100,-200};
-const spair_t EvalPawnIsolated={-300,-200};
-const spair_t EvalPawnBlocked={-100,-100};
-const spair_t EvalPawnPassed[8]={{0,0},{100,150},{200,350},{250,650},{650,1050},{1050,1550},{1500,2150},{0,0}};
-const spair_t EvalKnightPawnAffinity={30,30};
-const spair_t EvalBishopPair={500,500};
-const spair_t EvalBishopMob={40,30};
-const spair_t EvalRookPawnAffinity={-70,-70};
-const spair_t EvalRookMobFile={20,30};
-const spair_t EvalRookMobRank={10,20};
-const spair_t EvalRookOpenFile={100,50};
-const spair_t EvalRookSemiOpenFile={50,20};
-const spair_t EvalRookOn7th={50,100};
-const spair_t EvalRookTrapped={-400,0};
-const spair_t EvalKingShieldClose={150,0};
-const spair_t EvalKingShieldFar={50,0};
-const spair_t EvalTempoDefault={0,0};
+const vpair_t EvalMaterial[8]={{0,0},{900,1300},{3250,3250},{3250,3250},{3250,3250},{5000,5000},{10000,10000},{0,0}};
+const vpair_t EvalPawnDoubled={-100,-200};
+const vpair_t EvalPawnIsolated={-300,-200};
+const vpair_t EvalPawnBlocked={-100,-100};
+const vpair_t EvalPawnPassed[8]={{0,0},{100,150},{200,350},{250,650},{650,1050},{1050,1550},{1500,2150},{0,0}};
+const vpair_t EvalKnightPawnAffinity={30,30};
+const vpair_t EvalBishopPair={500,500};
+const vpair_t EvalBishopMob={40,30};
+const vpair_t EvalRookPawnAffinity={-70,-70};
+const vpair_t EvalRookMobFile={20,30};
+const vpair_t EvalRookMobRank={10,20};
+const vpair_t EvalRookOpenFile={100,50};
+const vpair_t EvalRookSemiOpenFile={50,20};
+const vpair_t EvalRookOn7th={50,100};
+const vpair_t EvalRookTrapped={-400,0};
+const vpair_t EvalKingShieldClose={150,0};
+const vpair_t EvalKingShieldFar={50,0};
+const vpair_t EvalTempoDefault={0,0};
 
-const spair_t EvalPawnPST[64]={
+const vpair_t EvalPawnPST[64]={
 {  -30, -410},{ -150, -400},{ -230, -380},{ -270, -370},{ -270, -370},{ -230, -380},{ -150, -400},{  -30, -410},
 { -150, -380},{    0, -350},{  -60, -340},{  -90, -320},{  -90, -320},{  -60, -340},{    0, -350},{ -150, -380},
 { -210, -300},{  -40, -270},{   70, -250},{   40, -220},{   40, -220},{   70, -250},{  -40, -270},{ -210, -300},
@@ -57,7 +59,7 @@ const spair_t EvalPawnPST[64]={
 { -100,  120},{   50,  140},{  170,  170},{  150,  200},{  150,  200},{  170,  170},{   50,  140},{ -100,  120},
 {   20,  330},{  180,  350},{  110,  370},{   80,  380},{   80,  380},{  110,  370},{  180,  350},{   20,  330},
 {  210,  580},{   90,  590},{   10,  610},{  -20,  620},{  -20,  620},{   10,  610},{   90,  590},{  210,  58}};
-const spair_t EvalKnightPST[64]={
+const vpair_t EvalKnightPST[64]={
 { -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
 { -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
 {  -70,  -30},{  -20,   20},{   10,   50},{   20,   60},{   20,   60},{   10,   50},{  -20,   20},{  -70,  -30},
@@ -66,7 +68,7 @@ const spair_t EvalKnightPST[64]={
 {    0,  -30},{   40,   20},{   70,   50},{   80,   60},{   80,   60},{   70,   50},{   40,   20},{    0,  -30},
 {  -10,  -60},{   40,  -10},{   70,   20},{   90,   30},{   90,   30},{   70,   20},{   40,  -10},{  -10,  -60},
 {  -20, -120},{   20,  -60},{   60,  -30},{   80,  -10},{   80,  -10},{   60,  -30},{   20,  -60},{  -20, -12}};
-const spair_t EvalBishopPST[64]={
+const vpair_t EvalBishopPST[64]={
 {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,  -75},
 {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
 {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
@@ -75,7 +77,7 @@ const spair_t EvalBishopPST[64]={
 {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
 {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
 {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,   -7}};
-const spair_t EvalKingPST[64]={
+const vpair_t EvalKingPST[64]={
 {  570, -460},{  570, -240},{  410, -120},{  330,  -40},{  330,  -40},{  410, -120},{  570, -240},{  570, -460},
 {  560, -240},{  320,  -40},{  140,   60},{   30,  120},{   30,  120},{  140,   60},{  320,  -40},{  560, -240},
 {  370, -120},{  110,   60},{ -110,  180},{ -260,  240},{ -260,  240},{ -110,  180},{  110,   60},{  370, -120},
@@ -94,17 +96,17 @@ size_t EvalMatTableSize=0;
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-spair_t EvaluateDefault(const pos_t *Pos);
+vpair_t EvaluateDefault(const pos_t *Pos);
 evalmatdata_t EvalMatCombo(const pos_t *Pos);
 void EvalComputeMat(const pos_t *Pos, evalmatdata_t *Data);
 evalpawndata_t EvalPawns(const pos_t *Pos);
 static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data);
-static inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score, const evalmatdata_t *Data);
+static inline vpair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
+static inline vpair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
+static inline vpair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
+static inline vpair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
+static inline vpair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
+static inline score_t EvalInterpolate(const pos_t *Pos, const vpair_t *Score, const evalmatdata_t *Data);
 void EvalPawnResize(size_t SizeMB);
 void EvalPawnFree();
 void EvalPawnReset();
@@ -115,10 +117,10 @@ void EvalMatFree();
 void EvalMatReset();
 static inline bool EvalMatRead(const pos_t *Pos, evalmatdata_t *Data);
 static inline void EvalMatWrite(const pos_t *Pos, evalmatdata_t *Data);
-static inline void EvalSPairAdd(spair_t *A, spair_t B);
-static inline void EvalSPairSub(spair_t *A, spair_t B);
-static inline void EvalSPairAddMul(spair_t *A, spair_t B, int C);
-static inline void EvalSPairSubMul(spair_t *A, spair_t B, int C);
+static inline void EvalVPairAdd(vpair_t *A, vpair_t B);
+static inline void EvalVPairSub(vpair_t *A, vpair_t B);
+static inline void EvalVPairAddMul(vpair_t *A, vpair_t B, int C);
+static inline void EvalVPairSubMul(vpair_t *A, vpair_t B, int C);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -143,16 +145,16 @@ score_t Evaluate(const pos_t *Pos)
   evalmatdata_t Data=EvalMatCombo(Pos);
   
   // Evaluate
-  spair_t Score=(*Data.Function)(Pos);
+  vpair_t Score=(*Data.Function)(Pos);
   
   // Material combination offset
-  EvalSPairAdd(&Score, Data.Offset);
+  EvalVPairAdd(&Score, Data.Offset);
   
   // Tempo bonus
   if (PosGetSTM(Pos)==white)
-    EvalSPairAdd(&Score, Data.Tempo);
+    EvalVPairAdd(&Score, Data.Tempo);
   else
-    EvalSPairSub(&Score, Data.Tempo);
+    EvalVPairSub(&Score, Data.Tempo);
   
   // Interpolate score based on phase of the game
   score_t ScalarScore=EvalInterpolate(Pos, &Score, &Data);
@@ -175,66 +177,66 @@ score_t Evaluate(const pos_t *Pos)
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-spair_t EvaluateDefault(const pos_t *Pos)
+vpair_t EvaluateDefault(const pos_t *Pos)
 {
-  spair_t Score={0,0};
+  vpair_t Score={0,0};
   const sq_t *Sq, *SqEnd;
   
   // Pawns
   evalpawndata_t PawnData=EvalPawns(Pos);
-  EvalSPairAdd(&Score, PawnData.Score);
+  EvalVPairAdd(&Score, PawnData.Score);
   
   // Knights
   Sq=PosGetPieceListStart(Pos, wknight);
   SqEnd=PosGetPieceListEnd(Pos, wknight);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairAdd(&Score, EvalKnight(Pos, *Sq, white, &PawnData));
+    EvalVPairAdd(&Score, EvalKnight(Pos, *Sq, white, &PawnData));
   Sq=PosGetPieceListStart(Pos, bknight);
   SqEnd=PosGetPieceListEnd(Pos, bknight);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairSub(&Score, EvalKnight(Pos, *Sq, black, &PawnData));
+    EvalVPairSub(&Score, EvalKnight(Pos, *Sq, black, &PawnData));
   
   // Bishops
   Sq=PosGetPieceListStart(Pos, wbishopl);
   SqEnd=PosGetPieceListEnd(Pos, wbishopl);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairAdd(&Score, EvalBishop(Pos, *Sq, white, &PawnData));
+    EvalVPairAdd(&Score, EvalBishop(Pos, *Sq, white, &PawnData));
   Sq=PosGetPieceListStart(Pos, wbishopd);
   SqEnd=PosGetPieceListEnd(Pos, wbishopd);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairAdd(&Score, EvalBishop(Pos, *Sq, white, &PawnData));
+    EvalVPairAdd(&Score, EvalBishop(Pos, *Sq, white, &PawnData));
   Sq=PosGetPieceListStart(Pos, bbishopl);
   SqEnd=PosGetPieceListEnd(Pos, bbishopl);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairSub(&Score, EvalBishop(Pos, *Sq, black, &PawnData));
+    EvalVPairSub(&Score, EvalBishop(Pos, *Sq, black, &PawnData));
   Sq=PosGetPieceListStart(Pos, bbishopd);
   SqEnd=PosGetPieceListEnd(Pos, bbishopd);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairSub(&Score, EvalBishop(Pos, *Sq, black, &PawnData));
+    EvalVPairSub(&Score, EvalBishop(Pos, *Sq, black, &PawnData));
   
   // Rooks
   Sq=PosGetPieceListStart(Pos, wrook);
   SqEnd=PosGetPieceListEnd(Pos, wrook);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairAdd(&Score, EvalRook(Pos, *Sq, white, &PawnData));
+    EvalVPairAdd(&Score, EvalRook(Pos, *Sq, white, &PawnData));
   Sq=PosGetPieceListStart(Pos, brook);
   SqEnd=PosGetPieceListEnd(Pos, brook);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairSub(&Score, EvalRook(Pos, *Sq, black, &PawnData));
+    EvalVPairSub(&Score, EvalRook(Pos, *Sq, black, &PawnData));
   
   // Queens
   Sq=PosGetPieceListStart(Pos, wqueen);
   SqEnd=PosGetPieceListEnd(Pos, wqueen);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairAdd(&Score, EvalQueen(Pos, *Sq, white, &PawnData));
+    EvalVPairAdd(&Score, EvalQueen(Pos, *Sq, white, &PawnData));
   Sq=PosGetPieceListStart(Pos, bqueen);
   SqEnd=PosGetPieceListEnd(Pos, bqueen);
   for(;Sq<SqEnd;++Sq)
-    EvalSPairSub(&Score, EvalQueen(Pos, *Sq, black, &PawnData));
+    EvalVPairSub(&Score, EvalQueen(Pos, *Sq, black, &PawnData));
   
   // Kings
-  EvalSPairAdd(&Score, EvalKing(Pos, PosGetKingSq(Pos, white), white, &PawnData));
-  EvalSPairSub(&Score, EvalKing(Pos, PosGetKingSq(Pos, black), black, &PawnData));
+  EvalVPairAdd(&Score, EvalKing(Pos, PosGetKingSq(Pos, white), white, &PawnData));
+  EvalVPairSub(&Score, EvalKing(Pos, PosGetKingSq(Pos, black), black, &PawnData));
   
   return Score;
 }
@@ -277,27 +279,27 @@ void EvalComputeMat(const pos_t *Pos, evalmatdata_t *Data)
   Data->WeightEG=floorf(255.0*exp2f(-((Weight*Weight)/144.0)));
   
   // Material
-  EvalSPairAddMul(&Data->Offset, EvalMaterial[pawn], POSMAT_GET(Mat, wpawn)-POSMAT_GET(Mat, bpawn));
-  EvalSPairAddMul(&Data->Offset, EvalMaterial[knight], POSMAT_GET(Mat, wknight)-POSMAT_GET(Mat, bknight));
-  EvalSPairAddMul(&Data->Offset, EvalMaterial[bishopl], (POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd))-(POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd)));
-  EvalSPairAddMul(&Data->Offset, EvalMaterial[rook], POSMAT_GET(Mat, wrook)-POSMAT_GET(Mat, brook));
-  EvalSPairAddMul(&Data->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
+  EvalVPairAddMul(&Data->Offset, EvalMaterial[pawn], POSMAT_GET(Mat, wpawn)-POSMAT_GET(Mat, bpawn));
+  EvalVPairAddMul(&Data->Offset, EvalMaterial[knight], POSMAT_GET(Mat, wknight)-POSMAT_GET(Mat, bknight));
+  EvalVPairAddMul(&Data->Offset, EvalMaterial[bishopl], (POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd))-(POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd)));
+  EvalVPairAddMul(&Data->Offset, EvalMaterial[rook], POSMAT_GET(Mat, wrook)-POSMAT_GET(Mat, brook));
+  EvalVPairAddMul(&Data->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
   
   // Knight pawn affinity
   int KnightAffW=POSMAT_GET(Mat, wknight)*(POSMAT_GET(Mat, wpawn)-5);
   int KnightAffB=POSMAT_GET(Mat, bknight)*(POSMAT_GET(Mat, bpawn)-5);
-  EvalSPairAddMul(&Data->Offset, EvalKnightPawnAffinity, KnightAffW-KnightAffB);
+  EvalVPairAddMul(&Data->Offset, EvalKnightPawnAffinity, KnightAffW-KnightAffB);
   
   // Rook pawn affinity
   int RookAffW=POSMAT_GET(Mat, wrook)*(POSMAT_GET(Mat, wpawn)-5);
   int RookAffB=POSMAT_GET(Mat, brook)*(POSMAT_GET(Mat, bpawn)-5);
-  EvalSPairAddMul(&Data->Offset, EvalRookPawnAffinity, RookAffW-RookAffB);
+  EvalVPairAddMul(&Data->Offset, EvalRookPawnAffinity, RookAffW-RookAffB);
   
   // Bishop pair bonus
   if (WBishopL && WBishopD)
-    EvalSPairAdd(&Data->Offset, EvalBishopPair);
+    EvalVPairAdd(&Data->Offset, EvalBishopPair);
   if (BBishopL && BBishopD)
-    EvalSPairSub(&Data->Offset, EvalBishopPair);
+    EvalVPairSub(&Data->Offset, EvalBishopPair);
   
   #undef M
   return;
@@ -354,18 +356,18 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
     bool Passed=((BB & PotPassedW)!=0);
     
     // Calculate score
-    EvalSPairAdd(&Data->Score, EvalPawnPST[*Sq]);
+    EvalVPairAdd(&Data->Score, EvalPawnPST[*Sq]);
     if (Doubled)
-      EvalSPairAdd(&Data->Score, EvalPawnDoubled);
+      EvalVPairAdd(&Data->Score, EvalPawnDoubled);
     else if (Passed)
     {
-      EvalSPairAdd(&Data->Score, EvalPawnPassed[SQ_Y(*Sq)]);
+      EvalVPairAdd(&Data->Score, EvalPawnPassed[SQ_Y(*Sq)]);
       Data->Passed[white]|=BB;
     }
     if (Isolated)
-      EvalSPairAdd(&Data->Score, EvalPawnIsolated);
+      EvalVPairAdd(&Data->Score, EvalPawnIsolated);
     if (Blocked)
-      EvalSPairAdd(&Data->Score, EvalPawnBlocked);
+      EvalVPairAdd(&Data->Score, EvalPawnBlocked);
   }
   Sq=PosGetPieceListStart(Pos, bpawn);
   SqEnd=PosGetPieceListEnd(Pos, bpawn);
@@ -379,71 +381,71 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
     bool Passed=((BB & PotPassedB)!=0);
     
     // Calculate score
-    EvalSPairSub(&Data->Score, EvalPawnPST[SQ_FLIP(*Sq)]);
+    EvalVPairSub(&Data->Score, EvalPawnPST[SQ_FLIP(*Sq)]);
     if (Doubled)
-      EvalSPairSub(&Data->Score, EvalPawnDoubled);
+      EvalVPairSub(&Data->Score, EvalPawnDoubled);
     else if (Passed)
     {
-      EvalSPairSub(&Data->Score, EvalPawnPassed[SQ_Y(SQ_FLIP(*Sq))]);
+      EvalVPairSub(&Data->Score, EvalPawnPassed[SQ_Y(SQ_FLIP(*Sq))]);
       Data->Passed[black]|=BB;
     }
     if (Isolated)
-      EvalSPairSub(&Data->Score, EvalPawnIsolated);
+      EvalVPairSub(&Data->Score, EvalPawnIsolated);
     if (Blocked)
-      EvalSPairSub(&Data->Score, EvalPawnBlocked);
+      EvalVPairSub(&Data->Score, EvalPawnBlocked);
   }
 }
 
-static inline spair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
+static inline vpair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
 {
-  spair_t Score={0,0};
+  vpair_t Score={0,0};
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   
   // PST
-  EvalSPairAdd(&Score, EvalKnightPST[AdjSq]);
+  EvalVPairAdd(&Score, EvalKnightPST[AdjSq]);
   
   return Score;
 }
 
-static inline spair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
+static inline vpair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
 {
-  spair_t Score={0,0};
+  vpair_t Score={0,0};
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   
   // PST
-  EvalSPairAdd(&Score, EvalBishopPST[AdjSq]);
+  EvalVPairAdd(&Score, EvalBishopPST[AdjSq]);
   
   // Mobility
   bb_t Attacks=AttacksBishop(Sq, PosGetBBAll(Pos));
-  EvalSPairAddMul(&Score, EvalBishopMob, BBPopCount(Attacks)-6);
+  EvalVPairAddMul(&Score, EvalBishopMob, BBPopCount(Attacks)-6);
   
   return Score;
 }
 
-static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
+static inline vpair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
 {
-  spair_t Score={0,0};
+  vpair_t Score={0,0};
   bb_t BB=SQTOBB(Sq);
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   bb_t Rank=BBSqToRank(Sq);
   
   // Mobility
   bb_t Attacks=AttacksRook(Sq, PosGetBBAll(Pos));
-  EvalSPairAddMul(&Score, EvalRookMobFile, BBPopCount(Attacks & BBFileFill(BB)));
-  EvalSPairAddMul(&Score, EvalRookMobRank, BBPopCount(Attacks & Rank));
+  EvalVPairAddMul(&Score, EvalRookMobFile, BBPopCount(Attacks & BBFileFill(BB)));
+  EvalVPairAddMul(&Score, EvalRookMobRank, BBPopCount(Attacks & Rank));
   
   // Open and semi-open files
   if (BB & PawnData->OpenFiles)
-    EvalSPairAdd(&Score, EvalRookOpenFile);
+    EvalVPairAdd(&Score, EvalRookOpenFile);
   else if (BB & PawnData->SemiOpenFiles[Colour])
-    EvalSPairAdd(&Score, EvalRookSemiOpenFile);
+    EvalVPairAdd(&Score, EvalRookSemiOpenFile);
   
   // Rook on 7th
   bb_t OppPawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, COL_SWAP(Colour)));
   sq_t AdjOppKingSq=(Colour==white ? PosGetKingSq(Pos, black) :
                                      SQ_FLIP(PosGetKingSq(Pos, white)));
   if (SQ_Y(AdjSq)==6 && ((Rank & OppPawns) || SQ_Y(AdjOppKingSq)==7))
-    EvalSPairAdd(&Score, EvalRookOn7th);
+    EvalVPairAdd(&Score, EvalRookOn7th);
   
   // Trapped
   bb_t KingBB=PosGetBBPiece(Pos, PIECE_MAKE(king, Colour));
@@ -451,46 +453,46 @@ static inline spair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
   {
     if (((BB & (BBG1 | BBH1)) && (KingBB & (BBF1 | BBG1))) ||
         ((BB & (BBA1 | BBB1)) && (KingBB & (BBB1 | BBC1))))
-      EvalSPairAdd(&Score, EvalRookTrapped);
+      EvalVPairAdd(&Score, EvalRookTrapped);
   }
   else
   {
     if (((BB & (BBG8 | BBH8)) && (KingBB & (BBF8 | BBG8))) ||
         ((BB & (BBA8 | BBB8)) && (KingBB & (BBB8 | BBC8))))
-      EvalSPairAdd(&Score, EvalRookTrapped);
+      EvalVPairAdd(&Score, EvalRookTrapped);
   }
   
   return Score;
 }
 
-static inline spair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
+static inline vpair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
 {
-  spair_t Score={0,0};
+  vpair_t Score={0,0};
   
   return Score;
 }
 
-static inline spair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
+static inline vpair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
 {
-  spair_t Score={0,0};
+  vpair_t Score={0,0};
   bb_t BB=SQTOBB(Sq), Set;
   bb_t Pawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, Colour));
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   
   // PST
-  EvalSPairAdd(&Score, EvalKingPST[AdjSq]);
+  EvalVPairAdd(&Score, EvalKingPST[AdjSq]);
   
   // Pawn shield
   Set=BBForwardOne(BBWestOne(BB) | BB | BBEastOne(BB), Colour);
   bb_t ShieldClose=(Pawns & Set);
   bb_t ShieldFar=(Pawns & BBForwardOne(Set, Colour));
-  EvalSPairAddMul(&Score, EvalKingShieldClose, BBPopCount(ShieldClose));
-  EvalSPairAddMul(&Score, EvalKingShieldFar, BBPopCount(ShieldFar));
+  EvalVPairAddMul(&Score, EvalKingShieldClose, BBPopCount(ShieldClose));
+  EvalVPairAddMul(&Score, EvalKingShieldFar, BBPopCount(ShieldFar));
   
   return Score;
 }
 
-static inline score_t EvalInterpolate(const pos_t *Pos, const spair_t *Score, const evalmatdata_t *Data)
+static inline score_t EvalInterpolate(const pos_t *Pos, const vpair_t *Score, const evalmatdata_t *Data)
 {
   // Interpolate and also scale to centi-pawns
   int WeightEG=Data->WeightEG;
@@ -623,25 +625,25 @@ static inline void EvalMatWrite(const pos_t *Pos, evalmatdata_t *Data)
   EvalMatTable[Index]=*Data;
 }
 
-static inline void EvalSPairAdd(spair_t *A, spair_t B)
+static inline void EvalVPairAdd(vpair_t *A, vpair_t B)
 {
   A->MG+=B.MG;
   A->EG+=B.EG;
 }
 
-static inline void EvalSPairSub(spair_t *A, spair_t B)
+static inline void EvalVPairSub(vpair_t *A, vpair_t B)
 {
   A->MG-=B.MG;
   A->EG-=B.EG;
 }
 
-static inline void EvalSPairAddMul(spair_t *A, spair_t B, int C)
+static inline void EvalVPairAddMul(vpair_t *A, vpair_t B, int C)
 {
   A->MG+=B.MG*C;
   A->EG+=B.EG*C;
 }
 
-static inline void EvalSPairSubMul(spair_t *A, spair_t B, int C)
+static inline void EvalVPairSubMul(vpair_t *A, vpair_t B, int C)
 {
   A->MG-=B.MG*C;
   A->EG-=B.EG*C;

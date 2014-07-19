@@ -7,15 +7,15 @@ bool FENRead(fen_t *Data, const char *String)
   // Fen requires 4-6 fields separated by spaces
   const char *Fields[6];
   Fields[0]=String;
-  int I;
-  for(I=1;I<6;++I)
+  int FieldCount;
+  for(FieldCount=1;FieldCount<6;FieldCount++)
   {
-    char *Next=strstr(Fields[I-1], " ");
+    char *Next=strstr(Fields[FieldCount-1], " ");
     if (Next==NULL)
       break;
-    Fields[I]=Next+1;
+    Fields[FieldCount]=Next+1;
   }
-  if (I<=3)
+  if (FieldCount<=3)
     return false; // Not enough fields given
   
   // Clear data struct
@@ -93,11 +93,11 @@ bool FENRead(fen_t *Data, const char *String)
   }
   
   // 5. Halfmove clock
-  if (Fields[4]!=NULL)
+  if (FieldCount>=5)
     Data->HalfMoveClock=atoi(Fields[4]);
   
   // 6. Fullmove number
-  if (Fields[5]!=NULL)
+  if (FieldCount>=6)
     Data->FullMoveNumber=atoi(Fields[5]);
   
   return true;

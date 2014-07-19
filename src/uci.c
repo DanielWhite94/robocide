@@ -4,6 +4,7 @@
 #include "perft.h"
 #include "pos.h"
 #include "search.h"
+#include "see.h"
 #include "time.h"
 #include "uci.h"
 
@@ -237,6 +238,20 @@ void UCILoop()
       unsigned int Depth=atoi(Part);
       if (Depth>=1)
         Divide(Pos, Depth);
+    }
+    else if (!strcmp(Part, "see"))
+    {
+      move_t Moves[MOVES_MAX], *Move;
+      move_t *End=PosGenPseudoMoves(Pos, Moves);
+      for(Move=Moves;Move<End;++Move)
+      {
+        sq_t ToSq=MOVE_GETTOSQ(*Move);
+        if (PosGetPieceOnSq(Pos, ToSq)==empty)
+          continue;
+        char Str[8];
+        PosMoveToStr(*Move, Str);
+        printf("  %6s %4i\n", Str, SEE(Pos, MOVE_GETFROMSQ(*Move), ToSq));
+      }
     }
     else if (!strcmp(Part, "uci"))
     {

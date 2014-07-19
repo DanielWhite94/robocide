@@ -487,31 +487,31 @@ bool PosIsSqAttackedByColour(const pos_t *Pos, sq_t Sq, col_t C)
 {
   bb_t Occ=PosGetBBAll(Pos);
   
-  /* Pawns */
+  // Pawns
   if (BBForwardOne(BBWingify(PosGetBBPiece(Pos, PIECE_MAKE(pawn, C))), C) &
       BBSqToBB(Sq))
     return true;
   
-  /* Knights */
+  // Knights
   if (AttacksKnight(Sq) & PosGetBBPiece(Pos, PIECE_MAKE(knight, C)))
     return true;
   
-  /* Bishops */
+  // Bishops
   bb_t BishopSet=AttacksBishop(Sq, Occ);
   if (BishopSet & (PosGetBBPiece(Pos, PIECE_MAKE(bishopl, C)) |
                    PosGetBBPiece(Pos, PIECE_MAKE(bishopd, C))))
     return true;
   
-  /* Rooks */
+  // Rooks
   bb_t RookSet=AttacksRook(Sq, Occ);
   if (RookSet & PosGetBBPiece(Pos, PIECE_MAKE(rook, C)))
     return true;
   
-  /* Queens */
+  // Queens
   if ((BishopSet | RookSet) & PosGetBBPiece(Pos, PIECE_MAKE(queen, C)))
     return true;
   
-  /* King */
+  // King
   if (AttacksKing(Sq) & PosGetBBPiece(Pos, PIECE_MAKE(king, C)))
     return true;
   

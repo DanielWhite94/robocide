@@ -26,19 +26,19 @@ typedef enum
 
 typedef struct
 {
-  void(*Function)(bool Value);
+  void(*Function)(bool Value, void *UserData);
   bool Default;
 }ucioptioncheck_t;
 
 typedef struct
 {
-  void(*Function)(int Value);
+  void(*Function)(int Value, void *UserData);
   int Min, Max, Default;
 }ucioptionspin_t;
 
 typedef struct
 {
-  void(*Function)(const char *Value);
+  void(*Function)(const char *Value, void *UserData);
   char *Default;
   char **Options; // Default should also be in this list
   int OptionCount;
@@ -46,12 +46,12 @@ typedef struct
 
 typedef struct
 {
-  void(*Function)(void);
+  void(*Function)(void *UserData);
 }ucioptionbutton_t;
 
 typedef struct
 {
-  void(*Function)(const char *Value);
+  void(*Function)(const char *Value, void *UserData);
   char *Default;
 }ucioptionstring_t;
 
@@ -59,6 +59,7 @@ typedef struct
 {
   char *Name;
   ucioptiontype_t Type;
+  void *UserData;
   union
   {
     ucioptioncheck_t Check;
@@ -267,7 +268,7 @@ void UCILoop()
   UCIQuit();
 }
 
-bool UCIOptionNewCheck(const char *Name, void(*Function)(bool Value), bool Default)
+bool UCIOptionNewCheck(const char *Name, void(*Function)(bool Value, void *UserData), void *UserData, bool Default)
 {
   // Allocate any memory needed
   char *NameMem=malloc(strlen(Name)+1);
@@ -286,13 +287,14 @@ bool UCIOptionNewCheck(const char *Name, void(*Function)(bool Value), bool Defau
   Option->Name=NameMem;
   strcpy(Option->Name, Name);
   Option->Type=ucioptiontype_check;
+  Option->UserData=UserData;
   Option->Data.Check.Function=Function;
   Option->Data.Check.Default=Default;
   
   return true;
 }
 
-bool UCIOptionNewSpin(const char *Name, void(*Function)(int Value), int Min, int Max, int Default)
+bool UCIOptionNewSpin(const char *Name, void(*Function)(int Value, void *UserData), void *UserData, int Min, int Max, int Default)
 {
   // Allocate any memory needed
   char *NameMem=malloc(strlen(Name)+1);
@@ -311,6 +313,7 @@ bool UCIOptionNewSpin(const char *Name, void(*Function)(int Value), int Min, int
   Option->Name=NameMem;
   strcpy(Option->Name, Name);
   Option->Type=ucioptiontype_spin;
+  Option->UserData=UserData;
   Option->Data.Spin.Function=Function;
   Option->Data.Spin.Min=Min;
   Option->Data.Spin.Max=Max;
@@ -319,7 +322,7 @@ bool UCIOptionNewSpin(const char *Name, void(*Function)(int Value), int Min, int
   return true;
 }
 
-bool UCIOptionNewCombo(const char *Name, void(*Function)(const char *Value), const char *Default, int OptionCount, ...)
+bool UCIOptionNewCombo(const char *Name, void(*Function)(const char *Value, void *UserData), void *UserData, const char *Default, int OptionCount, ...)
 {
   // Allocate any memory needed
   char *NameMem=malloc(strlen(Name)+1);
@@ -371,6 +374,7 @@ bool UCIOptionNewCombo(const char *Name, void(*Function)(const char *Value), con
   Option->Name=NameMem;
   strcpy(Option->Name, Name);
   Option->Type=ucioptiontype_combo;
+  Option->UserData=UserData;
   Option->Data.Combo.Function=Function;
   Option->Data.Combo.Default=DefaultMem;
   strcpy(Option->Data.Combo.Default, Default);
@@ -380,7 +384,7 @@ bool UCIOptionNewCombo(const char *Name, void(*Function)(const char *Value), con
   return true;
 }
 
-bool UCIOptionNewButton(const char *Name, void(*Function)(void))
+bool UCIOptionNewButton(const char *Name, void(*Function)(void *UserData), void *UserData)
 {
   // Allocate any memory needed
   char *NameMem=malloc(strlen(Name)+1);
@@ -399,12 +403,13 @@ bool UCIOptionNewButton(const char *Name, void(*Function)(void))
   Option->Name=NameMem;
   strcpy(Option->Name, Name);
   Option->Type=ucioptiontype_button;
+  Option->UserData=UserData;
   Option->Data.Button.Function=Function;
   
   return true;
 }
 
-bool UCIOptionNewString(const char *Name, void(*Function)(const char *Value), const char *Default)
+bool UCIOptionNewString(const char *Name, void(*Function)(const char *Value, void *UserData), void *UserData, const char *Default)
 {
   // Allocate any memory need
   char *NameMem=malloc(strlen(Name)+1);
@@ -429,6 +434,7 @@ bool UCIOptionNewString(const char *Name, void(*Function)(const char *Value), co
   Option->Name=NameMem;
   strcpy(Option->Name, Name);
   Option->Type=ucioptiontype_string;
+  Option->UserData=UserData;
   Option->Data.String.Function=Function;
   Option->Data.String.Default=DefaultMem;
   strcpy(Option->Data.String.Default, Default);
@@ -509,7 +515,7 @@ void UCIOptionParseSetOptionString(char *String)
   {
     case ucioptiontype_check:
       BoolValue=UCIStringToBool(Value);
-      (*Option->Data.Check.Function)(BoolValue);
+      (*Option->Data.Check.Function)(BoolValue, Option->UserData);
     break;
     case ucioptiontype_spin:
       IntValue=atoi(Value);
@@ -517,21 +523,21 @@ void UCIOptionParseSetOptionString(char *String)
         IntValue=Option->Data.Spin.Min;
       if (IntValue>Option->Data.Spin.Max)
         IntValue=Option->Data.Spin.Max;
-      (*Option->Data.Spin.Function)(IntValue);
+      (*Option->Data.Spin.Function)(IntValue, Option->UserData);
     break;
     case ucioptiontype_combo:
       for(I=0;I<Option->Data.Combo.OptionCount;++I)
         if (!strcmp(Option->Data.Combo.Options[I], Value))
         {
-          (*Option->Data.Combo.Function)(Option->Data.Combo.Options[I]);
+          (*Option->Data.Combo.Function)(Option->Data.Combo.Options[I], Option->UserData);
           break;
         }
     break;
     case ucioptiontype_button:
-      (*Option->Data.Button.Function)();
+      (*Option->Data.Button.Function)(Option->UserData);
     break;
     case ucioptiontype_string:
-      (*Option->Data.String.Function)(Value);
+      (*Option->Data.String.Function)(Value, Option->UserData);
     break;
   }
 }

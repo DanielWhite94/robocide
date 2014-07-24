@@ -93,14 +93,17 @@ void SearchHistoryUpdate(const node_t *N);
 void SearchHistoryAge();
 void SearchHistoryReset();
 void SearchTTResize(int SizeMB);
+void SearchTTResizeWrapper(int SizeMB, void *Dummy);
 void SearchTTFree();
 void SearchTTReset();
+void SearchTTResetWrapper(void *Dummy);
 bool SearchTTRead(node_t *N, move_t *Move);
 void SearchTTWrite(const node_t *N);
 static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE);
 static inline score_t SearchTTToScore(score_t S, int Ply);
 static inline score_t SearchScoreToTT(score_t S, int Ply);
 void SearchSetPonder(bool Ponder);
+void SearchSetPonderWrapper(bool Ponder, void *Dummy);
 static inline bool SearchIsZugzwang(const node_t *N);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -118,12 +121,12 @@ bool SearchInit()
   SearchHistoryReset();
   
   // Init TT table
-  UCIOptionNewSpin("Hash", &SearchTTResize, 0, 16*1024, 16);
-  UCIOptionNewButton("Clear Hash", &SearchTTReset);
+  UCIOptionNewSpin("Hash", &SearchTTResizeWrapper, NULL, 0, 16*1024, 16);
+  UCIOptionNewButton("Clear Hash", &SearchTTResetWrapper, NULL);
   SearchTTResize(16);
   
   // Init pondering
-  UCIOptionNewCheck("Ponder", &SearchSetPonder, SearchPonder);
+  UCIOptionNewCheck("Ponder", &SearchSetPonderWrapper, NULL, SearchPonder);
   
   return true;
 }
@@ -774,6 +777,11 @@ void SearchTTResize(int SizeMB)
   SearchTTFree();
 }
 
+void SearchTTResizeWrapper(int SizeMB, void *Dummy)
+{
+  SearchTTResize(SizeMB);
+}
+
 void SearchTTFree()
 {
   free(SearchTT);
@@ -784,6 +792,11 @@ void SearchTTFree()
 void SearchTTReset()
 {
   memset(SearchTT, 0, SearchTTSize*sizeof(tt_t)); // HACK
+}
+
+void SearchTTResetWrapper(void *Dummy)
+{
+  SearchTTReset();
 }
 
 bool SearchTTRead(node_t *N, move_t *Move)
@@ -876,6 +889,11 @@ static inline score_t SearchScoreToTT(score_t S, int Ply)
 void SearchSetPonder(bool Ponder)
 {
   SearchPonder=Ponder;
+}
+
+void SearchSetPonderWrapper(bool Ponder, void *Dummy)
+{
+  SearchSetPonder(Ponder);
 }
 
 static inline bool SearchIsZugzwang(const node_t *N)

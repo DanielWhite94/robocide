@@ -4,6 +4,9 @@
 #include "attacks.h"
 #include "eval.h"
 #include "util.h"
+#ifdef TUNE
+# include "uci.h"
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // 
@@ -21,6 +24,8 @@ typedef struct
   bb_t Pawns[2], Passed[2], SemiOpenFiles[2], OpenFiles;
   vpair_t Score;
 }evalpawndata_t;
+evalpawndata_t *EvalPawnTable=NULL;
+size_t EvalPawnTableSize=0;
 
 typedef struct
 {
@@ -29,28 +34,33 @@ typedef struct
   vpair_t Offset, Tempo;
   uint8_t Factor, WeightEG;
 }evalmatdata_t;
+evalmatdata_t *EvalMatTable=NULL;
+size_t EvalMatTableSize=0;
 
+
+////////////////////////////////////////////////////////////////////////////////
 // Tunable values
-const vpair_t EvalMaterial[8]={{0,0},{900,1300},{3250,3250},{3250,3250},{3250,3250},{5000,5000},{10000,10000},{0,0}};
-const vpair_t EvalPawnDoubled={-100,-200};
-const vpair_t EvalPawnIsolated={-300,-200};
-const vpair_t EvalPawnBlocked={-100,-100};
-const vpair_t EvalPawnPassed[8]={{0,0},{100,150},{200,350},{250,650},{650,1050},{1050,1550},{1500,2150},{0,0}};
-const vpair_t EvalKnightPawnAffinity={30,30};
-const vpair_t EvalBishopPair={500,500};
-const vpair_t EvalBishopMob={40,30};
-const vpair_t EvalRookPawnAffinity={-70,-70};
-const vpair_t EvalRookMobFile={20,30};
-const vpair_t EvalRookMobRank={10,20};
-const vpair_t EvalRookOpenFile={100,50};
-const vpair_t EvalRookSemiOpenFile={50,20};
-const vpair_t EvalRookOn7th={50,100};
-const vpair_t EvalRookTrapped={-400,0};
-const vpair_t EvalKingShieldClose={150,0};
-const vpair_t EvalKingShieldFar={50,0};
-const vpair_t EvalTempoDefault={0,0};
+////////////////////////////////////////////////////////////////////////////////
+TUNECONST vpair_t EvalMaterial[8]={{0,0},{900,1300},{3250,3250},{3250,3250},{3250,3250},{5000,5000},{10000,10000},{0,0}};
+TUNECONST vpair_t EvalPawnDoubled={-100,-200};
+TUNECONST vpair_t EvalPawnIsolated={-300,-200};
+TUNECONST vpair_t EvalPawnBlocked={-100,-100};
+TUNECONST vpair_t EvalPawnPassed[8]={{0,0},{100,150},{200,350},{250,650},{650,1050},{1050,1550},{1500,2150},{0,0}};
+TUNECONST vpair_t EvalKnightPawnAffinity={30,30};
+TUNECONST vpair_t EvalBishopPair={500,500};
+TUNECONST vpair_t EvalBishopMob={40,30};
+TUNECONST vpair_t EvalRookPawnAffinity={-70,-70};
+TUNECONST vpair_t EvalRookMobFile={20,30};
+TUNECONST vpair_t EvalRookMobRank={10,20};
+TUNECONST vpair_t EvalRookOpenFile={100,50};
+TUNECONST vpair_t EvalRookSemiOpenFile={50,20};
+TUNECONST vpair_t EvalRookOn7th={50,100};
+TUNECONST vpair_t EvalRookTrapped={-400,0};
+TUNECONST vpair_t EvalKingShieldClose={150,0};
+TUNECONST vpair_t EvalKingShieldFar={50,0};
+TUNECONST vpair_t EvalTempoDefault={0,0};
 
-const vpair_t EvalPawnPST[64]={
+TUNECONST vpair_t EvalPawnPST[64]={
 {  -30, -410},{ -150, -400},{ -230, -380},{ -270, -370},{ -270, -370},{ -230, -380},{ -150, -400},{  -30, -410},
 { -150, -380},{    0, -350},{  -60, -340},{  -90, -320},{  -90, -320},{  -60, -340},{    0, -350},{ -150, -380},
 { -210, -300},{  -40, -270},{   70, -250},{   40, -220},{   40, -220},{   70, -250},{  -40, -270},{ -210, -300},
@@ -59,7 +69,7 @@ const vpair_t EvalPawnPST[64]={
 { -100,  120},{   50,  140},{  170,  170},{  150,  200},{  150,  200},{  170,  170},{   50,  140},{ -100,  120},
 {   20,  330},{  180,  350},{  110,  370},{   80,  380},{   80,  380},{  110,  370},{  180,  350},{   20,  330},
 {  210,  580},{   90,  590},{   10,  610},{  -20,  620},{  -20,  620},{   10,  610},{   90,  590},{  210,  58}};
-const vpair_t EvalKnightPST[64]={
+TUNECONST vpair_t EvalKnightPST[64]={
 { -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
 { -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
 {  -70,  -30},{  -20,   20},{   10,   50},{   20,   60},{   20,   60},{   10,   50},{  -20,   20},{  -70,  -30},
@@ -68,7 +78,7 @@ const vpair_t EvalKnightPST[64]={
 {    0,  -30},{   40,   20},{   70,   50},{   80,   60},{   80,   60},{   70,   50},{   40,   20},{    0,  -30},
 {  -10,  -60},{   40,  -10},{   70,   20},{   90,   30},{   90,   30},{   70,   20},{   40,  -10},{  -10,  -60},
 {  -20, -120},{   20,  -60},{   60,  -30},{   80,  -10},{   80,  -10},{   60,  -30},{   20,  -60},{  -20, -12}};
-const vpair_t EvalBishopPST[64]={
+TUNECONST vpair_t EvalBishopPST[64]={
 {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,  -75},
 {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
 {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
@@ -77,7 +87,7 @@ const vpair_t EvalBishopPST[64]={
 {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
 {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
 {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,   -7}};
-const vpair_t EvalKingPST[64]={
+TUNECONST vpair_t EvalKingPST[64]={
 {  570, -460},{  570, -240},{  410, -120},{  330,  -40},{  330,  -40},{  410, -120},{  570, -240},{  570, -460},
 {  560, -240},{  320,  -40},{  140,   60},{   30,  120},{   30,  120},{  140,   60},{  320,  -40},{  560, -240},
 {  370, -120},{  110,   60},{ -110,  180},{ -260,  240},{ -260,  240},{ -110,  180},{  110,   60},{  370, -120},
@@ -86,11 +96,6 @@ const vpair_t EvalKingPST[64]={
 {  160, -120},{ -100,   60},{ -320,  180},{ -480,  240},{ -480,  240},{ -320,  180},{ -100,   60},{  160, -120},
 {  200, -240},{  -30,  -40},{ -210,   60},{ -310,  120},{ -310,  120},{ -210,   60},{  -30,  -40},{  200, -240},
 {  290, -460},{   70, -240},{  -80, -120},{ -160,  -40},{ -160,  -40},{  -80, -120},{   70, -240},{  290, -46}};
-
-evalpawndata_t *EvalPawnTable=NULL;
-size_t EvalPawnTableSize=0;
-evalmatdata_t *EvalMatTable=NULL;
-size_t EvalMatTableSize=0;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -121,6 +126,9 @@ static inline void EvalVPairAdd(vpair_t *A, vpair_t B);
 static inline void EvalVPairSub(vpair_t *A, vpair_t B);
 static inline void EvalVPairAddMul(vpair_t *A, vpair_t B, int C);
 static inline void EvalVPairSubMul(vpair_t *A, vpair_t B, int C);
+#ifdef TUNE
+void EvalSetValue(int Value, void *UserData);
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -131,6 +139,53 @@ void EvalInit()
   // Init pawn and mat hash tables
   EvalPawnResize(1); // 1mb
   EvalMatResize(16); // 16kb
+  
+  // Setup callbacks for tuning values
+# ifdef TUNE
+  value_t Min=-32767, Max=32767;
+  UCIOptionNewSpin("PawnMG", &EvalSetValue, &EvalMaterial[pawn].MG, Min, Max, EvalMaterial[pawn].MG);
+  UCIOptionNewSpin("PawnEG", &EvalSetValue, &EvalMaterial[pawn].EG, Min, Max, EvalMaterial[pawn].EG);
+  UCIOptionNewSpin("KnightMG", &EvalSetValue, &EvalMaterial[knight].MG, Min, Max, EvalMaterial[knight].MG);
+  UCIOptionNewSpin("KnightEG", &EvalSetValue, &EvalMaterial[knight].EG, Min, Max, EvalMaterial[knight].EG);
+  UCIOptionNewSpin("BishopMG", &EvalSetValue, &EvalMaterial[bishopl].MG, Min, Max, EvalMaterial[bishopl].MG);
+  UCIOptionNewSpin("BishopEG", &EvalSetValue, &EvalMaterial[bishopl].EG, Min, Max, EvalMaterial[bishopl].EG);
+  UCIOptionNewSpin("RookMG", &EvalSetValue, &EvalMaterial[rook].MG, Min, Max, EvalMaterial[rook].MG);
+  UCIOptionNewSpin("RookEG", &EvalSetValue, &EvalMaterial[rook].EG, Min, Max, EvalMaterial[rook].EG);
+  UCIOptionNewSpin("QueenMG", &EvalSetValue, &EvalMaterial[queen].MG, Min, Max, EvalMaterial[queen].MG);
+  UCIOptionNewSpin("QueenEG", &EvalSetValue, &EvalMaterial[queen].EG, Min, Max, EvalMaterial[queen].EG);
+  UCIOptionNewSpin("PawnDoubledMG", &EvalSetValue, &EvalPawnDoubled.MG, Min, Max, EvalPawnDoubled.MG);
+  UCIOptionNewSpin("PawnDoubledEG", &EvalSetValue, &EvalPawnDoubled.EG, Min, Max, EvalPawnDoubled.EG);
+  UCIOptionNewSpin("PawnIsolatedMG", &EvalSetValue, &EvalPawnIsolated.MG, Min, Max, EvalPawnIsolated.MG);
+  UCIOptionNewSpin("PawnIsolatedEG", &EvalSetValue, &EvalPawnIsolated.EG, Min, Max, EvalPawnIsolated.EG);
+  UCIOptionNewSpin("PawnBlockedMG", &EvalSetValue, &EvalPawnBlocked.MG, Min, Max, EvalPawnBlocked.MG);
+  UCIOptionNewSpin("PawnBlockedEG", &EvalSetValue, &EvalPawnBlocked.EG, Min, Max, EvalPawnBlocked.EG);
+  UCIOptionNewSpin("KnightPawnAffinityMG", &EvalSetValue, &EvalKnightPawnAffinity.MG, Min, Max, EvalKnightPawnAffinity.MG);
+  UCIOptionNewSpin("KnightPawnAffinityEG", &EvalSetValue, &EvalKnightPawnAffinity.EG, Min, Max, EvalKnightPawnAffinity.EG);
+  UCIOptionNewSpin("BishopPairMG", &EvalSetValue, &EvalBishopPair.MG, Min, Max, EvalBishopPair.MG);
+  UCIOptionNewSpin("BishopPairEG", &EvalSetValue, &EvalBishopPair.EG, Min, Max, EvalBishopPair.EG);
+  UCIOptionNewSpin("BishopMobilityMG", &EvalSetValue, &EvalBishopMob.MG, Min, Max, EvalBishopMob.MG);
+  UCIOptionNewSpin("BishopMobilityEG", &EvalSetValue, &EvalBishopMob.EG, Min, Max, EvalBishopMob.EG);
+  UCIOptionNewSpin("RookPawnAffinityMG", &EvalSetValue, &EvalRookPawnAffinity.MG, Min, Max, EvalRookPawnAffinity.MG);
+  UCIOptionNewSpin("RookPawnAffinityEG", &EvalSetValue, &EvalRookPawnAffinity.EG, Min, Max, EvalRookPawnAffinity.EG);
+  UCIOptionNewSpin("RookMobilityFileMG", &EvalSetValue, &EvalRookMobFile.MG, Min, Max, EvalRookMobFile.MG);
+  UCIOptionNewSpin("RookMobilityFileEG", &EvalSetValue, &EvalRookMobFile.EG, Min, Max, EvalRookMobFile.EG);
+  UCIOptionNewSpin("RookMobilityRankMG", &EvalSetValue, &EvalRookMobRank.MG, Min, Max, EvalRookMobRank.MG);
+  UCIOptionNewSpin("RookMobilityRankEG", &EvalSetValue, &EvalRookMobRank.EG, Min, Max, EvalRookMobRank.EG);
+  UCIOptionNewSpin("RookOpenFileMG", &EvalSetValue, &EvalRookOpenFile.MG, Min, Max, EvalRookOpenFile.MG);
+  UCIOptionNewSpin("RookOpenFileEG", &EvalSetValue, &EvalRookOpenFile.EG, Min, Max, EvalRookOpenFile.EG);
+  UCIOptionNewSpin("RookSemiOpenFileMG", &EvalSetValue, &EvalRookSemiOpenFile.MG, Min, Max, EvalRookSemiOpenFile.MG);
+  UCIOptionNewSpin("RookSemiOpenFileEG", &EvalSetValue, &EvalRookSemiOpenFile.EG, Min, Max, EvalRookSemiOpenFile.EG);
+  UCIOptionNewSpin("RookOn7thMG", &EvalSetValue, &EvalRookOn7th.MG, Min, Max, EvalRookOn7th.MG);
+  UCIOptionNewSpin("RookOn7thEG", &EvalSetValue, &EvalRookOn7th.EG, Min, Max, EvalRookOn7th.EG);
+  UCIOptionNewSpin("RookTrappedMG", &EvalSetValue, &EvalRookTrapped.MG, Min, Max, EvalRookTrapped.MG);
+  UCIOptionNewSpin("RookTrappedEG", &EvalSetValue, &EvalRookTrapped.EG, Min, Max, EvalRookTrapped.EG);
+  UCIOptionNewSpin("KingShieldCloseMG", &EvalSetValue, &EvalKingShieldClose.MG, Min, Max, EvalKingShieldClose.MG);
+  UCIOptionNewSpin("KingShieldCloseEG", &EvalSetValue, &EvalKingShieldClose.EG, Min, Max, EvalKingShieldClose.EG);
+  UCIOptionNewSpin("KingShieldFarMG", &EvalSetValue, &EvalKingShieldFar.MG, Min, Max, EvalKingShieldFar.MG);
+  UCIOptionNewSpin("KingShieldFarEG", &EvalSetValue, &EvalKingShieldFar.EG, Min, Max, EvalKingShieldFar.EG);
+  UCIOptionNewSpin("TempoMG", &EvalSetValue, &EvalTempoDefault.MG, Min, Max, EvalTempoDefault.MG);
+  UCIOptionNewSpin("TempoEG", &EvalSetValue, &EvalTempoDefault.EG, Min, Max, EvalTempoDefault.EG);
+# endif
 }
 
 void EvalQuit()
@@ -171,6 +226,12 @@ score_t Evaluate(const pos_t *Pos)
     ScalarScore=-ScalarScore;
   
   return ScalarScore;
+}
+
+void EvalReset()
+{
+  EvalPawnReset();
+  EvalMatReset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -648,3 +709,20 @@ static inline void EvalVPairSubMul(vpair_t *A, vpair_t B, int C)
   A->MG-=B.MG*C;
   A->EG-=B.EG*C;
 }
+
+#ifdef TUNE
+void EvalSetValue(int Value, void *UserData)
+{
+  // Set value
+  *((value_t *)UserData)=Value;
+  
+  // Hack for bishops
+  if (((value_t *)UserData)==&EvalMaterial[bishopl].MG)
+    EvalMaterial[bishopd].MG=Value;
+  else if (((value_t *)UserData)==&EvalMaterial[bishopl].EG)
+    EvalMaterial[bishopd].EG=Value;
+  
+  // Clear now-invalid material and pawn tables etc.
+  EvalReset();
+}
+#endif

@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -pthread -lm -Wall -O3 -DNDEBUG
+CFLAGS = -pthread -lm -Wall -O3 -DNDEBUG #-DTUNE
 
 OBJS = src/attacks.o src/bb.o src/eval.o src/fen.o src/magicmoves.o src/pos.o \
        src/perft.o src/search.o src/see.o src/threads.o src/time.o src/uci.o \

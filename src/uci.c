@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "eval.h"
 #include "perft.h"
 #include "pos.h"
 #include "search.h"
@@ -219,7 +220,10 @@ void UCILoop()
     else if (!strcmp(Part, "stop"))
       SearchStop();
     else if (!strcmp(Part, "ucinewgame"))
+    {
       SearchReset();
+      EvalReset();
+    }
     else if (!strcmp(Part, "quit"))
       break;
     else if (!strcmp(Part, "disp"))

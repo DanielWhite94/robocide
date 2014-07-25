@@ -7,5 +7,6 @@
 void EvalInit();
 void EvalQuit();
 score_t Evaluate(const pos_t *Pos); // returns score in CP
+void EvalReset();
 
 #endif

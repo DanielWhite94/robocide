@@ -25,9 +25,9 @@ typedef uint64_t movescore_t;
 #define HISTORY_MAX (((movescore_t)1)<<(MOVESCORE_WIDTH-8)) // see SearchScoreMove()
 movescore_t SearchHistory[16][64];
 
-const int SearchNullReduction=2;
-const int SearchIIDMin=2;
-const int SearchIIDReduction=3;
+TUNECONST int SearchNullReduction=1;
+TUNECONST int SearchIIDMin=2;
+TUNECONST int SearchIIDReduction=3;
 
 bool SearchPonder=true;
 
@@ -105,6 +105,9 @@ static inline score_t SearchScoreToTT(score_t S, int Ply);
 void SearchSetPonder(bool Ponder);
 void SearchSetPonderWrapper(bool Ponder, void *Dummy);
 static inline bool SearchIsZugzwang(const node_t *N);
+#ifdef TUNE
+void SearchSetValue(int Value, void *UserData);
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -127,6 +130,13 @@ bool SearchInit()
   
   // Init pondering
   UCIOptionNewCheck("Ponder", &SearchSetPonderWrapper, NULL, SearchPonder);
+  
+  // Setup callbacks for tuning values
+# ifdef TUNE
+  UCIOptionNewSpin("NullReduction", &SearchSetValue, &SearchNullReduction, 0, 8, SearchNullReduction);
+  UCIOptionNewSpin("IIDMin", &SearchSetValue, &SearchIIDMin, 0, 32, SearchIIDMin);
+  UCIOptionNewSpin("IIDReduction", &SearchSetValue, &SearchIIDReduction, 0, 32, SearchIIDReduction);
+# endif
   
   return true;
 }
@@ -292,14 +302,14 @@ score_t SearchNode(node_t *N)
   node_t Child;
   Child.Pos=N->Pos;
   Child.Ply=N->Ply+1;
-  if (!NODE_ISPV(N) && (N->Depth-SearchNullReduction)>=1 &&
+  if (!NODE_ISPV(N) && SearchNullReduction>0 && N->Depth>1+SearchNullReduction &&
       !SCORE_ISMATE(N->Beta) && !SearchIsZugzwang(N) && Evaluate(N->Pos)>=N->Beta)
   {
     assert(!N->InCheck);
     
     PosMakeNullMove(N->Pos);
     Child.InCheck=false;
-    Child.Depth=N->Depth-SearchNullReduction;
+    Child.Depth=N->Depth-1-SearchNullReduction;
     Child.Alpha=-N->Beta;
     Child.Beta=1-N->Beta;
     score_t Score=-SearchNode(&Child);
@@ -311,7 +321,7 @@ score_t SearchNode(node_t *N)
   
   // Internal iterative deepening
   int Depth=N->Depth;
-  if (N->Depth>=SearchIIDMin && NODE_ISPV(N) && TTMove==MOVE_NULL)
+  if (SearchIIDReduction>0 && N->Depth>=SearchIIDMin && NODE_ISPV(N) && TTMove==MOVE_NULL)
   {
     int k=(N->Depth-SearchIIDMin)/SearchIIDReduction;
     Depth=N->Depth-k*SearchIIDReduction;
@@ -900,3 +910,14 @@ static inline bool SearchIsZugzwang(const node_t *N)
 {
   return (N->InCheck || !PosHasPieces(N->Pos, PosGetSTM(N->Pos)));
 }
+
+#ifdef TUNE
+void SearchSetValue(int Value, void *UserData)
+{
+  // Set value
+  *((int *)UserData)=Value;
+  
+  // Clear now-invalid TT and history etc.
+  SearchReset();
+}
+#endif

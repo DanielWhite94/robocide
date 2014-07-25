@@ -10,6 +10,12 @@
 #define MAX(A,B) (((A)>(B)) ? (A) : (B))
 #endif
 
+#ifdef TUNE
+#define TUNECONST
+#else
+#define TUNECONST const
+#endif
+
 typedef uint64_t bb_t;
 
 // Move format is rather complicated but fits a lot into 16 bits

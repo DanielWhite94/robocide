@@ -45,7 +45,9 @@ TUNECONST vpair_t EvalMaterial[8]={{0,0},{900,1300},{3250,3250},{3250,3250},{325
 TUNECONST vpair_t EvalPawnDoubled={-100,-200};
 TUNECONST vpair_t EvalPawnIsolated={-300,-200};
 TUNECONST vpair_t EvalPawnBlocked={-100,-100};
-TUNECONST vpair_t EvalPawnPassed[8]={{0,0},{100,150},{200,350},{250,650},{650,1050},{1050,1550},{1500,2150},{0,0}};
+TUNECONST vpair_t EvalPawnPassedQuadA={56,50};
+TUNECONST vpair_t EvalPawnPassedQuadB={-109,50};
+TUNECONST vpair_t EvalPawnPassedQuadC={155,50};
 TUNECONST vpair_t EvalKnightPawnAffinity={30,30};
 TUNECONST vpair_t EvalBishopPair={500,500};
 TUNECONST vpair_t EvalBishopMob={40,30};
@@ -98,6 +100,12 @@ TUNECONST vpair_t EvalKingPST[64]={
 {  290, -460},{   70, -240},{  -80, -120},{ -160,  -40},{ -160,  -40},{  -80, -120},{   70, -240},{  290, -46}};
 
 ////////////////////////////////////////////////////////////////////////////////
+// Derived values
+////////////////////////////////////////////////////////////////////////////////
+
+vpair_t EvalPawnPassed[8];
+
+////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -129,6 +137,7 @@ static inline void EvalVPairSubMul(vpair_t *A, vpair_t B, int C);
 #ifdef TUNE
 void EvalSetValue(int Value, void *UserData);
 #endif
+void EvalRecalc();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -139,6 +148,9 @@ void EvalInit()
   // Init pawn and mat hash tables
   EvalPawnResize(1); // 1mb
   EvalMatResize(16); // 16kb
+  
+  // Calculate dervied values (such as passed pawn table)
+  EvalRecalc();
   
   // Setup callbacks for tuning values
 # ifdef TUNE
@@ -159,6 +171,12 @@ void EvalInit()
   UCIOptionNewSpin("PawnIsolatedEG", &EvalSetValue, &EvalPawnIsolated.EG, Min, Max, EvalPawnIsolated.EG);
   UCIOptionNewSpin("PawnBlockedMG", &EvalSetValue, &EvalPawnBlocked.MG, Min, Max, EvalPawnBlocked.MG);
   UCIOptionNewSpin("PawnBlockedEG", &EvalSetValue, &EvalPawnBlocked.EG, Min, Max, EvalPawnBlocked.EG);
+  UCIOptionNewSpin("PawnPassedQuadAMG", &EvalSetValue, &EvalPawnPassedQuadA.MG, Min, Max, EvalPawnPassedQuadA.MG);
+  UCIOptionNewSpin("PawnPassedQuadAEG", &EvalSetValue, &EvalPawnPassedQuadA.EG, Min, Max, EvalPawnPassedQuadA.EG);
+  UCIOptionNewSpin("PawnPassedQuadBMG", &EvalSetValue, &EvalPawnPassedQuadB.MG, Min, Max, EvalPawnPassedQuadB.MG);
+  UCIOptionNewSpin("PawnPassedQuadBEG", &EvalSetValue, &EvalPawnPassedQuadB.EG, Min, Max, EvalPawnPassedQuadB.EG);
+  UCIOptionNewSpin("PawnPassedQuadCMG", &EvalSetValue, &EvalPawnPassedQuadC.MG, Min, Max, EvalPawnPassedQuadC.MG);
+  UCIOptionNewSpin("PawnPassedQuadCEG", &EvalSetValue, &EvalPawnPassedQuadC.EG, Min, Max, EvalPawnPassedQuadC.EG);
   UCIOptionNewSpin("KnightPawnAffinityMG", &EvalSetValue, &EvalKnightPawnAffinity.MG, Min, Max, EvalKnightPawnAffinity.MG);
   UCIOptionNewSpin("KnightPawnAffinityEG", &EvalSetValue, &EvalKnightPawnAffinity.EG, Min, Max, EvalKnightPawnAffinity.EG);
   UCIOptionNewSpin("BishopPairMG", &EvalSetValue, &EvalBishopPair.MG, Min, Max, EvalBishopPair.MG);
@@ -722,7 +740,21 @@ void EvalSetValue(int Value, void *UserData)
   else if (((value_t *)UserData)==&EvalMaterial[bishopl].EG)
     EvalMaterial[bishopd].EG=Value;
   
+  // Recalculate dervied values (such as passed pawn table)
+  EvalRecalc();
+  
   // Clear now-invalid material and pawn tables etc.
   EvalReset();
 }
 #endif
+
+void EvalRecalc()
+{
+  // Generate passed pawn array from quadratic coefficients
+  int Rank;
+  for(Rank=0;Rank<8;++Rank)
+  {
+    EvalPawnPassed[Rank].MG=EvalPawnPassedQuadA.MG*Rank*Rank+EvalPawnPassedQuadB.MG*Rank+EvalPawnPassedQuadC.MG;
+    EvalPawnPassed[Rank].EG=EvalPawnPassedQuadA.EG*Rank*Rank+EvalPawnPassedQuadB.EG*Rank+EvalPawnPassedQuadC.EG;
+  }
+}

@@ -1487,7 +1487,7 @@ bool PosIsEPCap(pos_t *Pos, sq_t Sq)
   sq_t KingSq=PosGetKingSq(Pos, Colour);
   PosPieceRemove(Pos, VictimSq);
   bool Return=((SQ_X(VictimSq)>0 && PosGetPieceOnSq(Pos, VictimSq-1)==Attacker && !PosIsPiecePinned(Pos, VictimSq-1, KingSq)) ||
-               (SQ_Y(VictimSq)<7 && PosGetPieceOnSq(Pos, VictimSq+1)==Attacker && !PosIsPiecePinned(Pos, VictimSq+1, KingSq)));
+               (SQ_X(VictimSq)<7 && PosGetPieceOnSq(Pos, VictimSq+1)==Attacker && !PosIsPiecePinned(Pos, VictimSq+1, KingSq)));
   PosPieceAdd(Pos, Victim, VictimSq);
   return Return;
 }

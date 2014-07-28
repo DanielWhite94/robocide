@@ -32,11 +32,10 @@ typedef struct
   hkey_t Mat;
   vpair_t (*Function)(const pos_t *Pos);
   vpair_t Offset, Tempo;
-  uint8_t Factor, WeightEG;
+  uint8_t WeightMG, WeightEG;
 }evalmatdata_t;
 evalmatdata_t *EvalMatTable=NULL;
 size_t EvalMatTableSize=0;
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values
@@ -45,13 +44,13 @@ TUNECONST vpair_t EvalMaterial[8]={{0,0},{900,1300},{3250,3250},{3250,3250},{325
 TUNECONST vpair_t EvalPawnDoubled={-100,-200};
 TUNECONST vpair_t EvalPawnIsolated={-300,-200};
 TUNECONST vpair_t EvalPawnBlocked={-100,-100};
-TUNECONST vpair_t EvalPawnPassedQuadA={56,50};
+TUNECONST vpair_t EvalPawnPassedQuadA={56,50}; // coefficients used in quadratic formula for passed pawn score (with rank as the input)
 TUNECONST vpair_t EvalPawnPassedQuadB={-109,50};
 TUNECONST vpair_t EvalPawnPassedQuadC={155,50};
-TUNECONST vpair_t EvalKnightPawnAffinity={30,30};
+TUNECONST vpair_t EvalKnightPawnAffinity={30,30}; // bonus each knight receives for each friendly pawn on the board
 TUNECONST vpair_t EvalBishopPair={500,500};
 TUNECONST vpair_t EvalBishopMob={40,30};
-TUNECONST vpair_t EvalRookPawnAffinity={-70,-70};
+TUNECONST vpair_t EvalRookPawnAffinity={-70,-70}; // bonus each rook receives for each friendly pawn on the board
 TUNECONST vpair_t EvalRookMobFile={20,30};
 TUNECONST vpair_t EvalRookMobRank={10,20};
 TUNECONST vpair_t EvalRookOpenFile={100,50};
@@ -61,6 +60,7 @@ TUNECONST vpair_t EvalRookTrapped={-400,0};
 TUNECONST vpair_t EvalKingShieldClose={150,0};
 TUNECONST vpair_t EvalKingShieldFar={50,0};
 TUNECONST vpair_t EvalTempoDefault={0,0};
+TUNECONST value_t EvalWeightFactor=144;
 
 TUNECONST vpair_t EvalPawnPST[64]={
 {  -30, -410},{ -150, -400},{ -230, -380},{ -270, -370},{ -270, -370},{ -230, -380},{ -150, -400},{  -30, -410},
@@ -104,14 +104,15 @@ TUNECONST vpair_t EvalKingPST[64]={
 ////////////////////////////////////////////////////////////////////////////////
 
 vpair_t EvalPawnPassed[8];
+uint8_t EvalWeightEGFactor[128];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
 vpair_t EvaluateDefault(const pos_t *Pos);
-evalmatdata_t EvalMatCombo(const pos_t *Pos);
-void EvalComputeMat(const pos_t *Pos, evalmatdata_t *Data);
+void EvalMat(const pos_t *Pos, evalmatdata_t *MatData);
+void EvalComputeMat(const pos_t *Pos, evalmatdata_t *MatData);
 evalpawndata_t EvalPawns(const pos_t *Pos);
 static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data);
 static inline vpair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
@@ -203,6 +204,7 @@ void EvalInit()
   UCIOptionNewSpin("KingShieldFarEG", &EvalSetValue, &EvalKingShieldFar.EG, Min, Max, EvalKingShieldFar.EG);
   UCIOptionNewSpin("TempoMG", &EvalSetValue, &EvalTempoDefault.MG, Min, Max, EvalTempoDefault.MG);
   UCIOptionNewSpin("TempoEG", &EvalSetValue, &EvalTempoDefault.EG, Min, Max, EvalTempoDefault.EG);
+  UCIOptionNewSpin("WeightFactor", &EvalSetValue, &EvalWeightFactor, 1, 1024, EvalWeightFactor);
 # endif
 }
 
@@ -215,25 +217,23 @@ void EvalQuit()
 score_t Evaluate(const pos_t *Pos)
 {
   // Evaluation function depends on material combination
-  evalmatdata_t Data=EvalMatCombo(Pos);
+  evalmatdata_t MatData;
+  EvalMat(Pos, &MatData);
   
   // Evaluate
-  vpair_t Score=(*Data.Function)(Pos);
+  vpair_t Score=(*MatData.Function)(Pos);
   
   // Material combination offset
-  EvalVPairAdd(&Score, Data.Offset);
+  EvalVPairAdd(&Score, MatData.Offset);
   
   // Tempo bonus
   if (PosGetSTM(Pos)==white)
-    EvalVPairAdd(&Score, Data.Tempo);
+    EvalVPairAdd(&Score, MatData.Tempo);
   else
-    EvalVPairSub(&Score, Data.Tempo);
+    EvalVPairSub(&Score, MatData.Tempo);
   
-  // Interpolate score based on phase of the game
-  score_t ScalarScore=EvalInterpolate(Pos, &Score, &Data);
-  
-  // Material combination scaling
-  ScalarScore=(ScalarScore*(((int32_t)Data.Factor)))/128;
+  // Interpolate score based on phase of the game and special material combination considerations
+  score_t ScalarScore=EvalInterpolate(Pos, &Score, &MatData);
   
   // Drag score towards 0 as we approach 50-move rule
   int HMoves=PosGetHalfMoveClock(Pos);
@@ -320,68 +320,74 @@ vpair_t EvaluateDefault(const pos_t *Pos)
   return Score;
 }
 
-evalmatdata_t EvalMatCombo(const pos_t *Pos)
+void EvalMat(const pos_t *Pos, evalmatdata_t *MatData)
 {
-  evalmatdata_t Data;
-  if (!EvalMatRead(Pos, &Data))
+  // Check if we already have data in hash table
+  if (!EvalMatRead(Pos, MatData))
   {
-    EvalComputeMat(Pos, &Data);
-    EvalMatWrite(Pos, &Data);
+    // No match found, compute and store
+    EvalComputeMat(Pos, MatData);
+    EvalMatWrite(Pos, MatData);
   }
-  
-  return Data;
 }
 
-void EvalComputeMat(const pos_t *Pos, evalmatdata_t *Data)
+void EvalComputeMat(const pos_t *Pos, evalmatdata_t *MatData)
 {
   #define M(P,N) (POSMAT_MAKE((P),(N)))
   
   // Init data
-  Data->Mat=PosGetMat(Pos);
-  Data->Function=&EvaluateDefault;
-  Data->Offset.MG=Data->Offset.EG=0;
-  Data->Tempo=EvalTempoDefault;
-  Data->Factor=128;
-  uint64_t Mat=(Data->Mat & ~(POSMAT_MASK(wking) | POSMAT_MASK(bking)));
-  assert(Mat!=0);
+  MatData->Mat=PosGetMat(Pos);
+  MatData->Function=&EvaluateDefault;
+  MatData->Offset.MG=MatData->Offset.EG=0;
+  MatData->Tempo=EvalTempoDefault;
+  uint64_t Mat=(MatData->Mat & ~(POSMAT_MASK(wking) | POSMAT_MASK(bking)));
   bool WBishopL=((Mat & POSMAT_MASK(wbishopl))!=0);
   bool WBishopD=((Mat & POSMAT_MASK(wbishopd))!=0);
   bool BBishopL=((Mat & POSMAT_MASK(bbishopl))!=0);
   bool BBishopD=((Mat & POSMAT_MASK(bbishopd))!=0);
   
-  // Find weight for endgame
-  int MinCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd)+
+  // Find weights for middlegame and endgame
+  unsigned int MinCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd)+
                POSMAT_GET(Mat, bknight)+POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd);
-  int RCount=POSMAT_GET(Mat, wrook)+POSMAT_GET(Mat, brook);
-  int QCount=POSMAT_GET(Mat, wqueen)+POSMAT_GET(Mat, bqueen);
-  int Weight=MinCount+2*RCount+4*QCount;
-  Data->WeightEG=floorf(255.0*exp2f(-((Weight*Weight)/144.0)));
+  unsigned int RCount=POSMAT_GET(Mat, wrook)+POSMAT_GET(Mat, brook);
+  unsigned int QCount=POSMAT_GET(Mat, wqueen)+POSMAT_GET(Mat, bqueen);
+  unsigned int Weight=MinCount+2*RCount+4*QCount;
+  assert(Weight<128);
+  MatData->WeightEG=EvalWeightEGFactor[Weight];
+  MatData->WeightMG=256-MatData->WeightEG;
+  
+  // Specific material combinations
+  /* (currently unused)
+  unsigned int Factor=1024;
+  [combination logic here]
+  MatData->WeightMG=(MatData->WeightMG*Factor)/1024;
+  MatData->WeightEG=(MatData->WeightEG*Factor)/1024;
+  */
   
   // Material
-  EvalVPairAddMul(&Data->Offset, EvalMaterial[pawn], POSMAT_GET(Mat, wpawn)-POSMAT_GET(Mat, bpawn));
-  EvalVPairAddMul(&Data->Offset, EvalMaterial[knight], POSMAT_GET(Mat, wknight)-POSMAT_GET(Mat, bknight));
-  EvalVPairAddMul(&Data->Offset, EvalMaterial[bishopl], (POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd))-(POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd)));
-  EvalVPairAddMul(&Data->Offset, EvalMaterial[rook], POSMAT_GET(Mat, wrook)-POSMAT_GET(Mat, brook));
-  EvalVPairAddMul(&Data->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
+  EvalVPairAddMul(&MatData->Offset, EvalMaterial[pawn], POSMAT_GET(Mat, wpawn)-POSMAT_GET(Mat, bpawn));
+  EvalVPairAddMul(&MatData->Offset, EvalMaterial[knight], POSMAT_GET(Mat, wknight)-POSMAT_GET(Mat, bknight));
+  EvalVPairAddMul(&MatData->Offset, EvalMaterial[bishopl], (POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd))-(POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd)));
+  EvalVPairAddMul(&MatData->Offset, EvalMaterial[rook], POSMAT_GET(Mat, wrook)-POSMAT_GET(Mat, brook));
+  EvalVPairAddMul(&MatData->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
   
   // Knight pawn affinity
   int KnightAffW=POSMAT_GET(Mat, wknight)*(POSMAT_GET(Mat, wpawn)-5);
   int KnightAffB=POSMAT_GET(Mat, bknight)*(POSMAT_GET(Mat, bpawn)-5);
-  EvalVPairAddMul(&Data->Offset, EvalKnightPawnAffinity, KnightAffW-KnightAffB);
+  EvalVPairAddMul(&MatData->Offset, EvalKnightPawnAffinity, KnightAffW-KnightAffB);
   
   // Rook pawn affinity
   int RookAffW=POSMAT_GET(Mat, wrook)*(POSMAT_GET(Mat, wpawn)-5);
   int RookAffB=POSMAT_GET(Mat, brook)*(POSMAT_GET(Mat, bpawn)-5);
-  EvalVPairAddMul(&Data->Offset, EvalRookPawnAffinity, RookAffW-RookAffB);
+  EvalVPairAddMul(&MatData->Offset, EvalRookPawnAffinity, RookAffW-RookAffB);
   
   // Bishop pair bonus
   if (WBishopL && WBishopD)
-    EvalVPairAdd(&Data->Offset, EvalBishopPair);
+    EvalVPairAdd(&MatData->Offset, EvalBishopPair);
   if (BBishopL && BBishopD)
-    EvalVPairSub(&Data->Offset, EvalBishopPair);
+    EvalVPairSub(&MatData->Offset, EvalBishopPair);
   
   #undef M
-  return;
 }
 
 evalpawndata_t EvalPawns(const pos_t *Pos)
@@ -574,10 +580,8 @@ static inline vpair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
 static inline score_t EvalInterpolate(const pos_t *Pos, const vpair_t *Score, const evalmatdata_t *Data)
 {
   // Interpolate and also scale to centi-pawns
-  int WeightEG=Data->WeightEG;
-  int WeightMG=255-WeightEG;
-  return ((WeightMG*Score->MG+WeightEG*Score->EG)*100)/
-          (WeightMG*EvalMaterial[pawn].MG+WeightEG*EvalMaterial[pawn].EG);
+  return ((Data->WeightMG*Score->MG+Data->WeightEG*Score->EG)*100)/
+          (Data->WeightMG*EvalMaterial[pawn].MG+Data->WeightEG*EvalMaterial[pawn].EG);
 }
 
 void EvalPawnResize(size_t SizeMB)
@@ -756,5 +760,14 @@ void EvalRecalc()
   {
     EvalPawnPassed[Rank].MG=EvalPawnPassedQuadA.MG*Rank*Rank+EvalPawnPassedQuadB.MG*Rank+EvalPawnPassedQuadC.MG;
     EvalPawnPassed[Rank].EG=EvalPawnPassedQuadA.EG*Rank*Rank+EvalPawnPassedQuadB.EG*Rank+EvalPawnPassedQuadC.EG;
+  }
+  
+  // Calculate factor for each material weight
+  int Weight;
+  for(Weight=0;Weight<128;++Weight)
+  {
+    int Factor=(255.0*exp2f(-(Weight*Weight)/((float)EvalWeightFactor)));
+    assert(Factor>=0 && Factor<256);
+    EvalWeightEGFactor[Weight]=Factor;
   }
 }

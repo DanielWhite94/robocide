@@ -580,8 +580,7 @@ static inline vpair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const ev
 static inline score_t EvalInterpolate(const pos_t *Pos, const vpair_t *Score, const evalmatdata_t *Data)
 {
   // Interpolate and also scale to centi-pawns
-  return ((Data->WeightMG*Score->MG+Data->WeightEG*Score->EG)*100)/
-          (Data->WeightMG*EvalMaterial[pawn].MG+Data->WeightEG*EvalMaterial[pawn].EG);
+  return ((Data->WeightMG*Score->MG+Data->WeightEG*Score->EG)*100)/(EvalMaterial[pawn].MG*256);
 }
 
 void EvalPawnResize(size_t SizeMB)

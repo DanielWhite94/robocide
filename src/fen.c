@@ -22,7 +22,7 @@ bool FENRead(fen_t *Data, const char *String)
   memset(Data->Array, empty, 64*sizeof(piece_t));
   Data->STM=white;
   Data->CastRights=castrights_none;
-  Data->EPSq=sqinvalid;
+  Data->EPSq=sq_invalid;
   Data->HalfMoveClock=0;
   Data->FullMoveNumber=1;
   

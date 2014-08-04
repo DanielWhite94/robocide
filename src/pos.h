@@ -30,8 +30,6 @@ char PosPieceToChar(piece_t Piece);
 int PosPieceCount(const pos_t *Pos, piece_t Piece);
 bool PosMakeMove(pos_t *Pos, move_t Move);
 void PosUndoMove(pos_t *Pos);
-bool PosMakeNullMove(pos_t *Pos);
-void PosUndoNullMove(pos_t *Pos);
 bool PosIsSqAttackedByColour(const pos_t *Pos, sq_t Sq, col_t Colour);
 sq_t PosGetKingSq(const pos_t *Pos, col_t Colour);
 bool PosIsSTMInCheck(const pos_t *Pos);
@@ -55,6 +53,7 @@ hkey_t PosGetMatKey(const pos_t *Pos);
 bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move);
 static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move);
 uint64_t PosGetMat(const pos_t *Pos); // Use macros above to access
+bool PosIsConsistent(pos_t *Pos);
 static inline bool PosHasPieces(const pos_t *Pos, col_t Col); // Non-pawn material?
 
 static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move)

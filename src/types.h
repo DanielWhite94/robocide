@@ -18,6 +18,34 @@
 
 typedef uint64_t bb_t;
 
+typedef enum
+{
+  white=0,
+  black=1
+}col_t;
+#define COL_SWAP(C) ((C)^1)
+#define COL_ISVALID(C) ((C)==white || (C)==black)
+
+typedef enum
+{
+  A1,B1,C1,D1,E1,F1,G1,H1,
+  A2,B2,C2,D2,E2,F2,G2,H2,
+  A3,B3,C3,D3,E3,F3,G3,H3,
+  A4,B4,C4,D4,E4,F4,G4,H4,
+  A5,B5,C5,D5,E5,F5,G5,H5,
+  A6,B6,C6,D6,E6,F6,G6,H6,
+  A7,B7,C7,D7,E7,F7,G7,H7,
+  A8,B8,C8,D8,E8,F8,G8,H8,
+  sq_invalid=127 // Only needs to be 'far enough' away from the true squares
+}sq_t;
+#define SQ_ISVALID(S) ((S)>=A1 && (S)<=H8)
+#define SQ_X(S) ((S)&7)
+#define SQ_Y(S) ((S)>>3)
+#define SQ_FLIP(S) ((S)^56)
+#define SQ_ISLIGHT(S) ((((S)>>3)^(S))&1)
+#define XYTOSQ(X,Y) (((Y)<<3)+(X))
+#define SQTOBB(SQ) (((bb_t)1)<<(SQ))
+
 // Move format is rather complicated but fits a lot into 16 bits
 typedef uint16_t move_t;
 #define MOVE_SHIFTTOSQ    ( 0)
@@ -42,35 +70,10 @@ typedef uint16_t move_t;
 #define MOVE_ISEP(M)   (((M)&(MOVE_MASKPROMO|MOVE_MASKEXTRA))==MOVE_EXTRAEP)
 #define MOVE_ISDP(M)   (((M)&(MOVE_MASKPROMO|MOVE_MASKEXTRA))==MOVE_EXTRADP)
 #define MOVE_ISPROMO(M) (((M) & MOVE_MASKPROMO)!=0)
-#define MOVE_NULL 0 // a1a1 is an invalid move anyway
+#define MOVE_INVALID ((A1<<MOVE_SHIFTTOSQ) | (A1<<MOVE_SHIFTFROMSQ) | (0u<<MOVE_SHIFTEXTRA)) // i.e. undefined/not set
+#define MOVE_NONE ((A1<<MOVE_SHIFTTOSQ) | (A1<<MOVE_SHIFTFROMSQ) | (1u<<MOVE_SHIFTEXTRA)) // i.e. no/null move (e.g. in null move pruning one makes a move like this)
+#define MOVE_ISVALID(M) ((M)!=MOVE_INVALID && (M)!=MOVE_NONE)
 #define MOVES_MAX 256
-
-typedef enum
-{
-  white=0,
-  black=1
-}col_t;
-#define COL_SWAP(C) ((C)^1)
-
-typedef enum
-{
-  A1,B1,C1,D1,E1,F1,G1,H1,
-  A2,B2,C2,D2,E2,F2,G2,H2,
-  A3,B3,C3,D3,E3,F3,G3,H3,
-  A4,B4,C4,D4,E4,F4,G4,H4,
-  A5,B5,C5,D5,E5,F5,G5,H5,
-  A6,B6,C6,D6,E6,F6,G6,H6,
-  A7,B7,C7,D7,E7,F7,G7,H7,
-  A8,B8,C8,D8,E8,F8,G8,H8,
-  sqinvalid=127 // Only needs to be 'far enough' away from the true squares
-}sq_t;
-#define SQ_ISVALID(S) ((S)>=A1 && (S)<=H8)
-#define SQ_X(S) ((S)&7)
-#define SQ_Y(S) ((S)>>3)
-#define SQ_FLIP(S) ((S)^56)
-#define SQ_ISLIGHT(S) ((((S)>>3)^(S))&1)
-#define XYTOSQ(X,Y) (((Y)<<3)+(X))
-#define SQTOBB(SQ) (((bb_t)1)<<(SQ))
 
 typedef enum
 {
@@ -125,7 +128,7 @@ typedef enum
 
 typedef int16_t score_t;
 #define SCORE_INF 32000
-#define SCORE_NONE -32100
+#define SCORE_INVALID -32100
 #define SCORE_DRAW 0
 #define SCORE_MATEDIN(P) ((P)-31000)
 #define SCORE_ISMATE(S)   (abs(abs(S)+SCORE_MATEDIN(0))<512)

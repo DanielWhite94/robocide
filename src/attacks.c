@@ -17,9 +17,9 @@ void AttacksInit()
       int DX=abs(SQ_X(SqA)-SQ_X(SqB));
       int DY=abs(SQ_Y(SqA)-SQ_Y(SqB));
       if ((DX==1 && DY==2) || (DX==2 && DY==1))
-        AttacksArrayKnight[SqA]|=BBSqToBB(SqB);
+        AttacksArrayKnight[SqA]|=SQTOBB(SqB);
       if (DX<=1 && DY<=1 && (DX!=0 || DY!=0))
-        AttacksArrayKing[SqA]|=BBSqToBB(SqB);
+        AttacksArrayKing[SqA]|=SQTOBB(SqB);
     }
   }
   

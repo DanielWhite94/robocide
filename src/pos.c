@@ -58,7 +58,6 @@ static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t A
 static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves);
 static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves);
 static inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves);
-bool PosIsConsistent(pos_t *Pos);
 char PosPromoChar(piece_t Piece);
 hkey_t PosComputeKey(const pos_t *Pos);
 hkey_t PosComputePawnKey(const pos_t *Pos);
@@ -242,13 +241,10 @@ bool PosSetToFEN(pos_t *Pos, const char *String)
       PosPieceAdd(Pos, FEN.Array[Sq], Sq);
   Pos->STM=FEN.STM;
   Pos->FullMoveNumber=FEN.FullMoveNumber;
-  Pos->Data->LastMove=MOVE_NULL;
   Pos->Data->HalfMoveClock=FEN.HalfMoveClock;
   Pos->Data->CastRights=FEN.CastRights;
-  Pos->Data->CapPiece=empty;
-  Pos->Data->CapSq=sqinvalid;
   Pos->Data->Key=PosComputeKey(Pos);
-  if (FEN.EPSq!=sqinvalid && PosIsEPCap(Pos, FEN.EPSq))
+  if (FEN.EPSq!=sq_invalid && PosIsEPCap(Pos, FEN.EPSq))
     Pos->Data->EPSq=FEN.EPSq;
   
   assert(PosIsConsistent(Pos));
@@ -286,6 +282,7 @@ inline bb_t PosGetBBAll(const pos_t *Pos)
 
 inline bb_t PosGetBBColour(const pos_t *Pos, col_t Colour)
 {
+  assert(COL_ISVALID(Colour));
   return Pos->BBCol[Colour];
 }
 
@@ -309,8 +306,7 @@ inline int PosPieceCount(const pos_t *Pos, piece_t Piece)
 
 bool PosMakeMove(pos_t *Pos, move_t Move)
 {
-  assert(Move!=MOVE_NULL);
-  assert(MOVE_GETCOLOUR(Move)==Pos->STM);
+  assert(Move!=MOVE_INVALID);
   
   // Use next data entry
   if (Pos->Data+1>=Pos->DataEnd)
@@ -327,75 +323,88 @@ bool PosMakeMove(pos_t *Pos, move_t Move)
   }
   ++Pos->Data;
   
-  // Update position data
-  sq_t FromSq=MOVE_GETFROMSQ(Move);
-  sq_t ToSq=MOVE_GETTOSQ(Move);
-  piece_t Piece=PosGetPieceOnSq(Pos, FromSq);
+  // Update generic fields
   Pos->Data->LastMove=Move;
   Pos->Data->HalfMoveClock=(Pos->Data-1)->HalfMoveClock+1;
-  Pos->Data->EPSq=sqinvalid;
-  Pos->Data->CastRights=(Pos->Data-1)->CastRights & PosCastUpdate[ToSq] & PosCastUpdate[FromSq];
-  Pos->Data->CapSq=(MOVE_ISEP(Move) ? ToSq^8 : ToSq);
-  Pos->Data->CapPiece=PosGetPieceOnSq(Pos, Pos->Data->CapSq);
-  Pos->Data->Key=(Pos->Data-1)->Key;
+  Pos->Data->EPSq=sq_invalid;
+  Pos->Data->Key=(Pos->Data-1)->Key^PosKeySTM^PosKeyEP[(Pos->Data-1)->EPSq];
   Pos->FullMoveNumber+=(Pos->STM==black); // Inc after black's move
   Pos->STM=COL_SWAP(Pos->STM);
   
-  // Remove captured piece (if any)
-  if (Pos->Data->CapPiece!=empty)
+  if (Move!=MOVE_NONE)
   {
-    // Remove piece
-    PosPieceRemove(Pos, Pos->Data->CapSq);
+    // Update position data
+    sq_t FromSq=MOVE_GETFROMSQ(Move);
+    sq_t ToSq=MOVE_GETTOSQ(Move);
+    piece_t Piece=PosGetPieceOnSq(Pos, FromSq);
+    Pos->Data->CastRights=(Pos->Data-1)->CastRights & PosCastUpdate[ToSq] & PosCastUpdate[FromSq];
+    Pos->Data->CapSq=(MOVE_ISEP(Move) ? ToSq^8 : ToSq);
+    Pos->Data->CapPiece=PosGetPieceOnSq(Pos, Pos->Data->CapSq);
     
-    // Captures reset 50 move counter
-    Pos->Data->HalfMoveClock=0;
-  }
-  
-  // Special cases for pawns
-  if (PIECE_TYPE(Piece)==pawn)
-  {
-    // Move the pawn, potentially promoting
-    if (MOVE_ISPROMO(Move))
-      PosPieceMoveChange(Pos, FromSq, ToSq, MOVE_GETPROMO(Move));
-    else
-      PosPieceMove(Pos, FromSq, ToSq);
-    
-    // Pawn moves reset 50 move counter
-    Pos->Data->HalfMoveClock=0;
-    
-    // If double pawn move check set EP capture square (for next move)
-    if (MOVE_ISDP(Move))
+    // Remove captured piece (if any)
+    if (Pos->Data->CapPiece!=empty)
     {
-      sq_t EPSq=(ToSq+FromSq)/2;
-      if (PosIsEPCap(Pos, EPSq))
-        Pos->Data->EPSq=EPSq;
-     }
+      // Remove piece
+      PosPieceRemove(Pos, Pos->Data->CapSq);
+      
+      // Captures reset 50 move counter
+      Pos->Data->HalfMoveClock=0;
+    }
+    
+    // Special cases for pawns
+    if (PIECE_TYPE(Piece)==pawn)
+    {
+      // Move the pawn, potentially promoting
+      if (MOVE_ISPROMO(Move))
+        PosPieceMoveChange(Pos, FromSq, ToSq, MOVE_GETPROMO(Move));
+      else
+        PosPieceMove(Pos, FromSq, ToSq);
+      
+      // Pawn moves reset 50 move counter
+      Pos->Data->HalfMoveClock=0;
+      
+      // If double pawn move check set EP capture square (for next move)
+      if (MOVE_ISDP(Move))
+      {
+        sq_t EPSq=(ToSq+FromSq)/2;
+        if (PosIsEPCap(Pos, EPSq))
+          Pos->Data->EPSq=EPSq;
+       }
+    }
+    else
+    {
+      // Move non-pawn piece (i.e. no promotion to worry about)
+      PosPieceMove(Pos, FromSq, ToSq);
+      
+      // If castling also need to move the rook
+      if (MOVE_ISCAST(Move))
+      {
+        if (ToSq>FromSq)
+          PosPieceMove(Pos, ToSq+1, ToSq-1); // Kingside
+        else
+          PosPieceMove(Pos, ToSq-2, ToSq+1); // Queenside
+      }
+    }
+    
+    // Does move leave STM in check?
+    if (PosIsXSTMInCheck(Pos))
+    {
+      PosUndoMove(Pos);
+      return false;
+    }
+    
+    // Update key
+    Pos->Data->Key^=PosKeyCastling[Pos->Data->CastRights^(Pos->Data-1)->CastRights]^PosKeyEP[Pos->Data->EPSq];
   }
   else
   {
-    // Move non-pawn piece (i.e. no promotion to worry about)
-    PosPieceMove(Pos, FromSq, ToSq);
+    // 'Null move'
+    assert(!PosIsSTMInCheck(Pos));
     
-    // If castling also need to move the rook
-    if (MOVE_ISCAST(Move))
-    {
-      if (ToSq>FromSq)
-        PosPieceMove(Pos, ToSq+1, ToSq-1); // Kingside
-      else
-        PosPieceMove(Pos, ToSq-2, ToSq+1); // Queenside
-    }
+    Pos->Data->CastRights=(Pos->Data-1)->CastRights;
+    Pos->Data->CapSq=sq_invalid;
+    Pos->Data->CapPiece=empty;
   }
-  
-  // Does move leave STM in check?
-  if (PosIsXSTMInCheck(Pos))
-  {
-    PosUndoMove(Pos);
-    return false;
-  }
-  
-  // Update key
-  Pos->Data->Key^=PosKeySTM^PosKeyCastling[Pos->Data->CastRights^(Pos->Data-1)->CastRights]^
-                  PosKeyEP[Pos->Data->EPSq]^PosKeyEP[(Pos->Data-1)->EPSq];
   
   assert(PosIsConsistent(Pos));
   
@@ -405,77 +414,36 @@ bool PosMakeMove(pos_t *Pos, move_t Move)
 void PosUndoMove(pos_t *Pos)
 {
   move_t Move=Pos->Data->LastMove;
-  sq_t FromSq=MOVE_GETFROMSQ(Move);
-  sq_t ToSq=MOVE_GETTOSQ(Move);
+  assert(Move!=MOVE_INVALID);
+  
+  // Update generic fields
   Pos->STM=COL_SWAP(Pos->STM);
   Pos->FullMoveNumber-=(Pos->STM==black);
-  
-  // Move piece back
-  if (MOVE_ISPROMO(Move))
-    PosPieceMoveChange(Pos, ToSq, FromSq, PIECE_MAKE(pawn, Pos->STM));
-  else
-    PosPieceMove(Pos, ToSq, FromSq);
-  
-  // Replace any captured piece
-  if (Pos->Data->CapPiece!=empty)
-    PosPieceAdd(Pos, Pos->Data->CapPiece, Pos->Data->CapSq);
-  
-  // If castling replace the rook
-  if (MOVE_ISCAST(Move))
+    
+  if (Move!=MOVE_NONE)
   {
-    if (ToSq>FromSq)
-      PosPieceMove(Pos, ToSq-1, ToSq+1); // Kingside
+    sq_t FromSq=MOVE_GETFROMSQ(Move);
+    sq_t ToSq=MOVE_GETTOSQ(Move);
+    
+    // Move piece back
+    if (MOVE_ISPROMO(Move))
+      PosPieceMoveChange(Pos, ToSq, FromSq, PIECE_MAKE(pawn, Pos->STM));
     else
-      PosPieceMove(Pos, ToSq+1, ToSq-2); // Queenside
+      PosPieceMove(Pos, ToSq, FromSq);
+    
+    // Replace any captured piece
+    if (Pos->Data->CapPiece!=empty)
+      PosPieceAdd(Pos, Pos->Data->CapPiece, Pos->Data->CapSq);
+    
+    // If castling replace the rook
+    if (MOVE_ISCAST(Move))
+    {
+      if (ToSq>FromSq)
+        PosPieceMove(Pos, ToSq-1, ToSq+1); // Kingside
+      else
+        PosPieceMove(Pos, ToSq+1, ToSq-2); // Queenside
+    }
   }
-  
-  // Discard data
-  --Pos->Data;
-  
-  assert(PosIsConsistent(Pos));
-}
-
-bool PosMakeNullMove(pos_t *Pos)
-{
-  assert(!PosIsSTMInCheck(Pos));
-  
-  // Use next data entry
-  if (Pos->Data+1>=Pos->DataEnd)
-  {
-    /* We need more space */
-    size_t Size=2*(Pos->DataEnd-Pos->DataStart);
-    posdata_t *Ptr=realloc(Pos->DataStart, Size*sizeof(posdata_t));
-    if (Ptr==NULL)
-      return false;
-    int DataOffset=Pos->Data-Pos->DataStart;
-    Pos->DataStart=Ptr;
-    Pos->DataEnd=Ptr+Size;
-    Pos->Data=Ptr+DataOffset;
-  }
-  ++Pos->Data;
-  
-  // Update position data
-  Pos->Data->LastMove=MOVE_NULL;
-  Pos->Data->HalfMoveClock=(Pos->Data-1)->HalfMoveClock+1;
-  Pos->Data->EPSq=sqinvalid;
-  Pos->Data->CastRights=(Pos->Data-1)->CastRights;
-  Pos->Data->CapSq=sqinvalid;
-  Pos->Data->CapPiece=empty;
-  Pos->Data->Key=(Pos->Data-1)->Key^PosKeySTM^PosKeyEP[(Pos->Data-1)->EPSq];
-  Pos->FullMoveNumber+=(Pos->STM==black); // Inc after black's move
-  Pos->STM=COL_SWAP(Pos->STM);
-  
-  assert(PosIsConsistent(Pos));
-  
-  return true;
-}
-
-void PosUndoNullMove(pos_t *Pos)
-{
-  assert(Pos->Data->LastMove==MOVE_NULL);
-  
-  Pos->STM=COL_SWAP(Pos->STM);
-  Pos->FullMoveNumber-=(Pos->STM==black);
   
   // Discard data
   --Pos->Data;
@@ -485,11 +453,12 @@ void PosUndoNullMove(pos_t *Pos)
 
 bool PosIsSqAttackedByColour(const pos_t *Pos, sq_t Sq, col_t C)
 {
+  assert(SQ_ISVALID(Sq));
+  assert(COL_ISVALID(C));
   bb_t Occ=PosGetBBAll(Pos);
   
   // Pawns
-  if (BBForwardOne(BBWingify(PosGetBBPiece(Pos, PIECE_MAKE(pawn, C))), C) &
-      BBSqToBB(Sq))
+  if (BBForwardOne(BBWingify(PosGetBBPiece(Pos, PIECE_MAKE(pawn, C))), C) & SQTOBB(Sq))
     return true;
   
   // Knights
@@ -520,6 +489,7 @@ bool PosIsSqAttackedByColour(const pos_t *Pos, sq_t Sq, col_t C)
 
 inline sq_t PosGetKingSq(const pos_t *Pos, col_t C)
 {
+  assert(COL_ISVALID(C));
   return Pos->PieceList[PIECE_MAKE(king,C)<<4];
 }
 
@@ -533,7 +503,7 @@ inline bool PosIsXSTMInCheck(const pos_t *Pos)
   move_t M=Pos->Data->LastMove; // Need to know if last move was castling
   return (PosIsSqAttackedByColour(Pos, PosGetKingSq(Pos, COL_SWAP(Pos->STM)),
           Pos->STM) ||
-          (MOVE_ISCAST(M) &&
+          (MOVE_ISVALID(M) && MOVE_ISCAST(M) &&
            (PosIsSqAttackedByColour(Pos, MOVE_GETFROMSQ(M), Pos->STM) ||
             PosIsSqAttackedByColour(Pos, (MOVE_GETTOSQ(M)+MOVE_GETFROMSQ(M))/2,
                                     Pos->STM)
@@ -593,7 +563,7 @@ inline move_t PosGenLegalMove(pos_t *Pos)
       PosUndoMove(Pos);
       return *Move;
     }
-  return MOVE_NULL;
+  return MOVE_INVALID;
 }
 
 inline const sq_t *PosGetPieceListStart(const pos_t *Pos, piece_t Piece)
@@ -608,8 +578,8 @@ inline const sq_t *PosGetPieceListEnd(const pos_t *Pos, piece_t Piece)
 
 void PosMoveToStr(move_t Move, char Str[static 6])
 {
-  // Special case for null move
-  if (Move==MOVE_NULL)
+  // Special case for invalid/no move
+  if (!MOVE_ISVALID(Move))
   {
     strcpy(Str, "0000");
     return;
@@ -636,7 +606,7 @@ move_t PosStrToMove(const pos_t *Pos, const char Str[static 6])
     if (!strcmp(Str, GenStr))
       return *Move;
   }
-  return MOVE_NULL;
+  return MOVE_INVALID;
 }
 
 bool PosIsDraw(const pos_t *Pos, int Ply)
@@ -663,25 +633,24 @@ bool PosIsDraw(const pos_t *Pos, int Ply)
   // Insufficient material
   // Any pawns, rooks or queens are potential mate-givers
   uint64_t Mat=PosGetMat(Pos);
-  uint64_t PRQMask=(POSMAT_MASK(wpawn)|POSMAT_MASK(wrook)|POSMAT_MASK(wqueen)|
+  const uint64_t PRQMask=(POSMAT_MASK(wpawn)|POSMAT_MASK(wrook)|POSMAT_MASK(wqueen)|
                     POSMAT_MASK(bpawn)|POSMAT_MASK(brook)|POSMAT_MASK(bqueen));
-  if (!(Mat & PRQMask))
+  if ((Mat & PRQMask)==0)
   {
     // Remove kings from mat
     Mat&=~(POSMAT_MASK(wking) | POSMAT_MASK(bking));
     
     // Special case: only material is bishops of a single colour
     // (this also covers KvK, with '0 bishops' as it were)
-    uint64_t BishopLMask=(POSMAT_MASK(wbishopl) | POSMAT_MASK(bbishopl));
-    uint64_t BishopDMask=(POSMAT_MASK(wbishopd) | POSMAT_MASK(bbishopd));
-    if ((Mat & ~BishopLMask)==0 ||
-        (Mat & ~BishopDMask)==0)
+    const uint64_t BishopLMask=(POSMAT_MASK(wbishopl) | POSMAT_MASK(bbishopl));
+    const uint64_t BishopDMask=(POSMAT_MASK(wbishopd) | POSMAT_MASK(bbishopd));
+    if ((Mat & ~BishopLMask)==0 || (Mat & ~BishopDMask)==0)
       return true;
     
     // Only one side with material?
     if ((Mat & POSMAT_MASKCOL(white))==0 || (Mat & POSMAT_MASKCOL(black))==0)
     {
-      int NCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, bknight);
+      unsigned int NCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, bknight);
       bool LB=((Mat & BishopLMask)!=0), DB=((Mat & BishopDMask)!=0);
       if (NCount<2 && !(LB && DB) && (!NCount || !(LB || DB)))
         return true;
@@ -693,12 +662,12 @@ bool PosIsDraw(const pos_t *Pos, int Ply)
 
 inline bool PosIsMate(pos_t *Pos)
 {
-  return (PosIsSTMInCheck(Pos) && PosGenLegalMove(Pos)==MOVE_NULL);
+  return (PosIsSTMInCheck(Pos) && PosGenLegalMove(Pos)==MOVE_INVALID);
 }
 
 inline bool PosIsStalemate(pos_t *Pos)
 {
-  return (!PosIsSTMInCheck(Pos) && PosGenLegalMove(Pos)==MOVE_NULL);
+  return (!PosIsSTMInCheck(Pos) && PosGenLegalMove(Pos)==MOVE_INVALID);
 }
 
 inline unsigned int PosGetHalfMoveClock(const pos_t *Pos)
@@ -708,7 +677,7 @@ inline unsigned int PosGetHalfMoveClock(const pos_t *Pos)
 
 bool PosLegalMoveExist(pos_t *Pos)
 {
-  return (PosGenLegalMove(Pos)!=MOVE_NULL);
+  return (PosGenLegalMove(Pos)!=MOVE_INVALID);
 }
 
 inline hkey_t PosGetKey(const pos_t *Pos)
@@ -738,6 +707,171 @@ inline uint64_t PosGetMat(const pos_t *Pos)
   return ((Black<<4) | White);
 }
 
+bool PosIsConsistent(pos_t *Pos)
+{
+  char Error[512];
+  
+  // Test bitboards are self consistent
+  bb_t WAll=0, BAll=0;
+  piece_t Piece, Piece2;
+  for(Piece=pawn;Piece<=king;++Piece)
+  {
+    for(Piece2=Piece+1;Piece2<=king;++Piece2)
+    {
+      bb_t WP1=Pos->BB[PIECE_MAKE(Piece, white)];
+      bb_t BP1=Pos->BB[PIECE_MAKE(Piece, black)];
+      bb_t WP2=Pos->BB[PIECE_MAKE(Piece2, white)];
+      bb_t BP2=Pos->BB[PIECE_MAKE(Piece2, black)];
+      if ((WP1 & WP2) || (WP1 & BP1) || (WP1 & BP2) || (WP2 & BP1) ||
+          (WP2 & BP2) || (BP1 & BP2))
+      {
+        sprintf(Error, "Error: Bitboards for pieces %i and %i intersect (in "
+                       "some way, and some colour combo).\n", Piece, Piece2);
+        goto error;
+      }
+    }
+    WAll|=Pos->BB[PIECE_MAKE(Piece, white)];
+    BAll|=Pos->BB[PIECE_MAKE(Piece, black)];
+  }
+  if (WAll!=Pos->BBCol[white] || BAll!=Pos->BBCol[black])
+  {
+    strcpy(Error, "Bitboard 'col[white]' or 'col[black]' error.\n");
+    goto error;
+  }
+  if ((WAll | BAll)!=Pos->BBAll)
+  {
+    strcpy(Error, "Bitboard 'all' error.\n");
+    goto error;
+  }
+  
+  // Test Array64 'pointers' are correct (consistent and agree with bitboards)
+  sq_t Sq;
+  uint8_t Index;
+  for(Sq=0;Sq<64;++Sq)
+  {
+    Index=Pos->Array64[Sq];
+    piece_t Piece=(Index>>4);
+    if (Piece!=empty && !PIECE_ISVALID(Piece))
+    {
+      sprintf(Error, "Invalid piece '%i' derived from array64 index '%i' (%c%c)"
+                     ".\n", Piece, Index, SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
+      goto error;
+    }
+    if (Index==0)
+    {
+      if (Pos->BBAll & SQTOBB(Sq))
+      {
+        sprintf(Error, "Piece exists in bitboards but not in array (%c%c).\n",
+                SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
+        goto error;
+      }
+      continue; // Special case (the 'null index')
+    }
+    if ((Pos->BB[Piece] & SQTOBB(Sq))==0)
+    {
+      sprintf(Error, "Piece exists in array, but not in bitboards (%c%c).\n",
+              SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
+      goto error;
+    }
+    if (Index>=Pos->PieceListNext[Piece])
+    {
+      sprintf(Error, "Array64 points outside of list for piece '%i' (%c%c).\n",
+              Piece, SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
+      goto error;
+    }
+    if (Pos->PieceList[Index]!=Sq)
+    {
+      sprintf(Error, "Array64 sq %c%c disagrees with piece list sq %c%c at "
+                     "index %i.\n", SQ_X(Sq)+'a', SQ_Y(Sq)+'1',
+                     SQ_X(Pos->PieceList[Index])+'a',
+                     SQ_Y(Pos->PieceList[Index])+'1', Index);
+      goto error;
+    }
+  }
+  
+  // Test piece lists are correct
+  for(Piece=pawn;Piece<=king;++Piece)
+  {
+    Piece2=PIECE_MAKE(Piece, white);
+    for(Index=(Piece2<<4);Index<Pos->PieceListNext[Piece2];++Index)
+      if ((Pos->BB[Piece2] & SQTOBB(Pos->PieceList[Index]))==0)
+      {
+        sprintf(Error, "Piece list thinks piece %i exists on %c%c but bitboards"
+                       " do not.\n", Piece2, SQ_X(Pos->PieceList[Index])+'a',
+                       SQ_Y(Pos->PieceList[Index])+'1');
+        goto error;
+      }
+    Piece2=PIECE_MAKE(Piece, black);
+    for(Index=(Piece2<<4);Index<Pos->PieceListNext[Piece2];++Index)
+      if ((Pos->BB[Piece2] & SQTOBB(Pos->PieceList[Index]))==0)
+      {
+        sprintf(Error, "Piece list thinks piece %i exists on %c%c but bitboards"
+                       " do not.\n", Piece2, SQ_X(Pos->PieceList[Index])+'a',
+                       SQ_Y(Pos->PieceList[Index])+'1');
+        goto error;
+      }
+  }
+  
+  // Test correct bishop pieces are correct (either light or dark)
+  for(Sq=0;Sq<64;++Sq)
+  {
+    if ((PosGetPieceOnSq(Pos, Sq)==wbishopl || PosGetPieceOnSq(Pos, Sq)==bbishopl) && !SQ_ISLIGHT(Sq))
+      return false;
+    if ((PosGetPieceOnSq(Pos, Sq)==wbishopd || PosGetPieceOnSq(Pos, Sq)==bbishopd) && SQ_ISLIGHT(Sq))
+      return false;
+  }
+  
+  // Test EP square is valid
+  if (Pos->Data->EPSq!=sq_invalid && !PosIsEPCap(Pos, Pos->Data->EPSq))
+  {
+    sprintf(Error, "Position has invalid ep capture sq %c%c.\n",
+            SQ_X(Pos->Data->EPSq)+'a', SQ_Y(Pos->Data->EPSq)+'1');
+    goto error;
+  }
+  
+  // Test hash keys match
+  hkey_t TrueKey=PosComputeKey(Pos);
+  hkey_t Key=PosGetKey(Pos);
+  if (Key!=TrueKey)
+  {
+    sprintf(Error, "Key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
+            Key, TrueKey);
+    goto error;
+  }
+  
+  // Test pawn hash keys match
+  hkey_t TruePawnKey=PosComputePawnKey(Pos);
+  hkey_t PawnKey=PosGetPawnKey(Pos);
+  if (PawnKey!=TruePawnKey)
+  {
+    sprintf(Error, "Pawn key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
+            PawnKey, TruePawnKey);
+    goto error;
+  }
+  
+  // Test mat hash keys match
+  hkey_t TrueMatKey=PosComputeMatKey(Pos);
+  hkey_t MatKey=PosGetMatKey(Pos);
+  if (MatKey!=TrueMatKey)
+  {
+    sprintf(Error, "Mat key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
+            MatKey, TrueMatKey);
+    goto error;
+  }
+  
+  return true;
+  
+  error:
+# ifndef NDEBUG
+  printf("---------------------------------\n");
+  printf("PosIsConsistent() failed:\n");
+  puts(Error);
+  PosDraw(Pos);
+  printf("---------------------------------\n");
+# endif
+  return false;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -755,12 +889,12 @@ void PosClean(pos_t *Pos)
   Pos->PawnKey=0;
   Pos->MatKey=0;
   Pos->Data=Pos->DataStart;
-  Pos->Data->LastMove=MOVE_NULL;
+  Pos->Data->LastMove=MOVE_INVALID;
   Pos->Data->HalfMoveClock=0;
-  Pos->Data->EPSq=sqinvalid;
+  Pos->Data->EPSq=sq_invalid;
   Pos->Data->CastRights=castrights_none;
   Pos->Data->CapPiece=empty;
-  Pos->Data->CapSq=sqinvalid;
+  Pos->Data->CapSq=sq_invalid;
   Pos->Data->Key=0;
 }
 
@@ -772,9 +906,9 @@ static inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq)
   assert(PosGetPieceOnSq(Pos, Sq)==empty);
   
   // Update pieces
-  Pos->BB[Piece]^=BBSqToBB(Sq);
-  Pos->BBCol[PIECE_COLOUR(Piece)]^=BBSqToBB(Sq);
-  Pos->BBAll^=BBSqToBB(Sq);
+  Pos->BB[Piece]^=SQTOBB(Sq);
+  Pos->BBCol[PIECE_COLOUR(Piece)]^=SQTOBB(Sq);
+  Pos->BBAll^=SQTOBB(Sq);
   uint8_t Index=(Pos->PieceListNext[Piece]++);
   Pos->Array64[Sq]=Index;
   Pos->PieceList[Index]=Sq;
@@ -794,9 +928,9 @@ static inline void PosPieceRemove(pos_t *Pos, sq_t Sq)
   // Update pieces
   uint8_t Index=Pos->Array64[Sq];
   piece_t Piece=(Index>>4);
-  Pos->BB[Piece]^=BBSqToBB(Sq);
-  Pos->BBCol[PIECE_COLOUR(Piece)]^=BBSqToBB(Sq);
-  Pos->BBAll^=BBSqToBB(Sq);
+  Pos->BB[Piece]^=SQTOBB(Sq);
+  Pos->BBCol[PIECE_COLOUR(Piece)]^=SQTOBB(Sq);
+  Pos->BBAll^=SQTOBB(Sq);
   uint8_t LastIndex=(--Pos->PieceListNext[Piece]);
   Pos->PieceList[Index]=Pos->PieceList[LastIndex];
   Pos->Array64[Pos->PieceList[Index]]=Index; // Easy to forget this line...
@@ -818,9 +952,9 @@ static inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq)
   // Update pieces
   uint8_t Index=Pos->Array64[FromSq];
   piece_t Piece=(Index>>4);
-  Pos->BB[Piece]^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
-  Pos->BBCol[PIECE_COLOUR(Piece)]^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
-  Pos->BBAll^=BBSqToBB(FromSq)^BBSqToBB(ToSq);
+  Pos->BB[Piece]^=SQTOBB(FromSq)^SQTOBB(ToSq);
+  Pos->BBCol[PIECE_COLOUR(Piece)]^=SQTOBB(FromSq)^SQTOBB(ToSq);
+  Pos->BBAll^=SQTOBB(FromSq)^SQTOBB(ToSq);
   Pos->Array64[ToSq]=Index;
   Pos->Array64[FromSq]=(empty<<4);
   Pos->PieceList[Index]=ToSq;
@@ -989,7 +1123,7 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
     }
     
     // EP captures
-    if (Pos->Data->EPSq!=sqinvalid)
+    if (Pos->Data->EPSq!=sq_invalid)
     {
       // Left capture
       if (SQ_X(Pos->Data->EPSq)<7 &&
@@ -1066,7 +1200,7 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
     }
     
     // EP captures
-    if (Pos->Data->EPSq!=sqinvalid)
+    if (Pos->Data->EPSq!=sq_invalid)
     {
       // Left capture
       if (SQ_X(Pos->Data->EPSq)<7 &&
@@ -1157,171 +1291,6 @@ static inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves)
   return Moves;
 }
 
-bool PosIsConsistent(pos_t *Pos)
-{
-  char Error[512];
-  
-  // Test bitboards are self consistent
-  bb_t WAll=0, BAll=0;
-  piece_t Piece, Piece2;
-  for(Piece=pawn;Piece<=king;++Piece)
-  {
-    for(Piece2=Piece+1;Piece2<=king;++Piece2)
-    {
-      bb_t WP1=Pos->BB[PIECE_MAKE(Piece, white)];
-      bb_t BP1=Pos->BB[PIECE_MAKE(Piece, black)];
-      bb_t WP2=Pos->BB[PIECE_MAKE(Piece2, white)];
-      bb_t BP2=Pos->BB[PIECE_MAKE(Piece2, black)];
-      if ((WP1 & WP2) || (WP1 & BP1) || (WP1 & BP2) || (WP2 & BP1) ||
-          (WP2 & BP2) || (BP1 & BP2))
-      {
-        sprintf(Error, "Error: Bitboards for pieces %i and %i intersect (in "
-                       "some way, and some colour combo).\n", Piece, Piece2);
-        goto error;
-      }
-    }
-    WAll|=Pos->BB[PIECE_MAKE(Piece, white)];
-    BAll|=Pos->BB[PIECE_MAKE(Piece, black)];
-  }
-  if (WAll!=Pos->BBCol[white] || BAll!=Pos->BBCol[black])
-  {
-    strcpy(Error, "Bitboard 'col[white]' or 'col[black]' error.\n");
-    goto error;
-  }
-  if ((WAll | BAll)!=Pos->BBAll)
-  {
-    strcpy(Error, "Bitboard 'all' error.\n");
-    goto error;
-  }
-  
-  // Test Array64 'pointers' are correct (consistent and agree with bitboards)
-  sq_t Sq;
-  uint8_t Index;
-  for(Sq=0;Sq<64;++Sq)
-  {
-    Index=Pos->Array64[Sq];
-    piece_t Piece=(Index>>4);
-    if (Piece!=empty && !PIECE_ISVALID(Piece))
-    {
-      sprintf(Error, "Invalid piece '%i' derived from array64 index '%i' (%c%c)"
-                     ".\n", Piece, Index, SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
-      goto error;
-    }
-    if (Index==0)
-    {
-      if (Pos->BBAll & BBSqToBB(Sq))
-      {
-        sprintf(Error, "Piece exists in bitboards but not in array (%c%c).\n",
-                SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
-        goto error;
-      }
-      continue; // Special case (the 'null index')
-    }
-    if ((Pos->BB[Piece] & BBSqToBB(Sq))==0)
-    {
-      sprintf(Error, "Piece exists in array, but not in bitboards (%c%c).\n",
-              SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
-      goto error;
-    }
-    if (Index>=Pos->PieceListNext[Piece])
-    {
-      sprintf(Error, "Array64 points outside of list for piece '%i' (%c%c).\n",
-              Piece, SQ_X(Sq)+'a', SQ_Y(Sq)+'1');
-      goto error;
-    }
-    if (Pos->PieceList[Index]!=Sq)
-    {
-      sprintf(Error, "Array64 sq %c%c disagrees with piece list sq %c%c at "
-                     "index %i.\n", SQ_X(Sq)+'a', SQ_Y(Sq)+'1',
-                     SQ_X(Pos->PieceList[Index])+'a',
-                     SQ_Y(Pos->PieceList[Index])+'1', Index);
-      goto error;
-    }
-  }
-  
-  // Test piece lists are correct
-  for(Piece=pawn;Piece<=king;++Piece)
-  {
-    Piece2=PIECE_MAKE(Piece, white);
-    for(Index=(Piece2<<4);Index<Pos->PieceListNext[Piece2];++Index)
-      if ((Pos->BB[Piece2] & BBSqToBB(Pos->PieceList[Index]))==0)
-      {
-        sprintf(Error, "Piece list thinks piece %i exists on %c%c but bitboards"
-                       " do not.\n", Piece2, SQ_X(Pos->PieceList[Index])+'a',
-                       SQ_Y(Pos->PieceList[Index])+'1');
-        goto error;
-      }
-    Piece2=PIECE_MAKE(Piece, black);
-    for(Index=(Piece2<<4);Index<Pos->PieceListNext[Piece2];++Index)
-      if ((Pos->BB[Piece2] & BBSqToBB(Pos->PieceList[Index]))==0)
-      {
-        sprintf(Error, "Piece list thinks piece %i exists on %c%c but bitboards"
-                       " do not.\n", Piece2, SQ_X(Pos->PieceList[Index])+'a',
-                       SQ_Y(Pos->PieceList[Index])+'1');
-        goto error;
-      }
-  }
-  
-  // Test correct bishop pieces are correct (either light or dark)
-  for(Sq=0;Sq<64;++Sq)
-  {
-    if ((PosGetPieceOnSq(Pos, Sq)==wbishopl || PosGetPieceOnSq(Pos, Sq)==bbishopl) && !SQ_ISLIGHT(Sq))
-      return false;
-    if ((PosGetPieceOnSq(Pos, Sq)==wbishopd || PosGetPieceOnSq(Pos, Sq)==bbishopd) && SQ_ISLIGHT(Sq))
-      return false;
-  }
-  
-  // Test EP square is valid
-  if (Pos->Data->EPSq!=sqinvalid && !PosIsEPCap(Pos, Pos->Data->EPSq))
-  {
-    sprintf(Error, "Position has invalid ep capture sq %c%c.\n",
-            SQ_X(Pos->Data->EPSq)+'a', SQ_Y(Pos->Data->EPSq)+'1');
-    goto error;
-  }
-  
-  // Test hash keys match
-  hkey_t TrueKey=PosComputeKey(Pos);
-  hkey_t Key=PosGetKey(Pos);
-  if (Key!=TrueKey)
-  {
-    sprintf(Error, "Key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
-            Key, TrueKey);
-    goto error;
-  }
-  
-  // Test pawn hash keys match
-  hkey_t TruePawnKey=PosComputePawnKey(Pos);
-  hkey_t PawnKey=PosGetPawnKey(Pos);
-  if (PawnKey!=TruePawnKey)
-  {
-    sprintf(Error, "Pawn key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
-            PawnKey, TruePawnKey);
-    goto error;
-  }
-  
-  // Test mat hash keys match
-  hkey_t TrueMatKey=PosComputeMatKey(Pos);
-  hkey_t MatKey=PosGetMatKey(Pos);
-  if (MatKey!=TrueMatKey)
-  {
-    sprintf(Error, "Mat key is %016"PRIxkey" while true key is %016"PRIxkey".\n",
-            MatKey, TrueMatKey);
-    goto error;
-  }
-  
-  return true;
-  
-  error:
-# ifndef NDEBUG
-  printf("---------------------------------\n");
-  printf("PosIsConsistent() failed:\n");
-  puts(Error);
-  PosDraw(Pos);
-  printf("---------------------------------\n");
-# endif
-  return false;
-}
-
 char PosPromoChar(piece_t Piece)
 {
   assert(PIECE_ISVALID(Piece));
@@ -1385,9 +1354,11 @@ bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move)
   piece_t FromPiece=PosGetPieceOnSq(Pos, FromSq);
   piece_t ToPiece=PosGetPieceOnSq(Pos, ToSq);
   
-  // Special case: null move
-  if (Move==MOVE_NULL)
+  // Special cases: invalid and none
+  if (Move==MOVE_INVALID)
     return false;
+  else if (Move==MOVE_NONE)
+    return !PosIsSTMInCheck(Pos);
   
   // Is move of correct colour?
   if (MOVE_GETCOLOUR(Move)!=STM)
@@ -1503,7 +1474,7 @@ bool PosIsPiecePinned(const pos_t *Pos, sq_t PinnedSq, sq_t VictimSq)
     return false;
   
   // Test if the victim would be attacked if the 'pinned' piece is removed
-  bb_t Set=(All & ~ BBSqToBB(PinnedSq));
+  bb_t Set=(All & ~ SQTOBB(PinnedSq));
   bb_t Beyond=BBBeyond[VictimSq][PinnedSq];
   int X1=SQ_X(PinnedSq), Y1=SQ_Y(PinnedSq);
   int X2=SQ_X(VictimSq), Y2=SQ_Y(VictimSq);

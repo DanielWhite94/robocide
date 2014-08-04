@@ -46,14 +46,26 @@ typedef struct
   move_t * (*Gen)(const pos_t *Pos, move_t *Moves);
 }moves_t;
 
+typedef enum
+{
+  nodetype_invalid=0,
+  nodetype_lower=1,
+  nodetype_upper=2,
+  nodetype_exact=3,
+}nodetype_t;
+
 typedef struct
 {
-  pos_t *Pos;
-  int Depth, Ply, Type;
-  score_t Alpha, Beta, Score;
-  bool InCheck;
+  pos_t *Pos; // *
+  int Depth, Ply; // *
+  nodetype_t Type; // #
+  score_t Alpha, Beta; // *
+  bool InCheck; // *
+  move_t Move; // #
+  score_t Score; // #
   moves_t Moves;
-  move_t Move;
+  // * - search functions should not modify these entries
+  // # - search functions should ensure these are set correctly before returning (even if only say Move==MOVE_NONE)
 }node_t;
 #define NODE_ISQ(N) ((N)->Depth<1)
 #define NODE_ISPV(N) ((N)->Beta-(N)->Alpha>1)
@@ -67,10 +79,6 @@ typedef struct
   uint8_t Type;
   uint16_t Dummy;
 }tt_t;
-#define NODETYPE_NONE (0u)
-#define NODETYPE_LOWER (1u)
-#define NODETYPE_UPPER (2u)
-#define NODETYPE_EXACT (NODETYPE_LOWER | NODETYPE_UPPER)
 tt_t *SearchTT=NULL;
 size_t SearchTTSize=0;
 
@@ -79,8 +87,10 @@ size_t SearchTTSize=0;
 ////////////////////////////////////////////////////////////////////////////////
 
 void SearchIDLoop(void *Data);
-score_t SearchNode(node_t *Node);
-score_t SearchQNode(node_t *Node);
+score_t SearchNode(node_t *N);
+score_t SearchQNode(node_t *N);
+void SearchNodeInternal(node_t *Node);
+void SearchQNodeInternal(node_t *Node);
 static inline bool SearchIsTimeUp();
 void SearchOutput(node_t *N);
 void SearchScoreToStr(score_t Score, int Type, char Str[static 32]);
@@ -108,6 +118,8 @@ static inline bool SearchIsZugzwang(const node_t *N);
 #ifdef TUNE
 void SearchSetValue(int Value, void *UserData);
 #endif
+void SearchNodePreCheck(node_t *N);
+void SearchNodePostCheck(const node_t *PostN, const node_t *PreN);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -211,16 +223,15 @@ void SearchIDLoop(void *Data)
   Node.InCheck=PosIsSTMInCheck(Node.Pos);
   
   // Loop increasing search depth until we run out of 'time'
-  move_t BestMove=MOVE_NULL;
+  move_t BestMove=MOVE_INVALID;
   for(Node.Depth=1;Node.Depth<SEARCH_MAXPLY;++Node.Depth)
   {
     // Search
     SearchNode(&Node);
     
     // No moves searched? (i.e. out of 'time')
-    if (Node.Move==MOVE_NULL || (SearchTT==NULL && SearchIsTimeUp()))
+    if (Node.Move==MOVE_INVALID)
       break;
-    assert(SCORE_ISVALID(Node.Score));
     
     // Update bestmove
     BestMove=Node.Move;
@@ -233,23 +244,30 @@ void SearchIDLoop(void *Data)
       break;
   }
   
-  // Send best move (and potentially ponder move)
-  if (BestMove==MOVE_NULL)
-    SearchTTRead(&Node, &BestMove); // Worth a try
-  if (BestMove==MOVE_NULL)
-    BestMove=PosGenLegalMove(Node.Pos); // Might as well choose a move
+  // Grab best move (and potentially ponder move)
+  if (BestMove==MOVE_INVALID)
+  {
+    // Try TT
+    SearchTTRead(&Node, &BestMove);
+    
+    // Otherwise simply use some legal move
+    if (BestMove==MOVE_INVALID)
+      BestMove=PosGenLegalMove(Node.Pos);
+  }
+  
+  // Send best move and ponder move to GUI
   char Str[8];
   PosMoveToStr(BestMove, Str);
   
-  move_t PonderMove=MOVE_NULL;
-  if (SearchPonder && BestMove!=MOVE_NULL)
+  move_t PonderMove=MOVE_INVALID;
+  if (SearchPonder && MOVE_ISVALID(BestMove))
   {
     PosMakeMove(Node.Pos, BestMove);
     SearchTTRead(&Node, &PonderMove);
     PosUndoMove(Node.Pos);
   }
   
-  if (PonderMove!=MOVE_NULL)
+  if (MOVE_ISVALID(PonderMove))
   {
     char Str2[8];
     PosMoveToStr(PonderMove, Str2);
@@ -264,39 +282,83 @@ void SearchIDLoop(void *Data)
 
 score_t SearchNode(node_t *N)
 {
-  // Sanity checks
-  assert(-SCORE_INF<=N->Alpha && N->Alpha<N->Beta && N->Beta<=SCORE_INF);
-  assert(N->InCheck==PosIsSTMInCheck(N->Pos));
-  assert(N->Ply>=0);
+# ifndef NDEBUG
+  // Save node_t structure for post-checks
+  node_t PreN=*N;
   
+  // Pre-checks
+  SearchNodePreCheck(N);
+# endif
+  
+  // Call main search function
+  SearchNodeInternal(N);
+  
+  // Post-checks
+# ifndef NDEBUG
+  SearchNodePostCheck(N, &PreN);
+# endif
+  
+  return N->Score;
+}
+
+score_t SearchQNode(node_t *N)
+{
+# ifndef NDEBUG
+  // Save node_t structure for post-checks
+  node_t PreN=*N;
+  
+  // Pre-checks
+  SearchNodePreCheck(N);
+  assert(NODE_ISQ(N));
+# endif
+  
+  // Call main search function
+  SearchQNodeInternal(N);
+  
+  // Post-checks
+# ifndef NDEBUG
+  SearchNodePostCheck(N, &PreN);
+# endif
+  
+  return N->Score;
+}
+
+void SearchNodeInternal(node_t *N)
+{
   // Q node? (or ply limit reached)
   if (NODE_ISQ(N) || N->Ply>=SEARCH_MAXPLY)
-    return SearchQNode(N);
+  {
+    SearchQNode(N);
+    return;
+  }
   
   // Node begins
   ++SearchNodeCount;
-  N->Type=NODETYPE_NONE;
-  N->Move=MOVE_NULL;
   
   // Test for draws (and rare checkmates)
   if (N->Ply>0 && PosIsDraw(N->Pos, N->Ply))
   {
-    N->Type=NODETYPE_EXACT;
+    N->Type=nodetype_exact;
+    N->Move=MOVE_NONE;
     
     // In rare cases checkmate can be given on 100th half move
     if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
     {
       assert(PosIsMate(N->Pos));
-      return N->Score=SCORE_MATEDIN(N->Ply);
+      N->Score=SCORE_MATEDIN(N->Ply);
+      return;
     }
     else
-      return N->Score=SCORE_DRAW;
+    {
+      N->Score=SCORE_DRAW;
+      return;
+    }
   }
   
   // Check TT table
-  move_t TTMove=MOVE_NULL;
+  move_t TTMove=MOVE_INVALID;
   if (SearchTTRead(N, &TTMove))
-    return N->Score;
+    return;
   
   // Null move pruning
   node_t Child;
@@ -307,21 +369,26 @@ score_t SearchNode(node_t *N)
   {
     assert(!N->InCheck);
     
-    PosMakeNullMove(N->Pos);
+    PosMakeMove(N->Pos, MOVE_NONE);
     Child.InCheck=false;
     Child.Depth=N->Depth-1-SearchNullReduction;
     Child.Alpha=-N->Beta;
     Child.Beta=1-N->Beta;
     score_t Score=-SearchNode(&Child);
-    PosUndoNullMove(N->Pos);
+    PosUndoMove(N->Pos);
     
     if (Score>=N->Beta)
-      return N->Score=N->Beta;
+    {
+      N->Type=nodetype_lower;
+      N->Move=MOVE_NONE;
+      N->Score=N->Beta;
+      return;
+    }
   }
   
   // Internal iterative deepening
   int Depth=N->Depth;
-  if (SearchIIDReduction>0 && N->Depth>=SearchIIDMin && NODE_ISPV(N) && TTMove==MOVE_NULL)
+  if (SearchIIDReduction>0 && N->Depth>=SearchIIDMin && NODE_ISPV(N) && TTMove==MOVE_INVALID)
   {
     int k=(N->Depth-SearchIIDMin)/SearchIIDReduction;
     Depth=N->Depth-k*SearchIIDReduction;
@@ -338,13 +405,13 @@ score_t SearchNode(node_t *N)
     
     // Prepare to search current depth
     score_t Alpha=N->Alpha;
-    N->Score=SCORE_NONE;
-    N->Type=NODETYPE_UPPER;
-    N->Move=MOVE_NULL;
+    N->Score=SCORE_INVALID;
+    N->Type=nodetype_upper;
+    N->Move=MOVE_INVALID;
     Child.Alpha=-N->Beta;
     Child.Beta=-Alpha;
     move_t Move;
-    while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
+    while((Move=SearchMovesNext(&N->Moves))!=MOVE_INVALID)
     {
       // Make move (might leave us in check, if so skip)
       if (!PosMakeMove(N->Pos, Move))
@@ -383,16 +450,26 @@ score_t SearchNode(node_t *N)
       {
         // Not yet started N->Depth search?
         if (Depth<N->Depth)
-          return SCORE_NONE;
+        {
+          N->Type=nodetype_invalid;
+          N->Move=MOVE_INVALID;
+          N->Score=SCORE_INVALID;
+          return;
+        }
         
         // Node type is tricky as we haven't yet searched all moves
-        N->Type&=~NODETYPE_UPPER;
+        N->Type&=~nodetype_upper;
+        if (N->Type==nodetype_invalid)
+        {
+          N->Move=MOVE_INVALID;
+          N->Score=SCORE_INVALID;
+          return;
+        }
         
         // We may have useful info, update TT
-        if (N->Type!=NODETYPE_NONE)
-          SearchTTWrite(N);
-    
-        return N->Score;
+        SearchTTWrite(N);
+          
+        return;
       }
       
       // Better move?
@@ -405,7 +482,7 @@ score_t SearchNode(node_t *N)
         // Cutoff?
         if (Score>=N->Beta)
         {
-          N->Type=NODETYPE_LOWER;
+          N->Type=nodetype_lower;
           goto cutoff;
         }
         
@@ -415,24 +492,27 @@ score_t SearchNode(node_t *N)
           Alpha=Score;
           Child.Alpha=-Alpha-1;
           Child.Beta=-Alpha;
-          N->Type=NODETYPE_EXACT;
+          N->Type=nodetype_exact;
         }
       }
     }
     
     // Test for checkmate or stalemate
-    if (N->Score==SCORE_NONE)
+    if (N->Score==SCORE_INVALID)
     {
+      N->Type=nodetype_exact;
+      N->Move=MOVE_NONE;
       if (N->InCheck)
       {
         assert(PosIsMate(N->Pos));
-        return SCORE_MATEDIN(N->Ply);
+        N->Score=SCORE_MATEDIN(N->Ply);
       }
       else
       {
         assert(PosIsStalemate(N->Pos));
-        return SCORE_DRAW;
+        N->Score=SCORE_DRAW;
       }
+      return;
     }
     
     cutoff:
@@ -444,9 +524,9 @@ score_t SearchNode(node_t *N)
   }while((Depth+=SearchIIDReduction)<=N->Depth);
   
   // We now know the best move
-  assert(N->Move!=MOVE_NULL);
-  assert(N->Score!=SCORE_NONE);
-  assert(N->Type!=NODETYPE_NONE);
+  assert(MOVE_ISVALID(N->Move));
+  assert(SCORE_ISVALID(N->Score));
+  assert(N->Type!=nodetype_invalid);
   
   // Update history table
   SearchHistoryUpdate(N);
@@ -454,17 +534,11 @@ score_t SearchNode(node_t *N)
   // Update TT table
   SearchTTWrite(N);
   
-  return N->Score;
+  return;
 }
 
-score_t SearchQNode(node_t *N)
+void SearchQNodeInternal(node_t *N)
 {
-  // Sanity checks
-  assert(-SCORE_INF<=N->Alpha && N->Alpha<N->Beta && N->Beta<=SCORE_INF);
-  assert(N->InCheck==PosIsSTMInCheck(N->Pos));
-  assert(NODE_ISQ(N));
-  assert(N->Ply>=1);
-  
   // Init
   ++SearchNodeCount;
   score_t Alpha=N->Alpha;
@@ -472,36 +546,48 @@ score_t SearchQNode(node_t *N)
   // Test for draws (and rare checkmates)
   if (PosIsDraw(N->Pos, N->Ply))
   {
+    N->Type=nodetype_exact;
+    N->Move=MOVE_NONE;
+    
     // In rare cases checkmate can be given on 100th half move (however unlikely
     // this actually occurs in q-search...)
     if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
-      return N->Score=SCORE_MATEDIN(N->Ply);
+      N->Score=SCORE_MATEDIN(N->Ply);
     else
-      return N->Score=SCORE_DRAW;
+      N->Score=SCORE_DRAW;
+    
+    return;
   }
-
+  
   // Standing pat (when not in check)
   if (!N->InCheck)
   {
     score_t Eval=Evaluate(N->Pos);
     if (Eval>=N->Beta)
-      return N->Score=N->Beta;
-    if (Eval>Alpha)
+    {
+      N->Type=nodetype_lower;
+      N->Move=MOVE_NONE;
+      N->Score=N->Beta;
+      return;
+    }
+    else if (Eval>Alpha)
       Alpha=Eval;
   }
   
   // Search moves
   node_t Child;
-  N->Score=SCORE_NONE;
+  N->Type=nodetype_upper;
+  N->Move=MOVE_NONE;
+  N->Score=SCORE_INVALID;
   Child.Pos=N->Pos;
-  Child.Depth=N->Depth-1;
+  Child.Depth=N->Depth;
   Child.Ply=N->Ply+1;
   Child.Alpha=-N->Beta;
   Child.Beta=-Alpha;
-  SearchMovesInit(N, MOVE_NULL);
+  SearchMovesInit(N, MOVE_INVALID);
   move_t Move;
   bool NoLegalMove=true;
-  while((Move=SearchMovesNext(&N->Moves))!=MOVE_NULL)
+  while((Move=SearchMovesNext(&N->Moves))!=MOVE_INVALID)
   {
     // Search move
     if (!PosMakeMove(N->Pos, Move))
@@ -512,7 +598,16 @@ score_t SearchQNode(node_t *N)
     
     // Out of time? (previous search result is invalid)
     if (SearchIsTimeUp())
-      return N->Score;
+    {
+      // Node type is tricky as we haven't yet searched all moves
+      N->Type&=~nodetype_upper;
+      
+      // HACK
+      if (N->Move==MOVE_NONE)
+        N->Move=MOVE_INVALID;
+      
+      return;
+    }
     
     // We have a legal move
     NoLegalMove=false;
@@ -523,10 +618,15 @@ score_t SearchQNode(node_t *N)
       // Update alpha
       Alpha=Score;
       Child.Beta=-Alpha;
+      N->Type=nodetype_exact;
+      N->Move=Move;
       
       // Cutoff?
       if (Score>=N->Beta)
+      {
+        N->Type=nodetype_lower;
         goto cutoff;
+      }
     }
   }
   
@@ -537,23 +637,29 @@ score_t SearchQNode(node_t *N)
     {
       // We always try every move when in check
       assert(PosIsMate(N->Pos));
-      return SCORE_MATEDIN(N->Ply);
+      N->Type=nodetype_exact;
+      N->Score=SCORE_MATEDIN(N->Ply);
+      return;
     }
     else if (!PosLegalMoveExist(N->Pos))
     {
       assert(PosIsStalemate(N->Pos));
-      return SCORE_DRAW;
+      N->Type=nodetype_exact;
+      N->Score=SCORE_DRAW;
+      return;
     }
     else
-      // else there are quiet moves available, assume one is good
-      return Alpha;
+      // else there are quiet moves available, assume one is at least as good as standing pat
+      N->Type=nodetype_lower;
   }
   
   // We now know the best move
   cutoff:
-  assert(!NoLegalMove);
+  N->Score=Alpha;
+  assert(N->Type!=nodetype_invalid);
+  assert(SCORE_ISVALID(N->Score));
   
-  return N->Score=Alpha;
+  return;
 }
 
 static inline bool SearchIsTimeUp()
@@ -571,8 +677,8 @@ static inline bool SearchIsTimeUp()
 void SearchOutput(node_t *N)
 {
   assert(SCORE_ISVALID(N->Score));
-  assert(N->Move!=MOVE_NULL);
-  assert(N->Type!=NODETYPE_NONE);
+  assert(N->Move!=MOVE_INVALID);
+  assert(N->Type!=nodetype_invalid);
   
   // Various bits of data
   ms_t Time=TimeGet()-SearchStartTime;
@@ -593,7 +699,7 @@ void SearchOutput(node_t *N)
     // * no move
     // * drawn position (we don't want infinite PVs in case of repetition)
     // * the move is not legal (we check this last to avoid undo logic)
-    if (Move==MOVE_NULL || (Ply>0 && PosIsDraw(N->Pos, Ply)) || !PosMakeMove(N->Pos, Move))
+    if (Move==MOVE_INVALID || (Ply>0 && PosIsDraw(N->Pos, Ply)) || !PosMakeMove(N->Pos, Move))
       break;
     
     // Print move
@@ -601,7 +707,7 @@ void SearchOutput(node_t *N)
     printf(" %s", Str);
     
     // Read next move from TT
-    Move=MOVE_NULL;
+    Move=MOVE_INVALID;
     SearchTTRead(N, &Move);
   }
   
@@ -621,9 +727,9 @@ void SearchScoreToStr(score_t Score, int Type, char Str[static 32])
     sprintf(Str, "cp %i", Score);
   
   // Upper/lowerbound?
-  if (Type==NODETYPE_LOWER)
+  if (Type==nodetype_lower)
     strcat(Str, " lowerbound");
-  if (Type==NODETYPE_UPPER)
+  if (Type==nodetype_upper)
     strcat(Str, " upperbound");
 }
 
@@ -652,7 +758,7 @@ move_t SearchMovesNext(moves_t *Moves)
       Moves->Stage=movesstage_main;
       
       // Do we have a TT move?
-      if (Moves->TTMove!=MOVE_NULL)
+      if (MOVE_ISVALID(Moves->TTMove))
         return Moves->TTMove;
       
       // Fall through to generate/choose a move
@@ -672,12 +778,12 @@ move_t SearchMovesNext(moves_t *Moves)
           return *(Moves->Next-1);
       
       // No moves left
-      return MOVE_NULL;
+      return MOVE_INVALID;
     break;
   }
   
   assert(false);
-  return MOVE_NULL;
+  return MOVE_INVALID;
 }
 
 void SearchSortMoves(moves_t *Moves)
@@ -823,20 +929,22 @@ bool SearchTTRead(node_t *N, move_t *Move)
   if (!SearchTTMatch(N, TTE))
     return false;
   
-  // Set move and score
-  *Move=TTE->Move;
-  N->Score=SearchTTToScore(TTE->Score, N->Ply);
   
   // Cutoff possible?
+  score_t Score=SearchTTToScore(TTE->Score, N->Ply);
   if (TTE->Depth>=N->Depth &&
-      ((TTE->Type==NODETYPE_EXACT) ||
-       ((TTE->Type & NODETYPE_LOWER) && N->Score>=N->Beta) ||
-       ((TTE->Type & NODETYPE_UPPER) && N->Score<=N->Alpha)))
+      ((TTE->Type==nodetype_exact) ||
+       ((TTE->Type & nodetype_lower) && Score>=N->Beta) ||
+       ((TTE->Type & nodetype_upper) && Score<=N->Alpha)))
   {
     N->Move=TTE->Move;
     N->Type=TTE->Type;
+    N->Score=Score;
     return true;
   }
+  
+  // If no cutoff at least pass back the stored move
+  *Move=TTE->Move;
   
   return false;
 }
@@ -844,9 +952,9 @@ bool SearchTTRead(node_t *N, move_t *Move)
 void SearchTTWrite(const node_t *N)
 {
   // Sanity checks
-  assert(N->Move!=MOVE_NULL);
+  assert(N->Move!=MOVE_INVALID);
   assert(SCORE_ISVALID(N->Score));
-  assert(N->Type!=NODETYPE_NONE);
+  assert(N->Type!=nodetype_invalid);
   
   // No TT?
   if (SearchTT==NULL)
@@ -869,15 +977,8 @@ void SearchTTWrite(const node_t *N)
 
 static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE)
 {
-  // Key match?
-  if (TTE->Key!=PosGetKey(N->Pos))
-    return false;
-  
-  // TT move pseudo-legal?
-  if (TTE->Move!=MOVE_NULL && !PosIsMovePseudoLegal(N->Pos, TTE->Move))
-    return false;
-  
-  return true;
+  // Key match and move psueudo-legal?
+  return (TTE->Key==PosGetKey(N->Pos) && PosIsMovePseudoLegal(N->Pos, TTE->Move));
 }
 
 static inline score_t SearchTTToScore(score_t S, int Ply)
@@ -921,3 +1022,40 @@ void SearchSetValue(int Value, void *UserData)
   SearchReset();
 }
 #endif
+
+void SearchNodePreCheck(node_t *N)
+{
+  // Check preset values are sensible
+  assert(PosIsConsistent(N->Pos));
+  assert(N->Depth>=0);
+  assert(N->Ply>=0);
+  assert(-SCORE_INF<=N->Alpha && N->Alpha<N->Beta && N->Beta<=SCORE_INF);
+  assert(N->InCheck==PosIsSTMInCheck(N->Pos));
+  
+  // Set other values to invalid to detect errors in post-checks
+  N->Type=nodetype_invalid;
+  N->Move=MOVE_INVALID;
+  N->Score=SCORE_INVALID;
+}
+
+void SearchNodePostCheck(const node_t *PostN, const node_t *PreN)
+{
+  // Check position, depth, ply and incheck are unchanged
+  assert(PostN->Pos==PreN->Pos);
+  assert(PostN->Depth==PreN->Depth);
+  assert(PostN->Ply==PreN->Ply);
+  assert(PostN->InCheck==PreN->InCheck);
+  
+  // Check type, move and score have been set and are sensible
+  if (SCORE_ISVALID(PostN->Score))
+  {
+    assert(PostN->Type==nodetype_lower || PostN->Type==nodetype_upper || PostN->Type==nodetype_exact);
+    assert(PostN->Move!=MOVE_INVALID);
+  }
+  else
+  {
+    assert(SearchIsTimeUp());
+    assert(PostN->Type==nodetype_invalid);
+    assert(PostN->Move==MOVE_INVALID);
+  }
+}

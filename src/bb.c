@@ -57,10 +57,10 @@ void BBInit()
         
         // Set BB_Beyond array
         for(Sq3=Sq2+Dir;!(Sq3 & 0x88);Sq3+=Dir)
-          BBBeyond[Sq164][Sq264]|=BBSqToBB(TOSQ(Sq3));
+          BBBeyond[Sq164][Sq264]|=SQTOBB(TOSQ(Sq3));
         
         // Add current square to set
-        Set|=BBSqToBB(Sq264);
+        Set|=SQTOBB(Sq264);
       }
     }
 # undef TOSQ
@@ -72,7 +72,7 @@ void BBDraw(bb_t Set)
   for(Y=7;Y>=0;--Y)
   {
     for(X=0;X<8;++X)
-      printf(" %i", (BBSqToBB(XYTOSQ(X,Y)) & Set)!=0);
+      printf(" %i", (SQTOBB(XYTOSQ(X,Y)) & Set)!=0);
     printf("\n");
   }
 }

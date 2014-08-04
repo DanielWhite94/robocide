@@ -25,7 +25,7 @@ int SEE(const pos_t *Pos, sq_t FromSq, sq_t ToSq)
   
   bb_t Occ=PosGetBBAll(Pos);
   bb_t AtkDef=SEEAttacksTo(Pos, ToSq, Occ);
-  bb_t FromSet=BBSqToBB(FromSq);
+  bb_t FromSet=SQTOBB(FromSq);
   
   bb_t MayXRay=Occ^PosGetBBPiece(Pos, wknight)^PosGetBBPiece(Pos, wking)^PosGetBBPiece(Pos, bknight)^PosGetBBPiece(Pos, bking);
   assert(MayXRay==(PosGetBBPiece(Pos, wpawn) | PosGetBBPiece(Pos, wbishopl) | PosGetBBPiece(Pos, wbishopd) | PosGetBBPiece(Pos, wrook) | PosGetBBPiece(Pos, wqueen) | 
@@ -95,7 +95,7 @@ bb_t SEEAttacksTo(const pos_t *Pos, sq_t Sq, bb_t Occ)
   bb_t Set=0;
   
   // Pawns
-  bb_t Wing=BBWingify(BBSqToBB(Sq));
+  bb_t Wing=BBWingify(SQTOBB(Sq));
   Set|=((BBForwardOne(Wing, white) & PosGetBBPiece(Pos, wpawn)) |
         (BBForwardOne(Wing, black) & PosGetBBPiece(Pos, bpawn)));
   

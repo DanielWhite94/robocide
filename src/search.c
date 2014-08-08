@@ -120,6 +120,7 @@ void SearchSetValue(int Value, void *UserData);
 #endif
 void SearchNodePreCheck(node_t *N);
 void SearchNodePostCheck(const node_t *PostN, const node_t *PreN);
+bool SearchInteriorRecog(node_t *N);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -335,25 +336,9 @@ void SearchNodeInternal(node_t *N)
   // Node begins
   ++SearchNodeCount;
   
-  // Test for draws (and rare checkmates)
-  if (N->Ply>0 && PosIsDraw(N->Pos, N->Ply))
-  {
-    N->Type=nodetype_exact;
-    N->Move=MOVE_NONE;
-    
-    // In rare cases checkmate can be given on 100th half move
-    if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
-    {
-      assert(PosIsMate(N->Pos));
-      N->Score=SCORE_MATEDIN(N->Ply);
-      return;
-    }
-    else
-    {
-      N->Score=SCORE_DRAW;
-      return;
-    }
-  }
+  // Interior node recogniser (also handles draws)
+  if (N->Ply>0 && SearchInteriorRecog(N))
+    return;
   
   // Check TT table
   move_t TTMove=MOVE_INVALID;
@@ -543,21 +528,9 @@ void SearchQNodeInternal(node_t *N)
   ++SearchNodeCount;
   score_t Alpha=N->Alpha;
   
-  // Test for draws (and rare checkmates)
-  if (PosIsDraw(N->Pos, N->Ply))
-  {
-    N->Type=nodetype_exact;
-    N->Move=MOVE_NONE;
-    
-    // In rare cases checkmate can be given on 100th half move (however unlikely
-    // this actually occurs in q-search...)
-    if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
-      N->Score=SCORE_MATEDIN(N->Ply);
-    else
-      N->Score=SCORE_DRAW;
-    
+  // Interior node recogniser (also handles draws)
+  if (SearchInteriorRecog(N))
     return;
-  }
   
   // Standing pat (when not in check)
   if (!N->InCheck)
@@ -1058,4 +1031,31 @@ void SearchNodePostCheck(const node_t *PostN, const node_t *PreN)
     assert(PostN->Type==nodetype_invalid);
     assert(PostN->Move==MOVE_INVALID);
   }
+}
+
+bool SearchInteriorRecog(node_t *N)
+{
+  // Sanity checks
+  assert(N->Alpha>=-SCORE_INF && N->Alpha<N->Beta && N->Beta<=SCORE_INF);
+  assert(N->Ply>0);
+  
+  // Test for draws by rule (and rare checkmates)
+  if (PosIsDraw(N->Pos, N->Ply))
+  {
+    N->Type=nodetype_exact;
+    N->Move=MOVE_NONE;
+    
+    // In rare cases checkmate can be given on 100th half move
+    if (N->InCheck && PosGetHalfMoveClock(N->Pos)==100 && !PosLegalMoveExist(N->Pos))
+    {
+      assert(PosIsMate(N->Pos));
+      N->Score=SCORE_MATEDIN(N->Ply);
+    }
+    else
+      N->Score=SCORE_DRAW;
+    
+    return true;
+  }
+  
+  return false;
 }

@@ -40,7 +40,7 @@ size_t EvalMatTableSize=0;
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values
 ////////////////////////////////////////////////////////////////////////////////
-TUNECONST vpair_t EvalMaterial[8]={{0,0},{900,1300},{3250,3250},{3250,3250},{3250,3250},{5000,5000},{10000,10000},{0,0}};
+TUNECONST vpair_t EvalMaterial[8]={{0,0},{900,1300},{3100,3100},{3250,3250},{3250,3250},{5350,5350},{10000,10000},{0,0}};
 TUNECONST vpair_t EvalPawnDoubled={-100,-200};
 TUNECONST vpair_t EvalPawnIsolated={-300,-200};
 TUNECONST vpair_t EvalPawnBlocked={-100,-100};
@@ -372,13 +372,13 @@ void EvalComputeMat(const pos_t *Pos, evalmatdata_t *MatData)
   EvalVPairAddMul(&MatData->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
   
   // Knight pawn affinity
-  int KnightAffW=POSMAT_GET(Mat, wknight)*(POSMAT_GET(Mat, wpawn)-5);
-  int KnightAffB=POSMAT_GET(Mat, bknight)*(POSMAT_GET(Mat, bpawn)-5);
+  int KnightAffW=POSMAT_GET(Mat, wknight)*POSMAT_GET(Mat, wpawn);
+  int KnightAffB=POSMAT_GET(Mat, bknight)*POSMAT_GET(Mat, bpawn);
   EvalVPairAddMul(&MatData->Offset, EvalKnightPawnAffinity, KnightAffW-KnightAffB);
   
   // Rook pawn affinity
-  int RookAffW=POSMAT_GET(Mat, wrook)*(POSMAT_GET(Mat, wpawn)-5);
-  int RookAffB=POSMAT_GET(Mat, brook)*(POSMAT_GET(Mat, bpawn)-5);
+  int RookAffW=POSMAT_GET(Mat, wrook)*POSMAT_GET(Mat, wpawn);
+  int RookAffB=POSMAT_GET(Mat, brook)*POSMAT_GET(Mat, bpawn);
   EvalVPairAddMul(&MatData->Offset, EvalRookPawnAffinity, RookAffW-RookAffB);
   
   // Bishop pair bonus

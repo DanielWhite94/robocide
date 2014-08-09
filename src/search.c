@@ -876,9 +876,6 @@ void SearchTTResize(int SizeMB)
     }
     Entries/=2;
   }
-  
-  // Could not allocate
-  SearchTTFree();
 }
 
 void SearchTTResizeWrapper(int SizeMB, void *Dummy)

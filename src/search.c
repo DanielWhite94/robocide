@@ -70,17 +70,27 @@ typedef struct
 #define NODE_ISQ(N) ((N)->Depth<1)
 #define NODE_ISPV(N) ((N)->Beta-(N)->Alpha>1)
 
+// transposition table entry - 128 bits
 typedef struct
 {
   hkey_t Key;
   move_t Move;
   score_t Score;
   uint8_t Depth;
-  uint8_t Type;
-  uint16_t Dummy;
-}tt_t;
-tt_t *SearchTT=NULL;
+  uint8_t Type:2; // score bound type
+  uint8_t Date:6; // SearchAge at the time the entry was read/written, used to calculate entry age.
+  uint16_t Dummy; // Padding/reserved for future use
+}tte_t;
+
+#define TT_CLUSTERSIZE (4u)
+typedef struct
+{
+  tte_t Entries[TT_CLUSTERSIZE];
+}ttcluster_t;
+ttcluster_t *SearchTT=NULL;
 size_t SearchTTSize=0;
+unsigned int SearchAge;
+#define SEARCH_MAXAGE (64u)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -109,7 +119,7 @@ void SearchTTReset();
 void SearchTTResetWrapper(void *Dummy);
 bool SearchTTRead(node_t *N, move_t *Move);
 void SearchTTWrite(const node_t *N);
-static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE);
+static inline bool SearchTTMatch(const node_t *N, const tte_t *TTE);
 static inline score_t SearchTTToScore(score_t S, int Ply);
 static inline score_t SearchScoreToTT(score_t S, int Ply);
 void SearchSetPonder(bool Ponder);
@@ -121,6 +131,7 @@ void SearchSetValue(int Value, void *UserData);
 void SearchNodePreCheck(node_t *N);
 void SearchNodePostCheck(const node_t *PostN, const node_t *PreN);
 bool SearchInteriorRecog(node_t *N);
+unsigned int SearchDateToAge(unsigned int Date);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -133,13 +144,13 @@ bool SearchInit()
   if (SearchThread==NULL)
     return false;
   
-  // Init history tables
-  SearchHistoryReset();
-  
   // Init TT table
   UCIOptionNewSpin("Hash", &SearchTTResizeWrapper, NULL, 0, 16*1024, 16);
   UCIOptionNewButton("Clear Hash", &SearchTTResetWrapper, NULL);
   SearchTTResize(16);
+  
+  // Set all structures to clean state
+  SearchReset();
   
   // Init pondering
   UCIOptionNewCheck("Ponder", &SearchSetPonderWrapper, NULL, SearchPonder);
@@ -181,6 +192,7 @@ void SearchThink(const pos_t *SrcPos, ms_t StartTime, ms_t SearchTime, bool Infi
   SearchStopFlag=false;
   SearchStartTime=StartTime;
   SearchEndTime=StartTime+SearchTime;
+  SearchAge=(SearchAge+1)%SEARCH_MAXAGE;
   
   // Set away worker
   ThreadRun(SearchThread, &SearchIDLoop, (void *)Pos);
@@ -202,6 +214,9 @@ void SearchReset()
   
   // Clear TT table
   SearchTTReset();
+  
+  // Reset search age
+  SearchAge=0;
 }
 
 void SearchPonderHit()
@@ -840,14 +855,14 @@ void SearchTTResize(int SizeMB)
     return;
   }
   
-  // Calculate greatest power of two number of entries we can fit in SizeMB
-  uint64_t Entries=(((uint64_t)SizeMB)*1024llu*1024llu)/sizeof(tt_t);
+  // Calculate greatest power of two number of clusters we can fit in SizeMB
+  uint64_t Entries=(((uint64_t)SizeMB)*1024llu*1024llu)/sizeof(ttcluster_t);
   Entries=NextPowTwo64(Entries+1)/2;
   
   // Attempt to allocate table
   while(Entries>0)
   {
-    tt_t *Ptr=realloc(SearchTT, Entries*sizeof(tt_t));
+    ttcluster_t *Ptr=realloc(SearchTT, Entries*sizeof(ttcluster_t));
     if (Ptr!=NULL)
     {
       // Update table
@@ -880,7 +895,24 @@ void SearchTTFree()
 
 void SearchTTReset()
 {
-  memset(SearchTT, 0, SearchTTSize*sizeof(tt_t)); // HACK
+  // No TT to clear?
+  if (SearchTT==NULL)
+    return;
+  
+  // Create invalid entry
+  tte_t Entry;
+  Entry.Key=0;
+  Entry.Move=MOVE_INVALID;
+  Entry.Score=SCORE_INVALID;
+  Entry.Depth=0;
+  Entry.Type=nodetype_invalid;
+  Entry.Date=SEARCH_MAXAGE-1;
+  
+  // Clear table
+  size_t I, J;
+  for(I=0;I<SearchTTSize;++I)
+    for(J=0;J<TT_CLUSTERSIZE;++J)
+      SearchTT[I].Entries[J]=Entry;
 }
 
 void SearchTTResetWrapper(void *Dummy)
@@ -894,31 +926,39 @@ bool SearchTTRead(node_t *N, move_t *Move)
   if (SearchTT==NULL)
     return false;
   
-  // Grab entry
-  int Index=(PosGetKey(N->Pos) & (SearchTTSize-1));
-  tt_t *TTE=&SearchTT[Index];
+  // Grab cluster
+  int ClusterIndex=(PosGetKey(N->Pos) & (SearchTTSize-1));
+  ttcluster_t *Cluster=&SearchTT[ClusterIndex];
   
-  // Match?
-  if (!SearchTTMatch(N, TTE))
-    return false;
+  // Look for match
+  unsigned int I;
+  tte_t *TTE=&Cluster->Entries[0];
+  for(I=0;I<TT_CLUSTERSIZE;++I,++TTE)
+    if (SearchTTMatch(N, TTE))
+    {
+      // Update entry date
+      TTE->Date=SearchAge;
+      
+      // Cutoff possible?
+      score_t Score=SearchTTToScore(TTE->Score, N->Ply);
+      if (TTE->Depth>=N->Depth &&
+          ((TTE->Type==nodetype_exact) ||
+           ((TTE->Type & nodetype_lower) && Score>=N->Beta) ||
+           ((TTE->Type & nodetype_upper) && Score<=N->Alpha)))
+      {
+        N->Move=TTE->Move;
+        N->Type=TTE->Type;
+        N->Score=Score;
+        return true;
+      }
+      
+      // If no cutoff at least pass back the stored move
+      *Move=TTE->Move;
+      
+      return false;
+    }
   
-  
-  // Cutoff possible?
-  score_t Score=SearchTTToScore(TTE->Score, N->Ply);
-  if (TTE->Depth>=N->Depth &&
-      ((TTE->Type==nodetype_exact) ||
-       ((TTE->Type & nodetype_lower) && Score>=N->Beta) ||
-       ((TTE->Type & nodetype_upper) && Score<=N->Alpha)))
-  {
-    N->Move=TTE->Move;
-    N->Type=TTE->Type;
-    N->Score=Score;
-    return true;
-  }
-  
-  // If no cutoff at least pass back the stored move
-  *Move=TTE->Move;
-  
+  // No match
   return false;
 }
 
@@ -933,22 +973,65 @@ void SearchTTWrite(const node_t *N)
   if (SearchTT==NULL)
     return;
   
-  // Grab entry
-  int Index=(PosGetKey(N->Pos) & (SearchTTSize-1));
-  tt_t *TTE=&SearchTT[Index];
+  // Grab cluster
+  int ClusterIndex=(PosGetKey(N->Pos) & (SearchTTSize-1));
+  ttcluster_t *Cluster=&SearchTT[ClusterIndex];
   
-  // Replace/update?
-  if (!SearchTTMatch(N, TTE) || N->Depth>=TTE->Depth)
+  // Find entry to overwrite
+  // based on the following factors, in order:
+  // * unused - if entry is unused no harm using it
+  // * age - prefer replacing older entries over new ones
+  // * depth - perfer replacing shallower entries over deeper ones
+  // * exact - prefer exact scores to upper- or lower-bounds
+# define REPSCORE(AGE,DEPTH,TYPE) (2*SEARCH_MAXAGE*2*256*((TYPE)==nodetype_invalid)+2*256*((int)(AGE))-2*((int)(DEPTH))-((TYPE)==nodetype_exact))
+  
+  tte_t *Replace, *TTE;
+  int ReplaceScore=REPSCORE(0, 255, nodetype_exact)-1; // worst possible score - 1
+  Replace=TTE=&Cluster->Entries[0];
+  unsigned int I;
+  for(I=0;I<TT_CLUSTERSIZE;++I,++TTE)
   {
-    TTE->Key=PosGetKey(N->Pos);
-    TTE->Move=N->Move;
-    TTE->Score=SearchScoreToTT(N->Score, N->Ply);
-    TTE->Depth=N->Depth;
-    TTE->Type=N->Type;
+    // If we find an exact match, simply reuse this entry
+    if (SearchTTMatch(N, TTE))
+    {
+      // Update move if we have one and it is from a deeper search (or no move already stored)
+      if (N->Move!=MOVE_NONE && (N->Depth>=TTE->Depth || !MOVE_ISVALID(TTE->Move)))
+        TTE->Move=N->Move;
+      
+      // Update score, depth and type if search was at least as deep as the entry depth
+      if (N->Depth>=TTE->Depth)
+      {
+        TTE->Score=SearchScoreToTT(N->Score, N->Ply);
+        TTE->Depth=N->Depth;
+        TTE->Type=N->Type;
+      }
+      
+      // Update entry date to current date to reset age to 0
+      TTE->Date=SearchAge;
+      
+      return;
+    }
+    
+    // Is TTE better to use than Replace?
+    int TTEScore=REPSCORE(SearchDateToAge(TTE->Date), TTE->Depth, TTE->Type);
+    if (TTEScore>ReplaceScore)
+    {
+      Replace=TTE;
+      ReplaceScore=TTEScore;
+    }
   }
+# undef REPSCORE
+  
+  // Replace entry
+  Replace->Key=PosGetKey(N->Pos);
+  Replace->Move=N->Move;
+  Replace->Score=SearchScoreToTT(N->Score, N->Ply);
+  Replace->Depth=N->Depth;
+  Replace->Type=N->Type;
+  Replace->Date=SearchAge;
 }
 
-static inline bool SearchTTMatch(const node_t *N, const tt_t *TTE)
+static inline bool SearchTTMatch(const node_t *N, const tte_t *TTE)
 {
   // Key match and move psueudo-legal?
   return (TTE->Key==PosGetKey(N->Pos) && PosIsMovePseudoLegal(N->Pos, TTE->Move));
@@ -1058,4 +1141,9 @@ bool SearchInteriorRecog(node_t *N)
   }
   
   return false;
+}
+
+unsigned int SearchDateToAge(unsigned int Date)
+{
+  return (Date<=SearchAge ? SearchAge-Date : 64+SearchAge-Date);
 }

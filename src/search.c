@@ -676,6 +676,9 @@ void SearchOutput(node_t *N)
          SearchNodeCount, (unsigned long long int)Time);
   if (Time>0)
     printf(" nps %llu", (SearchNodeCount*1000llu)/Time);
+# ifndef NDEBUG
+  printf(" rawscore %i", (int)N->Score);
+# endif
   
   // PV (extracted from TT, mostly)
   printf(" pv");
@@ -712,7 +715,7 @@ void SearchScoreToStr(score_t Score, int Type, char Str[static 32])
   if (SCORE_ISMATE(Score))
     sprintf(Str, "mate %i", ((Score<0) ? -SCORE_MATEDIST(Score) : SCORE_MATEDIST(Score)));
   else
-    sprintf(Str, "cp %i", Score);
+    sprintf(Str, "cp %i", SCORE_VALUE(Score));
   
   // Upper/lowerbound?
   if (Type==nodetype_lower)

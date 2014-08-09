@@ -127,12 +127,16 @@ typedef enum
 }castrights_t;
 
 typedef int16_t score_t;
-#define SCORE_INF 32000
-#define SCORE_INVALID -32100
-#define SCORE_DRAW 0
-#define SCORE_MATEDIN(P) ((P)-31000)
+#define SCORE_HARDWIN ( 0x2000) // e.g. KBBvK
+#define SCORE_EASYWIN ( 0x4000) // e.g. KRvK
+#define SCORE_MATE    ( 0x6000) // forced mate
+#define SCORE_INVALID (-0x8000) // we can squeeze this into top of mate range as
+#define SCORE_INF     ( 0x7FFF) // mates can never be long enough to fill it
+#define SCORE_DRAW    ( 0x0000)
+#define SCORE_MATEDIN(P) ((P)-SCORE_MATE)
 #define SCORE_ISMATE(S)   (abs(abs(S)+SCORE_MATEDIN(0))<512)
 #define SCORE_MATEDIST(S) ((1-abs(S)-SCORE_MATEDIN(0))/2)
+static inline int SCORE_VALUE(score_t Score);
 #define SCORE_ISVALID(S) ((S)>=-SCORE_INF && (S)<=SCORE_INF)
 
 typedef uint64_t hkey_t;
@@ -153,6 +157,14 @@ static inline piece_t MOVE_GETPROMO(move_t Move)
     case MOVE_EXTRAQUEEN: return PIECE_MAKE(queen, Colour); break;
     default: assert(false); return empty;
   }
+}
+
+static inline int SCORE_VALUE(score_t Score)
+{
+  Score%=0x2000;
+  if (Score>4096) Score-=8192;
+  else if (Score<-4096) Score+=8192;
+  return Score;
 }
 
 #endif

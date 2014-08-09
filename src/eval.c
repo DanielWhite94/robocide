@@ -33,6 +33,7 @@ typedef struct
   vpair_t (*Function)(const pos_t *Pos);
   vpair_t Offset, Tempo;
   uint8_t WeightMG, WeightEG;
+  score_t ScoreOffset;
 }evalmatdata_t;
 evalmatdata_t *EvalMatTable=NULL;
 size_t EvalMatTableSize=0;
@@ -239,6 +240,9 @@ score_t Evaluate(const pos_t *Pos)
   int HMoves=PosGetHalfMoveClock(Pos);
   ScalarScore*=exp2(-(HMoves*HMoves)/(32*32));
   
+  // Add score offset
+  ScalarScore+=MatData.ScoreOffset;
+  
   // Adjust for side to move
   if (PosGetSTM(Pos)==black)
     ScalarScore=-ScalarScore;
@@ -340,6 +344,7 @@ void EvalComputeMat(const pos_t *Pos, evalmatdata_t *MatData)
   MatData->Function=&EvaluateDefault;
   MatData->Offset.MG=MatData->Offset.EG=0;
   MatData->Tempo=EvalTempoDefault;
+  MatData->ScoreOffset=0;
   uint64_t Mat=(MatData->Mat & ~(POSMAT_MASK(wking) | POSMAT_MASK(bking)));
   bool WBishopL=((Mat & POSMAT_MASK(wbishopl))!=0);
   bool WBishopD=((Mat & POSMAT_MASK(wbishopd))!=0);

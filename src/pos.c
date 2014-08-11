@@ -630,32 +630,18 @@ bool PosIsDraw(const pos_t *Pos, int Ply)
   if (PosGetHalfMoveClock(Pos)>=100)
     return true;
   
-  // Insufficient material
-  // Any pawns, rooks or queens are potential mate-givers
+  // Insufficient material - KNvK and bishops of a single colour are draws
+  // (includes KvK, with 0 bishops, and KBvK with a single bishop)
   uint64_t Mat=PosGetMat(Pos);
-  const uint64_t PRQMask=(POSMAT_MASK(wpawn)|POSMAT_MASK(wrook)|POSMAT_MASK(wqueen)|
-                    POSMAT_MASK(bpawn)|POSMAT_MASK(brook)|POSMAT_MASK(bqueen));
-  if ((Mat & PRQMask)==0)
-  {
-    // Remove kings from mat
-    Mat&=~(POSMAT_MASK(wking) | POSMAT_MASK(bking));
-    
-    // Special case: only material is bishops of a single colour
-    // (this also covers KvK, with '0 bishops' as it were)
-    const uint64_t BishopLMask=(POSMAT_MASK(wbishopl) | POSMAT_MASK(bbishopl));
-    const uint64_t BishopDMask=(POSMAT_MASK(wbishopd) | POSMAT_MASK(bbishopd));
-    if ((Mat & ~BishopLMask)==0 || (Mat & ~BishopDMask)==0)
-      return true;
-    
-    // Only one side with material?
-    if ((Mat & POSMAT_MASKCOL(white))==0 || (Mat & POSMAT_MASKCOL(black))==0)
-    {
-      unsigned int NCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, bknight);
-      bool LB=((Mat & BishopLMask)!=0), DB=((Mat & BishopDMask)!=0);
-      if (NCount<2 && !(LB && DB) && (!NCount || !(LB || DB)))
-        return true;
-    }
-  }
+  const uint64_t MatPRQ=(POSMAT_MASK(wpawn)|POSMAT_MASK(wrook)|POSMAT_MASK(wqueen)|
+                         POSMAT_MASK(bpawn)|POSMAT_MASK(brook)|POSMAT_MASK(bqueen));
+  const uint64_t MatKNvKWhite=(POSMAT_MAKE(wknight,1)|POSMAT_MAKE(wking,1)|POSMAT_MAKE(bking,1));
+  const uint64_t MatKNvKBlack=(POSMAT_MAKE(bknight,1)|POSMAT_MAKE(wking,1)|POSMAT_MAKE(bking,1));
+  const uint64_t MatLBishops=(POSMAT_MASK(wbishopl)|POSMAT_MASK(bbishopl)|POSMAT_MAKE(wking,1)|POSMAT_MAKE(bking,1));
+  const uint64_t MatDBishops=(POSMAT_MASK(wbishopd)|POSMAT_MASK(bbishopd)|POSMAT_MAKE(wking,1)|POSMAT_MAKE(bking,1));
+  if ((Mat & MatPRQ)==0 && // this is redundant but provides quick escape for most positions
+      (Mat==MatKNvKWhite || Mat==MatKNvKBlack || (Mat & ~MatLBishops)==0 || (Mat & ~MatDBishops)==0))
+    return true;
   
   return false;
 }

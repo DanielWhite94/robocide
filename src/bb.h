@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "types.h"
 
+extern const bb_t BBNone, BBAll;
 extern const bb_t BBA1, BBB1, BBC1, BBD1, BBE1, BBF1, BBG1, BBH1,
                   BBA8, BBB8, BBC8, BBD8, BBE8, BBF8, BBG8, BBH8;
 extern const bb_t BBFileA, BBFileB, BBFileC, BBFileD,
@@ -34,7 +35,7 @@ void BBDraw(bb_t Set);
 
 static inline sq_t BBScanReset(bb_t *Set)
 {
-  assert(Set!=0);
+  assert(*Set!=BBNone);
   sq_t Sq=BBScanForward(*Set);
   *Set&=((*Set)-1); // Reset LS1B
   return Sq;
@@ -42,7 +43,7 @@ static inline sq_t BBScanReset(bb_t *Set)
 
 static inline sq_t BBScanForward(bb_t Set)
 {
-  assert(Set!=0);
+  assert(Set!=BBNone);
   return BBScanForwardTable[((Set^(Set-1))*0x03f79d71b4cb0a89llu)>>58];
 }
 

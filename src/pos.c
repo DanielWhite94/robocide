@@ -513,7 +513,7 @@ inline bool PosIsXSTMInCheck(const pos_t *Pos)
 move_t *PosGenPseudoMoves(const pos_t *Pos, move_t *Moves)
 {
   // Standard moves (no pawns or castling)
-  Moves=PosGenPseudoNormal(Pos, Moves, ~0);
+  Moves=PosGenPseudoNormal(Pos, Moves, BBAll);
   
   // Pawns
   Moves=PosGenPseudoPawnCaptures(Pos, Moves);

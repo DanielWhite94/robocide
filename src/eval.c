@@ -431,7 +431,7 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
   Data->SemiOpenFiles[white]=(FillB & ~FillW);
   Data->SemiOpenFiles[black]=(FillW & ~FillB);
   Data->OpenFiles=~(FillW | FillB);
-  Data->Passed[white]=Data->Passed[black]=0;
+  Data->Passed[white]=Data->Passed[black]=BBNone;
   
   // Loop over every pawn
   Sq=PosGetPieceListStart(Pos, wpawn);
@@ -440,10 +440,10 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
   {
     // Calculate properties
     bb_t BB=SQTOBB(*Sq);
-    bool Doubled=((BB & RearSpanW)!=0);
-    bool Isolated=((BB & AttacksWFill)==0);
-    bool Blocked=((BB & BBSouthOne(Occ))!=0);
-    bool Passed=((BB & PotPassedW)!=0);
+    bool Doubled=((BB & RearSpanW)!=BBNone);
+    bool Isolated=((BB & AttacksWFill)==BBNone);
+    bool Blocked=((BB & BBSouthOne(Occ))!=BBNone);
+    bool Passed=((BB & PotPassedW)!=BBNone);
     
     // Calculate score
     EvalVPairAdd(&Data->Score, EvalPawnPST[*Sq]);
@@ -465,10 +465,10 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
   {
     // Calculate properties
     bb_t BB=SQTOBB(*Sq);
-    bool Doubled=((BB & RearSpanB)!=0);
-    bool Isolated=((BB & AttacksBFill)==0);
-    bool Blocked=((BB & BBNorthOne(Occ))!=0);
-    bool Passed=((BB & PotPassedB)!=0);
+    bool Doubled=((BB & RearSpanB)!=BBNone);
+    bool Isolated=((BB & AttacksBFill)==BBNone);
+    bool Blocked=((BB & BBNorthOne(Occ))!=BBNone);
+    bool Passed=((BB & PotPassedB)!=BBNone);
     
     // Calculate score
     EvalVPairSub(&Data->Score, EvalPawnPST[SQ_FLIP(*Sq)]);

@@ -2,6 +2,7 @@
 #include <string.h>
 #include "bb.h"
 
+const bb_t BBNone=0x0000000000000000llu, BBAll=0xFFFFFFFFFFFFFFFFllu;
 const bb_t BBA1=(((bb_t)1)<<A1), BBB1=(((bb_t)1)<<B1), BBC1=(((bb_t)1)<<C1), BBD1=(((bb_t)1)<<D1),
            BBE1=(((bb_t)1)<<E1), BBF1=(((bb_t)1)<<F1), BBG1=(((bb_t)1)<<G1), BBH1=(((bb_t)1)<<H1),
            BBA8=(((bb_t)1)<<A8), BBB8=(((bb_t)1)<<B8), BBC8=(((bb_t)1)<<C8), BBD8=(((bb_t)1)<<D8),
@@ -44,7 +45,7 @@ void BBInit()
     {
       sq_t Sq164=TOSQ(Sq1);
       Dir=Dirs[DirI];
-      bb_t Set=0;
+      bb_t Set=BBNone;
       for(Sq2=Sq1+Dir;;Sq2+=Dir)
       {
         // Bad square?

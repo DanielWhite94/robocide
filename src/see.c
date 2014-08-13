@@ -92,7 +92,7 @@ bb_t SEEGetLeastValuable(const pos_t *Pos, bb_t AtkDef, col_t Colour, piece_t *P
 
 bb_t SEEAttacksTo(const pos_t *Pos, sq_t Sq, bb_t Occ)
 {
-  bb_t Set=0;
+  bb_t Set=BBNone;
   
   // Pawns
   bb_t Wing=BBWingify(SQTOBB(Sq));

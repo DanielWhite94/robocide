@@ -10,8 +10,8 @@ void AttacksInit()
   sq_t SqA, SqB;
   for(SqA=0;SqA<64;++SqA)
   {
-    AttacksArrayKnight[SqA]=0;
-    AttacksArrayKing[SqA]=0;
+    AttacksArrayKnight[SqA]=BBNone;
+    AttacksArrayKing[SqA]=BBNone;
     for(SqB=0;SqB<64;++SqB)
     {
       int DX=abs(SQ_X(SqA)-SQ_X(SqB));

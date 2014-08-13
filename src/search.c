@@ -128,6 +128,7 @@ void SearchSetValue(int Value, void *UserData);
 void SearchNodePreCheck(node_t *N);
 void SearchNodePostCheck(const node_t *PostN, const node_t *PreN);
 bool SearchInteriorRecog(node_t *N);
+bool SearchInteriorRecogKNNvK(node_t *N);
 unsigned int SearchDateToAge(unsigned int Date);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1076,6 +1077,31 @@ bool SearchInteriorRecog(node_t *N)
     else
       N->Score=SCORE_DRAW;
     
+    return true;
+  }
+  
+  // Special recognizers
+  switch(EvalGetMatType(N->Pos))
+  {
+    case evalmattype_KNNvK: if (SearchInteriorRecogKNNvK(N)) return true; break;
+    default:
+      // No handler for this combination
+    break;
+  }
+  
+  return false;
+}
+
+bool SearchInteriorRecogKNNvK(node_t *N)
+{
+  // The defender simply has to avoid mate-in-1 (and can always do so trivially)
+  col_t DefSide=(PosPieceCount(N->Pos, wknight)>0 ? black : white);
+  if (PosGetSTM(N->Pos)==DefSide && (!N->InCheck || PosLegalMoveExist(N->Pos)))
+  {
+    assert(!PosIsMate(N->Pos));
+    N->Type=nodetype_exact;
+    N->Move=MOVE_NONE;
+    N->Score=SCORE_DRAW;
     return true;
   }
   

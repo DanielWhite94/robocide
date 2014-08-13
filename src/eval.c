@@ -29,7 +29,8 @@ const size_t EvalPawnTableDefaultSizeMB=1;
 typedef struct
 {
   uint64_t Mat;
-  vpair_t (*Function)(const pos_t *Pos);
+  evalmattype_t Type; // if this is evalmattype_invalid implies not yet computed
+  vpair_t (*Function)(const pos_t *Pos); // if this is NULL implies all entries below have yet to be computed
   vpair_t Offset, Tempo;
   uint8_t WeightMG, WeightEG;
   score_t ScoreOffset;
@@ -129,6 +130,7 @@ static inline void EvalVPairSubMul(vpair_t *A, vpair_t B, int C);
 void EvalSetValue(int Value, void *UserData);
 #endif
 void EvalRecalc();
+evalmattype_t EvalComputeMatType(const pos_t *Pos);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -261,6 +263,34 @@ void EvalClear()
   HTableClear(EvalMatTable);
 }
 
+evalmattype_t EvalGetMatType(const pos_t *Pos)
+{
+  // Grab hash entry for this position key
+  uint64_t Key=(uint64_t)PosGetMatKey(Pos);
+  evalmatdata_t *Entry=HTableGrab(EvalMatTable, Key);
+  
+  // If not a match clear entry
+  uint64_t Mat=PosGetMat(Pos);
+  if (Entry->Mat!=Mat)
+  {
+    Entry->Mat=Mat;
+    Entry->Type=evalmattype_invalid;
+    Entry->Function=NULL;
+  }
+  
+  // If no data already, compute
+  if (Entry->Type==evalmattype_invalid)
+    Entry->Type=EvalComputeMatType(Pos);
+  
+  // Copy data to return it
+  evalmattype_t Type=Entry->Type;
+  
+  // We are finished with Entry, release lock
+  HTableRelease(EvalMatTable, Key);
+  
+  return Type;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -336,9 +366,17 @@ void EvalGetMatData(const pos_t *Pos, evalmatdata_t *MatData)
   uint64_t Key=(uint64_t)PosGetMatKey(Pos);
   evalmatdata_t *Entry=HTableGrab(EvalMatTable, Key);
   
-  // If not a match recompute data
+  // If not a match clear entry
   uint64_t Mat=PosGetMat(Pos);
   if (Entry->Mat!=Mat)
+  {
+    Entry->Mat=Mat;
+    Entry->Type=evalmattype_invalid;
+    Entry->Function=NULL;
+  }
+  
+  // If no data already, compute
+  if (Entry->Function==NULL)
     EvalComputeMatData(Pos, Entry);
   
   // Copy data to return it
@@ -353,7 +391,7 @@ void EvalComputeMatData(const pos_t *Pos, evalmatdata_t *MatData)
   #define M(P,N) (POSMAT_MAKE((P),(N)))
   
   // Init data
-  MatData->Mat=PosGetMat(Pos);
+  assert(MatData->Mat==PosGetMat(Pos));
   MatData->Function=&EvaluateDefault;
   MatData->Offset.MG=MatData->Offset.EG=0;
   MatData->Tempo=EvalTempoDefault;
@@ -666,4 +704,16 @@ void EvalRecalc()
     assert(Factor>=0 && Factor<256);
     EvalWeightEGFactor[Weight]=Factor;
   }
+}
+
+evalmattype_t EvalComputeMatType(const pos_t *Pos)
+{
+  #define M(P,N) (POSMAT_MAKE((P),(N)))
+  
+  uint64_t Mat=PosGetMat(Pos);
+  if (Mat==(M(wknight,2)|M(wking,1)|M(bking,1)) || Mat==(M(bknight,2)|M(wking,1)|M(bking,1)))
+    return evalmattype_KNNvK;
+  
+  return evalmattype_other;
+  #undef M
 }

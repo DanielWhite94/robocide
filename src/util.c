@@ -12,3 +12,8 @@ uint64_t NextPowTwo64(uint64_t X)
   X++;
   return X;
 }
+
+bool IsPowTwo64(uint64_t X)
+{
+  return (X&(X-1))==0;
+}

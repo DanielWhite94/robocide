@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "eval.h"
+#include "htable.h"
+#include "main.h"
 #include "search.h"
 #include "threads.h"
 #include "types.h"
@@ -87,8 +89,8 @@ typedef struct
 {
   tte_t Entries[TT_CLUSTERSIZE];
 }ttcluster_t;
-ttcluster_t *SearchTT=NULL;
-size_t SearchTTSize=0;
+htable_t *SearchTT=NULL;
+const size_t SearchTTDefaultSizeMB=16;
 unsigned int SearchAge;
 #define SEARCH_MAXAGE (64u)
 
@@ -111,12 +113,7 @@ void SearchSortMoves(moves_t *Moves);
 static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move);
 void SearchHistoryUpdate(const node_t *N);
 void SearchHistoryAge();
-void SearchHistoryReset();
-void SearchTTResize(int SizeMB);
-void SearchTTResizeWrapper(int SizeMB, void *Dummy);
-void SearchTTFree();
-void SearchTTReset();
-void SearchTTResetWrapper(void *Dummy);
+void SearchHistoryClear();
 bool SearchTTRead(node_t *N, move_t *Move);
 void SearchTTWrite(const node_t *N);
 static inline bool SearchTTMatch(const node_t *N, const tte_t *TTE);
@@ -144,13 +141,26 @@ bool SearchInit()
   if (SearchThread==NULL)
     return false;
   
-  // Init TT table
-  UCIOptionNewSpin("Hash", &SearchTTResizeWrapper, NULL, 0, 16*1024, 16);
-  UCIOptionNewButton("Clear Hash", &SearchTTResetWrapper, NULL);
-  SearchTTResize(16);
+  // Setup TT table
+  ttcluster_t NullEntry;
+  unsigned int I;
+  for(I=0;I<TT_CLUSTERSIZE;++I)
+  {
+    NullEntry.Entries[I].Key=0;
+    NullEntry.Entries[I].Move=MOVE_INVALID;
+    NullEntry.Entries[I].Score=SCORE_INVALID;
+    NullEntry.Entries[I].Depth=0;
+    NullEntry.Entries[I].Type=nodetype_invalid;
+    NullEntry.Entries[I].Date=SEARCH_MAXAGE-1;
+  }
+  SearchTT=HTableNew(sizeof(ttcluster_t), &NullEntry, SearchTTDefaultSizeMB);
+  if (SearchTT==NULL)
+    mainFatalError("Error: Could not allocate transposition table.\n");
+  UCIOptionNewSpin("Hash", &HTableResizeInterface, SearchTT, 1, 16*1024, SearchTTDefaultSizeMB);
+  UCIOptionNewButton("Clear Hash", &HTableClearInterface, SearchTT);
   
   // Set all structures to clean state
-  SearchReset();
+  SearchClear();
   
   // Init pondering
   UCIOptionNewCheck("Ponder", &SearchSetPonderWrapper, NULL, SearchPonder);
@@ -174,7 +184,8 @@ void SearchQuit()
   ThreadFree(SearchThread);
   
   // Free TT table
-  SearchTTFree();
+  HTableFree(SearchTT);
+  SearchTT=NULL;
 }
 
 void SearchThink(const pos_t *SrcPos, ms_t StartTime, ms_t SearchTime, bool Infinite, bool Ponder)
@@ -207,13 +218,13 @@ void SearchStop()
   ThreadWaitReady(SearchThread);
 }
 
-void SearchReset()
+void SearchClear()
 {
   // Clear history tables
-  SearchHistoryReset();
+  SearchHistoryClear();
   
   // Clear TT table
-  SearchTTReset();
+  HTableClear(SearchTT);
   
   // Reset search age
   SearchAge=0;
@@ -844,91 +855,16 @@ void SearchHistoryAge()
       SearchHistory[I][J]/=2;
 }
 
-void SearchHistoryReset()
+void SearchHistoryClear()
 {
   memset(SearchHistory, 0, sizeof(SearchHistory));
 }
 
-void SearchTTResize(int SizeMB)
-{
-  // No TT wanted?
-  if (SizeMB<1)
-  {
-    SearchTTFree();
-    return;
-  }
-  
-  // Calculate greatest power of two number of clusters we can fit in SizeMB
-  uint64_t Entries=(((uint64_t)SizeMB)*1024llu*1024llu)/sizeof(ttcluster_t);
-  Entries=NextPowTwo64(Entries+1)/2;
-  
-  // Attempt to allocate table
-  while(Entries>0)
-  {
-    ttcluster_t *Ptr=realloc(SearchTT, Entries*sizeof(ttcluster_t));
-    if (Ptr!=NULL)
-    {
-      // Update table
-      SearchTT=Ptr;
-      SearchTTSize=Entries;
-      
-      // Clear entries
-      SearchTTReset();
-      
-      return;
-    }
-    Entries/=2;
-  }
-}
-
-void SearchTTResizeWrapper(int SizeMB, void *Dummy)
-{
-  SearchTTResize(SizeMB);
-}
-
-void SearchTTFree()
-{
-  free(SearchTT);
-  SearchTT=NULL;
-  SearchTTSize=0;
-}
-
-void SearchTTReset()
-{
-  // No TT to clear?
-  if (SearchTT==NULL)
-    return;
-  
-  // Create invalid entry
-  tte_t Entry;
-  Entry.Key=0;
-  Entry.Move=MOVE_INVALID;
-  Entry.Score=SCORE_INVALID;
-  Entry.Depth=0;
-  Entry.Type=nodetype_invalid;
-  Entry.Date=SEARCH_MAXAGE-1;
-  
-  // Clear table
-  size_t I, J;
-  for(I=0;I<SearchTTSize;++I)
-    for(J=0;J<TT_CLUSTERSIZE;++J)
-      SearchTT[I].Entries[J]=Entry;
-}
-
-void SearchTTResetWrapper(void *Dummy)
-{
-  SearchTTReset();
-}
-
 bool SearchTTRead(node_t *N, move_t *Move)
 {
-  // No TT?
-  if (SearchTT==NULL)
-    return false;
-  
   // Grab cluster
-  int ClusterIndex=(PosGetKey(N->Pos) & (SearchTTSize-1));
-  ttcluster_t *Cluster=&SearchTT[ClusterIndex];
+  hkey_t Key=PosGetKey(N->Pos);
+  ttcluster_t *Cluster=HTableGrab(SearchTT, Key);
   
   // Look for match
   unsigned int I;
@@ -949,16 +885,20 @@ bool SearchTTRead(node_t *N, move_t *Move)
         N->Move=TTE->Move;
         N->Type=TTE->Type;
         N->Score=Score;
+        
+        HTableRelease(SearchTT, Key);
         return true;
       }
       
       // If no cutoff at least pass back the stored move
       *Move=TTE->Move;
       
+      HTableRelease(SearchTT, Key);
       return false;
     }
   
   // No match
+  HTableRelease(SearchTT, Key);
   return false;
 }
 
@@ -969,13 +909,9 @@ void SearchTTWrite(const node_t *N)
   assert(SCORE_ISVALID(N->Score));
   assert(N->Type!=nodetype_invalid);
   
-  // No TT?
-  if (SearchTT==NULL)
-    return;
-  
   // Grab cluster
-  int ClusterIndex=(PosGetKey(N->Pos) & (SearchTTSize-1));
-  ttcluster_t *Cluster=&SearchTT[ClusterIndex];
+  hkey_t Key=PosGetKey(N->Pos);
+  ttcluster_t *Cluster=HTableGrab(SearchTT, Key);
   
   // Find entry to overwrite
   // based on the following factors, in order:
@@ -1009,6 +945,7 @@ void SearchTTWrite(const node_t *N)
       // Update entry date to current date to reset age to 0
       TTE->Date=SearchAge;
       
+      HTableRelease(SearchTT, Key);
       return;
     }
     
@@ -1029,6 +966,8 @@ void SearchTTWrite(const node_t *N)
   Replace->Depth=N->Depth;
   Replace->Type=N->Type;
   Replace->Date=SearchAge;
+  
+  HTableRelease(SearchTT, Key);
 }
 
 static inline bool SearchTTMatch(const node_t *N, const tte_t *TTE)
@@ -1075,7 +1014,7 @@ void SearchSetValue(int Value, void *UserData)
   *((int *)UserData)=Value;
   
   // Clear now-invalid TT and history etc.
-  SearchReset();
+  SearchClear();
 }
 #endif
 

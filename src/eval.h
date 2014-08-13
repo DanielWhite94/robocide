@@ -7,6 +7,6 @@
 void EvalInit();
 void EvalQuit();
 score_t Evaluate(const pos_t *Pos); // returns score in CP
-void EvalReset();
+void EvalClear(); // clear all saved data (called when we receive 'ucinewgame', for example)
 
 #endif

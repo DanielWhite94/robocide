@@ -3,10 +3,9 @@
 #include <string.h>
 #include "attacks.h"
 #include "eval.h"
-#include "util.h"
-#ifdef TUNE
-# include "uci.h"
-#endif
+#include "main.h"
+#include "htable.h"
+#include "uci.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // 
@@ -24,19 +23,19 @@ typedef struct
   bb_t Pawns[2], Passed[2], SemiOpenFiles[2], OpenFiles;
   vpair_t Score;
 }evalpawndata_t;
-evalpawndata_t *EvalPawnTable=NULL;
-size_t EvalPawnTableSize=0;
+htable_t *EvalPawnTable=NULL;
+const size_t EvalPawnTableDefaultSizeMB=1;
 
 typedef struct
 {
-  hkey_t Mat;
+  uint64_t Mat;
   vpair_t (*Function)(const pos_t *Pos);
   vpair_t Offset, Tempo;
   uint8_t WeightMG, WeightEG;
   score_t ScoreOffset;
 }evalmatdata_t;
-evalmatdata_t *EvalMatTable=NULL;
-size_t EvalMatTableSize=0;
+htable_t *EvalMatTable=NULL;
+const size_t EvalMatTableDefaultSizeMB=1;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values
@@ -112,26 +111,16 @@ uint8_t EvalWeightEGFactor[128];
 ////////////////////////////////////////////////////////////////////////////////
 
 vpair_t EvaluateDefault(const pos_t *Pos);
-void EvalMat(const pos_t *Pos, evalmatdata_t *MatData);
-void EvalComputeMat(const pos_t *Pos, evalmatdata_t *MatData);
-evalpawndata_t EvalPawns(const pos_t *Pos);
-static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data);
+void EvalGetMatData(const pos_t *Pos, evalmatdata_t *MatData);
+void EvalComputeMatData(const pos_t *Pos, evalmatdata_t *MatData);
+void EvalGetPawnData(const pos_t *Pos, evalpawndata_t *PawnData);
+void EvalComputePawnData(const pos_t *Pos, evalpawndata_t *PawnData);
 static inline vpair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
 static inline vpair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
 static inline vpair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
 static inline vpair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
 static inline vpair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
 static inline score_t EvalInterpolate(const pos_t *Pos, const vpair_t *Score, const evalmatdata_t *Data);
-void EvalPawnResize(size_t SizeMB);
-void EvalPawnFree();
-void EvalPawnReset();
-static inline bool EvalPawnRead(const pos_t *Pos, evalpawndata_t *Data);
-static inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data);
-void EvalMatResize(size_t SizeKB);
-void EvalMatFree();
-void EvalMatReset();
-static inline bool EvalMatRead(const pos_t *Pos, evalmatdata_t *Data);
-static inline void EvalMatWrite(const pos_t *Pos, evalmatdata_t *Data);
 static inline void EvalVPairAdd(vpair_t *A, vpair_t B);
 static inline void EvalVPairSub(vpair_t *A, vpair_t B);
 static inline void EvalVPairAddMul(vpair_t *A, vpair_t B, int C);
@@ -147,9 +136,23 @@ void EvalRecalc();
 
 void EvalInit()
 {
-  // Init pawn and mat hash tables
-  EvalPawnResize(1); // 1mb
-  EvalMatResize(16); // 16kb
+  // Setup pawn hash table
+  evalpawndata_t NullEntryPawn;
+  NullEntryPawn.Pawns[white]=NullEntryPawn.Pawns[black]=BBAll; // no position can have pawns on all squares
+  EvalPawnTable=HTableNew(sizeof(evalpawndata_t), &NullEntryPawn, EvalPawnTableDefaultSizeMB);
+  if (EvalPawnTable==NULL)
+    mainFatalError("Error: Could not allocate pawn hash table.\n");
+  UCIOptionNewSpin("PawnHash", &HTableResizeInterface, EvalPawnTable, 1, 16*1024, EvalPawnTableDefaultSizeMB);
+  UCIOptionNewButton("Clear PawnHash", &HTableClearInterface, EvalPawnTable);
+  
+  // Setup mat hash table
+  evalmatdata_t NullEntryMat;
+  NullEntryMat.Mat=0; // no position can have 0 pieces (kings are always required)
+  EvalMatTable=HTableNew(sizeof(evalmatdata_t), &NullEntryMat, EvalMatTableDefaultSizeMB);
+  if (EvalMatTable==NULL)
+    mainFatalError("Error: Could not allocate mat hash table.\n");
+  UCIOptionNewSpin("MatHash", &HTableResizeInterface, EvalMatTable, 1, 16*1024, EvalMatTableDefaultSizeMB);
+  UCIOptionNewButton("Clear MatHash", &HTableClearInterface, EvalMatTable);
   
   // Calculate dervied values (such as passed pawn table)
   EvalRecalc();
@@ -211,18 +214,20 @@ void EvalInit()
 
 void EvalQuit()
 {
-  EvalPawnFree();
-  EvalMatFree();
+  HTableFree(EvalPawnTable);
+  EvalPawnTable=NULL;
+  HTableFree(EvalMatTable);
+  EvalMatTable=NULL;
 }
 
 score_t Evaluate(const pos_t *Pos)
 {
   // Evaluation function depends on material combination
   evalmatdata_t MatData;
-  EvalMat(Pos, &MatData);
+  EvalGetMatData(Pos, &MatData);
   
   // Evaluate
-  vpair_t Score=(*MatData.Function)(Pos);
+  vpair_t Score=MatData.Function(Pos);
   
   // Material combination offset
   EvalVPairAdd(&Score, MatData.Offset);
@@ -250,10 +255,10 @@ score_t Evaluate(const pos_t *Pos)
   return ScalarScore;
 }
 
-void EvalReset()
+void EvalClear()
 {
-  EvalPawnReset();
-  EvalMatReset();
+  HTableClear(EvalPawnTable);
+  HTableClear(EvalMatTable);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -266,7 +271,8 @@ vpair_t EvaluateDefault(const pos_t *Pos)
   const sq_t *Sq, *SqEnd;
   
   // Pawns
-  evalpawndata_t PawnData=EvalPawns(Pos);
+  evalpawndata_t PawnData;
+  EvalGetPawnData(Pos, &PawnData);
   EvalVPairAdd(&Score, PawnData.Score);
   
   // Knights
@@ -324,18 +330,25 @@ vpair_t EvaluateDefault(const pos_t *Pos)
   return Score;
 }
 
-void EvalMat(const pos_t *Pos, evalmatdata_t *MatData)
+void EvalGetMatData(const pos_t *Pos, evalmatdata_t *MatData)
 {
-  // Check if we already have data in hash table
-  if (!EvalMatRead(Pos, MatData))
-  {
-    // No match found, compute and store
-    EvalComputeMat(Pos, MatData);
-    EvalMatWrite(Pos, MatData);
-  }
+  // Grab hash entry for this position key
+  uint64_t Key=(uint64_t)PosGetMatKey(Pos);
+  evalmatdata_t *Entry=HTableGrab(EvalMatTable, Key);
+  
+  // If not a match recompute data
+  uint64_t Mat=PosGetMat(Pos);
+  if (Entry->Mat!=Mat)
+    EvalComputeMatData(Pos, Entry);
+  
+  // Copy data to return it
+  *MatData=*Entry;
+  
+  // We are finished with Entry, release lock
+  HTableRelease(EvalMatTable, Key);
 }
 
-void EvalComputeMat(const pos_t *Pos, evalmatdata_t *MatData)
+void EvalComputeMatData(const pos_t *Pos, evalmatdata_t *MatData)
 {
   #define M(P,N) (POSMAT_MAKE((P),(N)))
   
@@ -395,19 +408,24 @@ void EvalComputeMat(const pos_t *Pos, evalmatdata_t *MatData)
   #undef M
 }
 
-evalpawndata_t EvalPawns(const pos_t *Pos)
+void EvalGetPawnData(const pos_t *Pos, evalpawndata_t *PawnData)
 {
-  evalpawndata_t PawnData;
-  if (!EvalPawnRead(Pos, &PawnData))
-  {
-    EvalComputePawns(Pos, &PawnData);
-    EvalPawnWrite(Pos, &PawnData);
-  }
+  // Grab hash entry for this position key
+  uint64_t Key=(uint64_t)PosGetPawnKey(Pos);
+  evalpawndata_t *Entry=HTableGrab(EvalPawnTable, Key);
   
-  return PawnData;
+  // If not a match recompute data
+  if (Entry->Pawns[white]!=PosGetBBPiece(Pos, wpawn) || Entry->Pawns[black]!=PosGetBBPiece(Pos, bpawn))
+    EvalComputePawnData(Pos, Entry);
+  
+  // Copy data to return it
+  *PawnData=*Entry;
+  
+  // We are finished with Entry, release lock
+  HTableRelease(EvalPawnTable, Key);
 }
 
-static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
+void EvalComputePawnData(const pos_t *Pos, evalpawndata_t *Data)
 {
   // Init
   bb_t WP=Data->Pawns[white]=PosGetBBPiece(Pos, wpawn);
@@ -426,8 +444,6 @@ static inline void EvalComputePawns(const pos_t *Pos, evalpawndata_t *Data)
   bb_t PotPassedW=~(BBWingify(FrontSpanB) | FrontSpanB);
   bb_t PotPassedB=~(BBWingify(FrontSpanW) | FrontSpanW);
   bb_t FillW=BBFileFill(WP), FillB=BBFileFill(BP);
-  
-  // Calculate open files (used in other parts of the evaluation)
   Data->SemiOpenFiles[white]=(FillB & ~FillW);
   Data->SemiOpenFiles[black]=(FillW & ~FillB);
   Data->OpenFiles=~(FillW | FillB);
@@ -588,130 +604,6 @@ static inline score_t EvalInterpolate(const pos_t *Pos, const vpair_t *Score, co
   return ((Data->WeightMG*Score->MG+Data->WeightEG*Score->EG)*100)/(EvalMaterial[pawn].MG*256);
 }
 
-void EvalPawnResize(size_t SizeMB)
-{
-  // Calculate greatest power of two number of entries we can fit in SizeMB
-  uint64_t Entries=(((uint64_t)SizeMB)*1024llu*1024llu)/sizeof(evalpawndata_t);
-  Entries=NextPowTwo64(Entries+1)/2;
-  
-  // Attempt to allocate table
-  while(Entries>0)
-  {
-    evalpawndata_t *Ptr=realloc(EvalPawnTable, Entries*sizeof(evalpawndata_t));
-    if (Ptr!=NULL)
-    {
-      // Update table
-      EvalPawnTable=Ptr;
-      EvalPawnTableSize=Entries;
-      
-      // Clear entries
-      EvalPawnReset();
-      
-      return;
-    }
-    Entries/=2;
-  }
-  
-  // Could not allocate
-  EvalPawnFree();
-}
-
-void EvalPawnFree()
-{
-  free(EvalPawnTable);
-  EvalPawnTable=NULL;
-  EvalPawnTableSize=0;
-}
-
-void EvalPawnReset()
-{
-  memset(EvalPawnTable, 0, EvalPawnTableSize*sizeof(evalpawndata_t)); // HACK
-}
-
-static inline bool EvalPawnRead(const pos_t *Pos, evalpawndata_t *Data)
-{
-  if (EvalPawnTable==NULL)
-    return false;
-  
-  int Index=(PosGetPawnKey(Pos) & (EvalPawnTableSize-1));
-  evalpawndata_t *Entry=&EvalPawnTable[Index];
-  if (Entry->Pawns[white]!=PosGetBBPiece(Pos, wpawn) ||
-      Entry->Pawns[black]!=PosGetBBPiece(Pos, bpawn))
-    return false;
-  
-  *Data=*Entry;
-  return true;
-}
-
-static inline void EvalPawnWrite(const pos_t *Pos, evalpawndata_t *Data)
-{
-  if (EvalPawnTable==NULL)
-    return;
-  int Index=(PosGetPawnKey(Pos) & (EvalPawnTableSize-1));
-  EvalPawnTable[Index]=*Data;
-}
-
-void EvalMatResize(size_t SizeKB)
-{
-  // Calculate greatest power of two number of entries we can fit in SizeKB
-  uint64_t Entries=(((uint64_t)SizeKB)*1024llu)/sizeof(evalmatdata_t);
-  Entries=NextPowTwo64(Entries+1)/2;
-  
-  // Attempt to allocate table
-  while(Entries>0)
-  {
-    evalmatdata_t *Ptr=realloc(EvalMatTable, Entries*sizeof(evalmatdata_t));
-    if (Ptr!=NULL)
-    {
-      // Update table
-      EvalMatTable=Ptr;
-      EvalMatTableSize=Entries;
-      
-      // Clear entries
-      EvalMatReset();
-      
-      return;
-    }
-    Entries/=2;
-  }
-  
-  // Could not allocate 
-  EvalMatFree();
-}
-
-void EvalMatFree()
-{
-  free(EvalMatTable);
-  EvalMatTable=NULL;
-  EvalMatTableSize=0;
-}
-void EvalMatReset()
-{
-  memset(EvalMatTable, 0, EvalMatTableSize*sizeof(evalmatdata_t)); // HACK
-}
-
-static inline bool EvalMatRead(const pos_t *Pos, evalmatdata_t *Data)
-{
-  if (EvalMatTable==NULL)
-    return false;
-  
-  int Index=(PosGetMatKey(Pos) & (EvalMatTableSize-1));
-  evalmatdata_t *Entry=&EvalMatTable[Index];
-  if (Entry->Mat!=PosGetMat(Pos))
-    return false;
-  
-  *Data=*Entry;
-  return true;
-}
-
-static inline void EvalMatWrite(const pos_t *Pos, evalmatdata_t *Data)
-{
-  if (EvalMatTable==NULL)
-    return;
-  int Index=(PosGetMatKey(Pos) & (EvalMatTableSize-1));
-  EvalMatTable[Index]=*Data;
-}
-
 static inline void EvalVPairAdd(vpair_t *A, vpair_t B)
 {
   A->MG+=B.MG;
@@ -752,7 +644,7 @@ void EvalSetValue(int Value, void *UserData)
   EvalRecalc();
   
   // Clear now-invalid material and pawn tables etc.
-  EvalReset();
+  EvalClear();
 }
 #endif
 

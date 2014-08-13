@@ -221,8 +221,8 @@ void UCILoop()
       SearchStop();
     else if (!strcmp(Part, "ucinewgame"))
     {
-      SearchReset();
-      EvalReset();
+      SearchClear();
+      EvalClear();
     }
     else if (!strcmp(Part, "quit"))
       break;

@@ -18,25 +18,36 @@ typedef struct
   value_t MG, EG;
 }vpair_t;
 
-typedef struct
+typedef struct evalpawndata_t evalpawndata_t;
+typedef struct evalmatdata_t evalmatdata_t;
+typedef struct evaldata_t evaldata_t;
+
+struct evalpawndata_t
 {
   bb_t Pawns[2], Passed[2], SemiOpenFiles[2], OpenFiles;
   vpair_t Score;
-}evalpawndata_t;
+};
 htable_t *EvalPawnTable=NULL;
 const size_t EvalPawnTableDefaultSizeMB=1;
 
-typedef struct
+struct evalmatdata_t
 {
   uint64_t Mat;
   evalmattype_t Type; // if this is evalmattype_invalid implies not yet computed
-  vpair_t (*Function)(const pos_t *Pos); // if this is NULL implies all entries below have yet to be computed
+  vpair_t (*Function)(evaldata_t *Data); // if this is NULL implies all entries below have yet to be computed
   vpair_t Offset, Tempo;
   uint8_t WeightMG, WeightEG;
   score_t ScoreOffset;
-}evalmatdata_t;
+};
 htable_t *EvalMatTable=NULL;
 const size_t EvalMatTableDefaultSizeMB=1;
+
+struct evaldata_t
+{
+  const pos_t *Pos;
+  evalpawndata_t PawnData;
+  evalmatdata_t MatData;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values
@@ -63,42 +74,70 @@ TUNECONST vpair_t EvalKingShieldFar={50,0};
 TUNECONST vpair_t EvalTempoDefault={0,0};
 TUNECONST value_t EvalWeightFactor=144;
 
-TUNECONST vpair_t EvalPawnPST[64]={
-{  -30, -410},{ -150, -400},{ -230, -380},{ -270, -370},{ -270, -370},{ -230, -380},{ -150, -400},{  -30, -410},
-{ -150, -380},{    0, -350},{  -60, -340},{  -90, -320},{  -90, -320},{  -60, -340},{    0, -350},{ -150, -380},
-{ -210, -300},{  -40, -270},{   70, -250},{   40, -220},{   40, -220},{   70, -250},{  -40, -270},{ -210, -300},
-{ -220, -190},{  -50, -160},{   70, -120},{  210,  -30},{  210,  -30},{   70, -120},{  -50, -160},{ -220, -190},
-{ -190,  -50},{  -20,  -20},{  110,   10},{  240,  100},{  240,  100},{  110,   10},{  -20,  -20},{ -190,  -50},
-{ -100,  120},{   50,  140},{  170,  170},{  150,  200},{  150,  200},{  170,  170},{   50,  140},{ -100,  120},
-{   20,  330},{  180,  350},{  110,  370},{   80,  380},{   80,  380},{  110,  370},{  180,  350},{   20,  330},
-{  210,  580},{   90,  590},{   10,  610},{  -20,  620},{  -20,  620},{   10,  610},{   90,  590},{  210,  58}};
-TUNECONST vpair_t EvalKnightPST[64]={
-{ -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
-{ -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
-{  -70,  -30},{  -20,   20},{   10,   50},{   20,   60},{   20,   60},{   10,   50},{  -20,   20},{  -70,  -30},
-{  -40,  -10},{   10,   30},{   30,   60},{   40,   70},{   40,   70},{   30,   60},{   10,   30},{  -40,  -10},
-{  -10,  -10},{   30,   30},{   60,   60},{   60,   70},{   60,   70},{   60,   60},{   30,   30},{  -10,  -10},
-{    0,  -30},{   40,   20},{   70,   50},{   80,   60},{   80,   60},{   70,   50},{   40,   20},{    0,  -30},
-{  -10,  -60},{   40,  -10},{   70,   20},{   90,   30},{   90,   30},{   70,   20},{   40,  -10},{  -10,  -60},
-{  -20, -120},{   20,  -60},{   60,  -30},{   80,  -10},{   80,  -10},{   60,  -30},{   20,  -60},{  -20, -12}};
-TUNECONST vpair_t EvalBishopPST[64]={
-{  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,  -75},
-{  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
-{  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
-{  -10,   -5},{   10,   20},{   30,   40},{   60,   45},{   60,   45},{   30,   40},{   10,   20},{  -10,   -5},
-{  -10,   -5},{   10,   20},{   30,   40},{   60,   45},{   60,   45},{   30,   40},{   10,   20},{  -10,   -5},
-{  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
-{  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
-{  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,   -7}};
-TUNECONST vpair_t EvalKingPST[64]={
-{  570, -460},{  570, -240},{  410, -120},{  330,  -40},{  330,  -40},{  410, -120},{  570, -240},{  570, -460},
-{  560, -240},{  320,  -40},{  140,   60},{   30,  120},{   30,  120},{  140,   60},{  320,  -40},{  560, -240},
-{  370, -120},{  110,   60},{ -110,  180},{ -260,  240},{ -260,  240},{ -110,  180},{  110,   60},{  370, -120},
-{  240,  -40},{  -40,  120},{ -320,  240},{ -790,  260},{ -790,  260},{ -320,  240},{  -40,  120},{  240,  -40},
-{  170,  -40},{ -110,  120},{ -390,  240},{ -860,  260},{ -860,  260},{ -390,  240},{ -110,  120},{  170,  -40},
-{  160, -120},{ -100,   60},{ -320,  180},{ -480,  240},{ -480,  240},{ -320,  180},{ -100,   60},{  160, -120},
-{  200, -240},{  -30,  -40},{ -210,   60},{ -310,  120},{ -310,  120},{ -210,   60},{  -30,  -40},{  200, -240},
-{  290, -460},{   70, -240},{  -80, -120},{ -160,  -40},{ -160,  -40},{  -80, -120},{   70, -240},{  290, -46}};
+TUNECONST vpair_t EvalPST[8][64]={
+[pawn]={
+  {  -30, -410},{ -150, -400},{ -230, -380},{ -270, -370},{ -270, -370},{ -230, -380},{ -150, -400},{  -30, -410},
+  { -150, -380},{    0, -350},{  -60, -340},{  -90, -320},{  -90, -320},{  -60, -340},{    0, -350},{ -150, -380},
+  { -210, -300},{  -40, -270},{   70, -250},{   40, -220},{   40, -220},{   70, -250},{  -40, -270},{ -210, -300},
+  { -220, -190},{  -50, -160},{   70, -120},{  210,  -30},{  210,  -30},{   70, -120},{  -50, -160},{ -220, -190},
+  { -190,  -50},{  -20,  -20},{  110,   10},{  240,  100},{  240,  100},{  110,   10},{  -20,  -20},{ -190,  -50},
+  { -100,  120},{   50,  140},{  170,  170},{  150,  200},{  150,  200},{  170,  170},{   50,  140},{ -100,  120},
+  {   20,  330},{  180,  350},{  110,  370},{   80,  380},{   80,  380},{  110,  370},{  180,  350},{   20,  330},
+  {  210,  580},{   90,  590},{   10,  610},{  -20,  620},{  -20,  620},{   10,  610},{   90,  590},{  210,   58}},
+[knight]={
+  { -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
+  { -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
+  {  -70,  -30},{  -20,   20},{   10,   50},{   20,   60},{   20,   60},{   10,   50},{  -20,   20},{  -70,  -30},
+  {  -40,  -10},{   10,   30},{   30,   60},{   40,   70},{   40,   70},{   30,   60},{   10,   30},{  -40,  -10},
+  {  -10,  -10},{   30,   30},{   60,   60},{   60,   70},{   60,   70},{   60,   60},{   30,   30},{  -10,  -10},
+  {    0,  -30},{   40,   20},{   70,   50},{   80,   60},{   80,   60},{   70,   50},{   40,   20},{    0,  -30},
+  {  -10,  -60},{   40,  -10},{   70,   20},{   90,   30},{   90,   30},{   70,   20},{   40,  -10},{  -10,  -60},
+  {  -20, -120},{   20,  -60},{   60,  -30},{   80,  -10},{   80,  -10},{   60,  -30},{   20,  -60},{  -20,  -12}},
+[bishopl]={
+  {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,  -75},
+  {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
+  {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
+  {  -10,   -5},{   10,   20},{   30,   40},{   60,   45},{   60,   45},{   30,   40},{   10,   20},{  -10,   -5},
+  {  -10,   -5},{   10,   20},{   30,   40},{   60,   45},{   60,   45},{   30,   40},{   10,   20},{  -10,   -5},
+  {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
+  {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
+  {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,   -7}},
+[bishopd]={
+  {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,  -75},
+  {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
+  {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
+  {  -10,   -5},{   10,   20},{   30,   40},{   60,   45},{   60,   45},{   30,   40},{   10,   20},{  -10,   -5},
+  {  -10,   -5},{   10,   20},{   30,   40},{   60,   45},{   60,   45},{   30,   40},{   10,   20},{  -10,   -5},
+  {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
+  {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
+  {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,   -7}},
+[rook]={
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
+[queen]={
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
+[king]={
+  {  570, -460},{  570, -240},{  410, -120},{  330,  -40},{  330,  -40},{  410, -120},{  570, -240},{  570, -460},
+  {  560, -240},{  320,  -40},{  140,   60},{   30,  120},{   30,  120},{  140,   60},{  320,  -40},{  560, -240},
+  {  370, -120},{  110,   60},{ -110,  180},{ -260,  240},{ -260,  240},{ -110,  180},{  110,   60},{  370, -120},
+  {  240,  -40},{  -40,  120},{ -320,  240},{ -790,  260},{ -790,  260},{ -320,  240},{  -40,  120},{  240,  -40},
+  {  170,  -40},{ -110,  120},{ -390,  240},{ -860,  260},{ -860,  260},{ -390,  240},{ -110,  120},{  170,  -40},
+  {  160, -120},{ -100,   60},{ -320,  180},{ -480,  240},{ -480,  240},{ -320,  180},{ -100,   60},{  160, -120},
+  {  200, -240},{  -30,  -40},{ -210,   60},{ -310,  120},{ -310,  120},{ -210,   60},{  -30,  -40},{  200, -240},
+  {  290, -460},{   70, -240},{  -80, -120},{ -160,  -40},{ -160,  -40},{  -80, -120},{   70, -240},{  290,  -46}}};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Derived values
@@ -111,17 +150,13 @@ uint8_t EvalWeightEGFactor[128];
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-vpair_t EvaluateDefault(const pos_t *Pos);
+vpair_t EvaluateDefault(evaldata_t *Data);
 void EvalGetMatData(const pos_t *Pos, evalmatdata_t *MatData);
 void EvalComputeMatData(const pos_t *Pos, evalmatdata_t *MatData);
 void EvalGetPawnData(const pos_t *Pos, evalpawndata_t *PawnData);
 void EvalComputePawnData(const pos_t *Pos, evalpawndata_t *PawnData);
-static inline vpair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline vpair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline vpair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline vpair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline vpair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData);
-static inline score_t EvalInterpolate(const pos_t *Pos, const vpair_t *Score, const evalmatdata_t *Data);
+vpair_t EvalPiece(evaldata_t *Data, piece_t Piece, sq_t Sq, col_t Colour);
+static inline score_t EvalInterpolate(const evaldata_t *Data, const vpair_t *Score);
 static inline void EvalVPairAdd(vpair_t *A, vpair_t B);
 static inline void EvalVPairSub(vpair_t *A, vpair_t B);
 static inline void EvalVPairAddMul(vpair_t *A, vpair_t B, int C);
@@ -224,34 +259,37 @@ void EvalQuit()
 
 score_t Evaluate(const pos_t *Pos)
 {
+  // Init evaldata struct
+  evaldata_t Data;
+  Data.Pos=Pos;
+  
   // Evaluation function depends on material combination
-  evalmatdata_t MatData;
-  EvalGetMatData(Pos, &MatData);
+  EvalGetMatData(Pos, &Data.MatData);
   
   // Evaluate
-  vpair_t Score=MatData.Function(Pos);
+  vpair_t Score=Data.MatData.Function(&Data);
   
   // Material combination offset
-  EvalVPairAdd(&Score, MatData.Offset);
+  EvalVPairAdd(&Score, Data.MatData.Offset);
   
   // Tempo bonus
   if (PosGetSTM(Pos)==white)
-    EvalVPairAdd(&Score, MatData.Tempo);
+    EvalVPairAdd(&Score, Data.MatData.Tempo);
   else
-    EvalVPairSub(&Score, MatData.Tempo);
+    EvalVPairSub(&Score, Data.MatData.Tempo);
   
   // Interpolate score based on phase of the game and special material combination considerations
-  score_t ScalarScore=EvalInterpolate(Pos, &Score, &MatData);
+  score_t ScalarScore=EvalInterpolate(&Data, &Score);
   
   // Drag score towards 0 as we approach 50-move rule
-  int HMoves=PosGetHalfMoveClock(Pos);
+  int HMoves=PosGetHalfMoveClock(Data.Pos);
   ScalarScore*=exp2(-(HMoves*HMoves)/(32*32));
   
   // Add score offset
-  ScalarScore+=MatData.ScoreOffset;
+  ScalarScore+=Data.MatData.ScoreOffset;
   
   // Adjust for side to move
-  if (PosGetSTM(Pos)==black)
+  if (PosGetSTM(Data.Pos)==black)
     ScalarScore=-ScalarScore;
   
   return ScalarScore;
@@ -295,67 +333,35 @@ evalmattype_t EvalGetMatType(const pos_t *Pos)
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-vpair_t EvaluateDefault(const pos_t *Pos)
+vpair_t EvaluateDefault(evaldata_t *Data)
 {
+  // Init
   vpair_t Score={0,0};
+  const pos_t *Pos=Data->Pos;
+  
+  // Pawns (special case)
+  EvalGetPawnData(Pos, &Data->PawnData);
+  EvalVPairAdd(&Score, Data->PawnData.Score);
+  
+  // Non-pawn pieces
   const sq_t *Sq, *SqEnd;
-  
-  // Pawns
-  evalpawndata_t PawnData;
-  EvalGetPawnData(Pos, &PawnData);
-  EvalVPairAdd(&Score, PawnData.Score);
-  
-  // Knights
-  Sq=PosGetPieceListStart(Pos, wknight);
-  SqEnd=PosGetPieceListEnd(Pos, wknight);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairAdd(&Score, EvalKnight(Pos, *Sq, white, &PawnData));
-  Sq=PosGetPieceListStart(Pos, bknight);
-  SqEnd=PosGetPieceListEnd(Pos, bknight);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairSub(&Score, EvalKnight(Pos, *Sq, black, &PawnData));
-  
-  // Bishops
-  Sq=PosGetPieceListStart(Pos, wbishopl);
-  SqEnd=PosGetPieceListEnd(Pos, wbishopl);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairAdd(&Score, EvalBishop(Pos, *Sq, white, &PawnData));
-  Sq=PosGetPieceListStart(Pos, wbishopd);
-  SqEnd=PosGetPieceListEnd(Pos, wbishopd);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairAdd(&Score, EvalBishop(Pos, *Sq, white, &PawnData));
-  Sq=PosGetPieceListStart(Pos, bbishopl);
-  SqEnd=PosGetPieceListEnd(Pos, bbishopl);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairSub(&Score, EvalBishop(Pos, *Sq, black, &PawnData));
-  Sq=PosGetPieceListStart(Pos, bbishopd);
-  SqEnd=PosGetPieceListEnd(Pos, bbishopd);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairSub(&Score, EvalBishop(Pos, *Sq, black, &PawnData));
-  
-  // Rooks
-  Sq=PosGetPieceListStart(Pos, wrook);
-  SqEnd=PosGetPieceListEnd(Pos, wrook);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairAdd(&Score, EvalRook(Pos, *Sq, white, &PawnData));
-  Sq=PosGetPieceListStart(Pos, brook);
-  SqEnd=PosGetPieceListEnd(Pos, brook);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairSub(&Score, EvalRook(Pos, *Sq, black, &PawnData));
-  
-  // Queens
-  Sq=PosGetPieceListStart(Pos, wqueen);
-  SqEnd=PosGetPieceListEnd(Pos, wqueen);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairAdd(&Score, EvalQueen(Pos, *Sq, white, &PawnData));
-  Sq=PosGetPieceListStart(Pos, bqueen);
-  SqEnd=PosGetPieceListEnd(Pos, bqueen);
-  for(;Sq<SqEnd;++Sq)
-    EvalVPairSub(&Score, EvalQueen(Pos, *Sq, black, &PawnData));
-  
-  // Kings
-  EvalVPairAdd(&Score, EvalKing(Pos, PosGetKingSq(Pos, white), white, &PawnData));
-  EvalVPairSub(&Score, EvalKing(Pos, PosGetKingSq(Pos, black), black, &PawnData));
+  piece_t PieceType, Piece;
+  for(PieceType=knight;PieceType<=king;++PieceType)
+  {
+    // White pieces
+    Piece=PIECE_MAKE(PieceType, white);
+    Sq=PosGetPieceListStart(Pos, Piece);
+    SqEnd=PosGetPieceListEnd(Pos, Piece);
+    for(;Sq<SqEnd;++Sq)
+      EvalVPairAdd(&Score, EvalPiece(Data, PieceType, *Sq, white));
+    
+    // Black pieces
+    Piece=PIECE_MAKE(PieceType, black);
+    Sq=PosGetPieceListStart(Pos, Piece);
+    SqEnd=PosGetPieceListEnd(Pos, Piece);
+    for(;Sq<SqEnd;++Sq)
+      EvalVPairSub(&Score, EvalPiece(Data, PieceType, *Sq, black));
+  }
   
   return Score;
 }
@@ -500,7 +506,7 @@ void EvalComputePawnData(const pos_t *Pos, evalpawndata_t *Data)
     bool Passed=((BB & PotPassedW)!=BBNone);
     
     // Calculate score
-    EvalVPairAdd(&Data->Score, EvalPawnPST[*Sq]);
+    EvalVPairAdd(&Data->Score, EvalPST[pawn][*Sq]);
     if (Doubled)
       EvalVPairAdd(&Data->Score, EvalPawnDoubled);
     else if (Passed)
@@ -525,7 +531,7 @@ void EvalComputePawnData(const pos_t *Pos, evalpawndata_t *Data)
     bool Passed=((BB & PotPassedB)!=BBNone);
     
     // Calculate score
-    EvalVPairSub(&Data->Score, EvalPawnPST[SQ_FLIP(*Sq)]);
+    EvalVPairSub(&Data->Score, EvalPST[pawn][SQ_FLIP(*Sq)]);
     if (Doubled)
       EvalVPairSub(&Data->Score, EvalPawnDoubled);
     else if (Passed)
@@ -540,106 +546,80 @@ void EvalComputePawnData(const pos_t *Pos, evalpawndata_t *Data)
   }
 }
 
-static inline vpair_t EvalKnight(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
+vpair_t EvalPiece(evaldata_t *Data, piece_t Piece, sq_t Sq, col_t Colour)
 {
+  // Init
   vpair_t Score={0,0};
+  const pos_t *Pos=Data->Pos;
   sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
-  
-  // PST
-  EvalVPairAdd(&Score, EvalKnightPST[AdjSq]);
-  
-  return Score;
-}
-
-static inline vpair_t EvalBishop(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
-{
-  vpair_t Score={0,0};
-  sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
-  
-  // PST
-  EvalVPairAdd(&Score, EvalBishopPST[AdjSq]);
-  
-  // Mobility
-  bb_t Attacks=AttacksBishop(Sq, PosGetBBAll(Pos));
-  EvalVPairAddMul(&Score, EvalBishopMob, BBPopCount(Attacks)-6);
-  
-  return Score;
-}
-
-static inline vpair_t EvalRook(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
-{
-  vpair_t Score={0,0};
   bb_t BB=SQTOBB(Sq);
-  sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
-  bb_t Rank=BBSqToRank(Sq);
-  
-  // Mobility
-  bb_t Attacks=AttacksRook(Sq, PosGetBBAll(Pos));
-  EvalVPairAddMul(&Score, EvalRookMobFile, BBPopCount(Attacks & BBFileFill(BB)));
-  EvalVPairAddMul(&Score, EvalRookMobRank, BBPopCount(Attacks & Rank));
-  
-  // Open and semi-open files
-  if (BB & PawnData->OpenFiles)
-    EvalVPairAdd(&Score, EvalRookOpenFile);
-  else if (BB & PawnData->SemiOpenFiles[Colour])
-    EvalVPairAdd(&Score, EvalRookSemiOpenFile);
-  
-  // Rook on 7th
-  bb_t OppPawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, COL_SWAP(Colour)));
-  sq_t AdjOppKingSq=(Colour==white ? PosGetKingSq(Pos, black) :
-                                     SQ_FLIP(PosGetKingSq(Pos, white)));
-  if (SQ_Y(AdjSq)==6 && ((Rank & OppPawns) || SQ_Y(AdjOppKingSq)==7))
-    EvalVPairAdd(&Score, EvalRookOn7th);
-  
-  // Trapped
-  bb_t KingBB=PosGetBBPiece(Pos, PIECE_MAKE(king, Colour));
-  if (Colour==white)
-  {
-    if (((BB & (BBG1 | BBH1)) && (KingBB & (BBF1 | BBG1))) ||
-        ((BB & (BBA1 | BBB1)) && (KingBB & (BBB1 | BBC1))))
-      EvalVPairAdd(&Score, EvalRookTrapped);
-  }
-  else
-  {
-    if (((BB & (BBG8 | BBH8)) && (KingBB & (BBF8 | BBG8))) ||
-        ((BB & (BBA8 | BBB8)) && (KingBB & (BBB8 | BBC8))))
-      EvalVPairAdd(&Score, EvalRookTrapped);
-  }
-  
-  return Score;
-}
-
-static inline vpair_t EvalQueen(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
-{
-  vpair_t Score={0,0};
-  
-  return Score;
-}
-
-static inline vpair_t EvalKing(const pos_t *Pos, sq_t Sq, col_t Colour, const evalpawndata_t *PawnData)
-{
-  vpair_t Score={0,0};
-  bb_t BB=SQTOBB(Sq), Set;
-  bb_t Pawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, Colour));
-  sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
   
   // PST
-  EvalVPairAdd(&Score, EvalKingPST[AdjSq]);
+  EvalVPairAdd(&Score, EvalPST[Piece][AdjSq]);
   
-  // Pawn shield
-  Set=BBForwardOne(BBWestOne(BB) | BB | BBEastOne(BB), Colour);
-  bb_t ShieldClose=(Pawns & Set);
-  bb_t ShieldFar=(Pawns & BBForwardOne(Set, Colour));
-  EvalVPairAddMul(&Score, EvalKingShieldClose, BBPopCount(ShieldClose));
-  EvalVPairAddMul(&Score, EvalKingShieldFar, BBPopCount(ShieldFar));
+  // Bishop mobility
+  if (Piece==bishopl || Piece==bishopd)
+  {
+    bb_t Attacks=AttacksBishop(Sq, PosGetBBAll(Pos));
+    EvalVPairAddMul(&Score, EvalBishopMob, BBPopCount(Attacks)-6);
+  }
+  
+  if (Piece==rook)
+  {
+    bb_t RankBB=BBSqToRank(Sq);
+    
+    // Mobility
+    bb_t Attacks=AttacksRook(Sq, PosGetBBAll(Pos));
+    EvalVPairAddMul(&Score, EvalRookMobFile, BBPopCount(Attacks & BBFileFill(BB)));
+    EvalVPairAddMul(&Score, EvalRookMobRank, BBPopCount(Attacks & RankBB));
+    
+    // Open and semi-open files
+    if (BB & Data->PawnData.OpenFiles)
+      EvalVPairAdd(&Score, EvalRookOpenFile);
+    else if (BB & Data->PawnData.SemiOpenFiles[Colour])
+      EvalVPairAdd(&Score, EvalRookSemiOpenFile);
+    
+    // Rook on 7th
+    bb_t OppPawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, COL_SWAP(Colour)));
+    sq_t AdjOppKingSq=(Colour==white ? PosGetKingSq(Pos, black) :
+                                       SQ_FLIP(PosGetKingSq(Pos, white)));
+    if (SQ_Y(AdjSq)==6 && ((RankBB & OppPawns) || SQ_Y(AdjOppKingSq)==7))
+      EvalVPairAdd(&Score, EvalRookOn7th);
+    
+    // Trapped
+    bb_t KingBB=PosGetBBPiece(Pos, PIECE_MAKE(king, Colour));
+    if (Colour==white)
+    {
+      if (((BB & (BBG1 | BBH1)) && (KingBB & (BBF1 | BBG1))) ||
+          ((BB & (BBA1 | BBB1)) && (KingBB & (BBB1 | BBC1))))
+        EvalVPairAdd(&Score, EvalRookTrapped);
+    }
+    else
+    {
+      if (((BB & (BBG8 | BBH8)) && (KingBB & (BBF8 | BBG8))) ||
+          ((BB & (BBA8 | BBB8)) && (KingBB & (BBB8 | BBC8))))
+        EvalVPairAdd(&Score, EvalRookTrapped);
+    }
+  }
+  
+  if (Piece==king)
+  {
+    // Pawn shield
+    bb_t Pawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, Colour));
+    bb_t Set=BBForwardOne(BBWestOne(BB) | BB | BBEastOne(BB), Colour);
+    bb_t ShieldClose=(Pawns & Set);
+    bb_t ShieldFar=(Pawns & BBForwardOne(Set, Colour));
+    EvalVPairAddMul(&Score, EvalKingShieldClose, BBPopCount(ShieldClose));
+    EvalVPairAddMul(&Score, EvalKingShieldFar, BBPopCount(ShieldFar));
+  }
   
   return Score;
 }
 
-static inline score_t EvalInterpolate(const pos_t *Pos, const vpair_t *Score, const evalmatdata_t *Data)
+static inline score_t EvalInterpolate(const evaldata_t *Data, const vpair_t *Score)
 {
   // Interpolate and also scale to centi-pawns
-  return ((Data->WeightMG*Score->MG+Data->WeightEG*Score->EG)*100)/(EvalMaterial[pawn].MG*256);
+  return ((Data->MatData.WeightMG*Score->MG+Data->MatData.WeightEG*Score->EG)*100)/(EvalMaterial[pawn].MG*256);
 }
 
 static inline void EvalVPairAdd(vpair_t *A, vpair_t B)

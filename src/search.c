@@ -711,7 +711,8 @@ void SearchOutput(node_t *N)
     
     // Read next move from TT
     Move=MOVE_INVALID;
-    SearchTTRead(N, &Move);
+    if (SearchTTRead(N, &Move))
+      Move=N->Move; // to make sure we collect move in case of cutoff
   }
   
   // Return position to initial state

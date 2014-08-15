@@ -613,18 +613,11 @@ bool PosIsDraw(const pos_t *Pos, int Ply)
 {
   // False positives are bad, false negatives are OK
   
-  // Repetition (2-fold for repeat of tree pos, 3-fold otherwise)
-  posdata_t *Ptr, *EndPtr=Pos->Data-Ply;
-  assert(EndPtr>=Pos->DataStart);
+  // Repetition (2-fold)
+  posdata_t *Ptr, *EndPtr=MAX(Pos->DataStart, Pos->Data-PosGetHalfMoveClock(Pos));
   for(Ptr=Pos->Data-2;Ptr>=EndPtr;Ptr-=2)
     if (Ptr->Key==Pos->Data->Key)
       return true;
-  int Count=0;
-  EndPtr=MAX(Pos->DataStart, Pos->Data-PosGetHalfMoveClock(Pos));
-  for(;Ptr>=EndPtr;Ptr-=2)
-    Count+=(Ptr->Key==PosGetKey(Pos));
-  if (Count>1)
-    return true;
   
   // 50-move rule
   if (PosGetHalfMoveClock(Pos)>=100)

@@ -4,6 +4,7 @@
 #include "eval.h"
 #include "perft.h"
 #include "pos.h"
+#include "moves.h"
 #include "search.h"
 #include "see.h"
 #include "time.h"
@@ -126,6 +127,8 @@ void UCILoop()
     // Parse command
     char *SavePtr, *Part;
     Part=strtok_r(Line, " ", &SavePtr);
+    if (Part==NULL)
+      continue;
     if (!strcmp(Part, "go"))
     {
       // Parse arguments
@@ -246,16 +249,18 @@ void UCILoop()
     }
     else if (!strcmp(Part, "see"))
     {
-      move_t Moves[MOVES_MAX], *Move;
-      move_t *End=PosGenPseudoMoves(Pos, Moves);
-      for(Move=Moves;Move<End;++Move)
+      moves_t Moves;
+      MovesInit(&Moves, Pos, true);
+      MovesRewind(&Moves, MOVE_INVALID);
+      move_t Move;
+      while((Move=MovesNext(&Moves))!=MOVE_INVALID)
       {
-        sq_t ToSq=MOVE_GETTOSQ(*Move);
+        sq_t ToSq=MOVE_GETTOSQ(Move);
         if (PosGetPieceOnSq(Pos, ToSq)==empty)
           continue;
         char Str[8];
-        PosMoveToStr(*Move, Str);
-        printf("  %6s %4i\n", Str, SEE(Pos, MOVE_GETFROMSQ(*Move), ToSq));
+        PosMoveToStr(Move, Str);
+        printf("  %6s %4i\n", Str, SEE(Pos, MOVE_GETFROMSQ(Move), ToSq));
       }
     }
     else if (!strcmp(Part, "uci"))

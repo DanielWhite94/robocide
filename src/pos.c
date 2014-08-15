@@ -5,6 +5,7 @@
 #include <string.h>
 #include "attacks.h"
 #include "fen.h"
+#include "moves.h"
 #include "pos.h"
 #include "WELL512a.h"
 
@@ -54,10 +55,10 @@ static inline void PosPieceAdd(pos_t *Pos, piece_t Piece, sq_t Sq);
 static inline void PosPieceRemove(pos_t *Pos, sq_t Sq);
 static inline void PosPieceMove(pos_t *Pos, sq_t FromSq, sq_t ToSq);
 static inline void PosPieceMoveChange(pos_t *Pos, sq_t FromSq, sq_t ToSq, piece_t ToPiece);
-static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t Allowed);
-static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves);
-static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves);
-static inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves);
+void PosGenPseudoNormal(moves_t *Moves, bb_t Allowed);
+void PosGenPseudoPawnCaptures(moves_t *Moves);
+void PosGenPseudoPawnQuiets(moves_t *Moves);
+void PosGenPseudoCast(moves_t *Moves);
 char PosPromoChar(piece_t Piece);
 hkey_t PosComputeKey(const pos_t *Pos);
 hkey_t PosComputePawnKey(const pos_t *Pos);
@@ -510,58 +511,54 @@ inline bool PosIsXSTMInCheck(const pos_t *Pos)
            )));
 }
 
-move_t *PosGenPseudoMoves(const pos_t *Pos, move_t *Moves)
+void PosGenPseudoMoves(moves_t *Moves)
 {
   // Standard moves (no pawns or castling)
-  Moves=PosGenPseudoNormal(Pos, Moves, BBAll);
+  PosGenPseudoNormal(Moves, BBAll);
   
   // Pawns
-  Moves=PosGenPseudoPawnCaptures(Pos, Moves);
-  Moves=PosGenPseudoPawnQuiets(Pos, Moves);
+  PosGenPseudoPawnCaptures(Moves);
+  PosGenPseudoPawnQuiets(Moves);
   
   // Castling
-  Moves=PosGenPseudoCast(Pos, Moves);
-  
-  return Moves;
+  PosGenPseudoCast(Moves);
 }
 
-move_t *PosGenPseudoCaptures(const pos_t *Pos, move_t *Moves)
+void PosGenPseudoCaptures(moves_t *Moves)
 {
   // Standard moves (no pawns or castling)
-  bb_t Occ=PosGetBBAll(Pos);
-  Moves=PosGenPseudoNormal(Pos, Moves, Occ);
+  bb_t Occ=PosGetBBAll(MovesPos(Moves));
+  PosGenPseudoNormal(Moves, Occ);
   
   // Pawns
-  Moves=PosGenPseudoPawnCaptures(Pos, Moves);
-  
-  return Moves;
+  PosGenPseudoPawnCaptures(Moves);
 }
 
-move_t *PosGenPseudoQuiets(const pos_t *Pos, move_t *Moves)
+void PosGenPseudoQuiets(moves_t *Moves)
 {
   // Standard moves (no pawns or castling)
-  bb_t Occ=PosGetBBAll(Pos);
+  bb_t Occ=PosGetBBAll(MovesPos(Moves));
   bb_t Empty=~Occ;
-  Moves=PosGenPseudoNormal(Pos, Moves, Empty);
+  PosGenPseudoNormal(Moves, Empty);
   
   // Pawns
-  Moves=PosGenPseudoPawnQuiets(Pos, Moves);
+  PosGenPseudoPawnQuiets(Moves);
   
   // Castling
-  Moves=PosGenPseudoCast(Pos, Moves);
-  
-  return Moves;
+  PosGenPseudoCast(Moves);
 }
 
 inline move_t PosGenLegalMove(pos_t *Pos)
 {
-  move_t Moves[MOVES_MAX], *Move;
-  move_t *End=PosGenPseudoMoves(Pos, Moves);
-  for(Move=Moves;Move<End;++Move)
-    if (PosMakeMove(Pos, *Move))
+  moves_t Moves;
+  MovesInit(&Moves, Pos, true);
+  MovesRewind(&Moves, MOVE_INVALID);
+  move_t Move;
+  while((Move=MovesNext(&Moves))!=MOVE_INVALID)
+    if (PosMakeMove(Pos, Move))
     {
       PosUndoMove(Pos);
-      return *Move;
+      return Move;
     }
   return MOVE_INVALID;
 }
@@ -597,14 +594,16 @@ void PosMoveToStr(move_t Move, char Str[static 6])
 
 move_t PosStrToMove(const pos_t *Pos, const char Str[static 6])
 {
-  move_t Moves[MOVES_MAX], *Move;
-  move_t *End=PosGenPseudoMoves(Pos, Moves);
-  char GenStr[8];
-  for(Move=Moves;Move<End;++Move)
+  moves_t Moves;
+  MovesInit(&Moves, Pos, true);
+  MovesRewind(&Moves, MOVE_INVALID);
+  move_t Move;
+  while((Move=MovesNext(&Moves))!=MOVE_INVALID)
   {
-    PosMoveToStr(*Move, GenStr);
+    char GenStr[8];
+    PosMoveToStr(Move, GenStr);
     if (!strcmp(Str, GenStr))
-      return *Move;
+      return Move;
   }
   return MOVE_INVALID;
 }
@@ -957,8 +956,9 @@ static inline void PosPieceMoveChange(pos_t *Pos, sq_t FromSq, sq_t ToSq, piece_
   PosPieceAdd(Pos, ToPiece, ToSq);
 }
 
-static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t Allowed)
+void PosGenPseudoNormal(moves_t *Moves, bb_t Allowed)
 {
+  const pos_t *Pos=MovesPos(Moves);
   bb_t Friendly=PosGetBBColour(Pos, Pos->STM);
   Allowed&=~Friendly; // Don't want to self-capture
   bb_t Occ=PosGetBBAll(Pos);
@@ -976,7 +976,7 @@ static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t A
     RawMove=(MoveColour | ((*Sq)<<MOVE_SHIFTFROMSQ));
     Set=(AttacksKnight(*Sq) & Allowed);
     while(Set)
-      *Moves++=(RawMove | BBScanReset(&Set));
+      MovesPush(Moves, (RawMove | BBScanReset(&Set)));
   }
   
   // Bishops (these are split into light/dark squared, so include both)
@@ -988,7 +988,7 @@ static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t A
     RawMove=(MoveColour | ((*Sq)<<MOVE_SHIFTFROMSQ));
     Set=(AttacksBishop(*Sq, Occ) & Allowed);
     while(Set)
-      *Moves++=(RawMove | BBScanReset(&Set));
+      MovesPush(Moves, (RawMove | BBScanReset(&Set)));
   }
   Piece=PIECE_MAKE(bishopd, Pos->STM);
   Sq=PosGetPieceListStart(Pos, Piece);
@@ -998,7 +998,7 @@ static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t A
     RawMove=(MoveColour | ((*Sq)<<MOVE_SHIFTFROMSQ));
     Set=(AttacksBishop(*Sq, Occ) & Allowed);
     while(Set)
-      *Moves++=(RawMove | BBScanReset(&Set));
+      MovesPush(Moves, (RawMove | BBScanReset(&Set)));
   }
   
   // Rooks
@@ -1010,7 +1010,7 @@ static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t A
     RawMove=(MoveColour | ((*Sq)<<MOVE_SHIFTFROMSQ));
     Set=(AttacksRook(*Sq, Occ) & Allowed);
     while(Set)
-      *Moves++=(RawMove | BBScanReset(&Set));
+      MovesPush(Moves, (RawMove | BBScanReset(&Set)));
   }
   
   // Queens
@@ -1022,7 +1022,7 @@ static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t A
     RawMove=(MoveColour | ((*Sq)<<MOVE_SHIFTFROMSQ));
     Set=(AttacksQueen(*Sq, Occ) & Allowed);
     while(Set)
-      *Moves++=(RawMove | BBScanReset(&Set));
+      MovesPush(Moves, (RawMove | BBScanReset(&Set)));
   }
   
   // King
@@ -1030,13 +1030,12 @@ static inline move_t *PosGenPseudoNormal(const pos_t *Pos, move_t *Moves, bb_t A
   RawMove=(MoveColour | (KSq<<MOVE_SHIFTFROMSQ));
   Set=(AttacksKing(KSq) & Allowed);
   while(Set)
-    *Moves++=(RawMove | BBScanReset(&Set));
-  
-  return Moves;
+    MovesPush(Moves, (RawMove | BBScanReset(&Set)));
 }
 
-static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
+void PosGenPseudoPawnCaptures(moves_t *Moves)
 {
+  const pos_t *Pos=MovesPos(Moves);
   bb_t Opp=PosGetBBColour(Pos, COL_SWAP(Pos->STM));
   bb_t Empty=~PosGetBBAll(Pos);
   bb_t Set, Set2;
@@ -1047,14 +1046,14 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
-                ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
-                ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
-                ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
-                ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
+                        ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
+                        ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
+                        ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
+                        ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     
     // Capture left
@@ -1064,19 +1063,19 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     while(Set2)
     {
       sq_t ToSq=BBScanReset(&Set2);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
-                ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
-                ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
-                ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
-                ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
+                        ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
+                        ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
+                        ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
+                        ((ToSq-7)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     
     // Capture right
@@ -1086,19 +1085,19 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     while(Set2)
     {
       sq_t ToSq=BBScanReset(&Set2);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
-                ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
-                ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
-                ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
-                ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
+                        ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
+                        ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
+                        ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
+                        ((ToSq-9)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     
     // EP captures
@@ -1107,14 +1106,14 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
       // Left capture
       if (SQ_X(Pos->Data->EPSq)<7 &&
           PosGetPieceOnSq(Pos, Pos->Data->EPSq-7)==wpawn)
-        *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRAEP |
-                  ((Pos->Data->EPSq-7)<<MOVE_SHIFTFROMSQ) | Pos->Data->EPSq);
+        MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRAEP |
+                          ((Pos->Data->EPSq-7)<<MOVE_SHIFTFROMSQ) | Pos->Data->EPSq));
       
       // Right capture
       if (SQ_X(Pos->Data->EPSq)>0 &&
           PosGetPieceOnSq(Pos, Pos->Data->EPSq-9)==wpawn)
-        *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRAEP |
-                  ((Pos->Data->EPSq-9)<<MOVE_SHIFTFROMSQ) | Pos->Data->EPSq);
+        MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRAEP |
+                          ((Pos->Data->EPSq-9)<<MOVE_SHIFTFROMSQ) | Pos->Data->EPSq));
     }
   }
   else
@@ -1124,14 +1123,14 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
-                ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
-                ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
-                ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
-                ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
+                        ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
+                        ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
+                        ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
+                        ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     
     // Capture left
@@ -1141,19 +1140,19 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     while(Set2)
     {
       sq_t ToSq=BBScanReset(&Set2);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
-                ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
-                ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
-                ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
-                ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
+                        ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
+                        ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
+                        ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
+                        ((ToSq+9)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     
     // Capture right
@@ -1163,19 +1162,19 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     while(Set2)
     {
       sq_t ToSq=BBScanReset(&Set2);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
-                ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
-                ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
-                ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
-                ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAQUEEN |
+                        ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAROOK |
+                        ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRABISHOP |
+                        ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq));
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_MASKPROMO | MOVE_EXTRAKNIGHT |
+                        ((ToSq+7)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     
     // EP captures
@@ -1184,22 +1183,21 @@ static inline move_t *PosGenPseudoPawnCaptures(const pos_t *Pos, move_t *Moves)
       // Left capture
       if (SQ_X(Pos->Data->EPSq)<7 &&
           PosGetPieceOnSq(Pos, Pos->Data->EPSq+9)==bpawn)
-        *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRAEP |
-                  ((Pos->Data->EPSq+9)<<MOVE_SHIFTFROMSQ) | Pos->Data->EPSq);
+        MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRAEP |
+                          ((Pos->Data->EPSq+9)<<MOVE_SHIFTFROMSQ) | Pos->Data->EPSq));
       
       // Right capture
       if (SQ_X(Pos->Data->EPSq)>0 &&
           PosGetPieceOnSq(Pos, Pos->Data->EPSq+7)==bpawn)
-        *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRAEP |
-                  ((Pos->Data->EPSq+7)<<MOVE_SHIFTFROMSQ) | Pos->Data->EPSq);
+        MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRAEP |
+                          ((Pos->Data->EPSq+7)<<MOVE_SHIFTFROMSQ) | Pos->Data->EPSq));
     }
   }
-  
-  return Moves;
 }
 
-static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves)
+void PosGenPseudoPawnQuiets(moves_t *Moves)
 {
+  const pos_t *Pos=MovesPos(Moves);
   bb_t Occ=PosGetBBAll(Pos);
   bb_t Empty=~Occ;
   bb_t Set, Set2;
@@ -1210,7 +1208,7 @@ static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | ((ToSq-8)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     
     // Double first move
@@ -1218,8 +1216,8 @@ static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRADP |
-                ((ToSq-16)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRADP |
+                        ((ToSq-16)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
   }
   else
@@ -1229,7 +1227,7 @@ static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | ((ToSq+8)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
     
     // Double first move
@@ -1237,37 +1235,34 @@ static inline move_t *PosGenPseudoPawnQuiets(const pos_t *Pos, move_t *Moves)
     while(Set)
     {
       sq_t ToSq=BBScanReset(&Set);
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRADP |
-                ((ToSq+16)<<MOVE_SHIFTFROMSQ) | ToSq);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRADP |
+                        ((ToSq+16)<<MOVE_SHIFTFROMSQ) | ToSq));
     }
   }
-  
-  return Moves;
 }
 
-static inline move_t *PosGenPseudoCast(const pos_t *Pos, move_t *Moves)
+void PosGenPseudoCast(moves_t *Moves)
 {
+  const pos_t *Pos=MovesPos(Moves);
   bb_t Occ=PosGetBBAll(Pos);
   if (Pos->STM==white)
   {
     if ((Pos->Data->CastRights & castrights_K) && !(Occ & (BBF1 | BBG1)))
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRACAST |
-                (E1<<MOVE_SHIFTFROMSQ) | G1);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRACAST |
+                        (E1<<MOVE_SHIFTFROMSQ) | G1));
     if ((Pos->Data->CastRights & castrights_Q) && !(Occ & (BBB1 | BBC1 | BBD1)))
-      *Moves++=((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRACAST |
-                (E1<<MOVE_SHIFTFROMSQ) | C1);
+      MovesPush(Moves, ((white<<MOVE_SHIFTCOLOUR) | MOVE_EXTRACAST |
+                        (E1<<MOVE_SHIFTFROMSQ) | C1));
   }
   else
   {
     if ((Pos->Data->CastRights & castrights_k) && !(Occ & (BBF8 | BBG8)))
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRACAST |
-                (E8<<MOVE_SHIFTFROMSQ) | G8);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRACAST |
+                        (E8<<MOVE_SHIFTFROMSQ) | G8));
     if ((Pos->Data->CastRights & castrights_q) && !(Occ & (BBB8 | BBC8 | BBD8)))
-      *Moves++=((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRACAST |
-                (E8<<MOVE_SHIFTFROMSQ) | C8);
+      MovesPush(Moves, ((black<<MOVE_SHIFTCOLOUR) | MOVE_EXTRACAST |
+                        (E8<<MOVE_SHIFTFROMSQ) | C8));
   }
-  
-  return Moves;
 }
 
 char PosPromoChar(piece_t Piece)

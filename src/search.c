@@ -1,12 +1,13 @@
 #include <assert.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "eval.h"
 #include "htable.h"
 #include "main.h"
+#include "moves.h"
 #include "search.h"
+#include "see.h"
 #include "threads.h"
 #include "types.h"
 #include "uci.h"
@@ -22,9 +23,9 @@ bool SearchInfinite, SearchStopFlag;
 ms_t SearchStartTime, SearchEndTime;
 thread_t *SearchThread=NULL;
 
-typedef uint64_t movescore_t;
-#define MOVESCORE_WIDTH 64
-#define HISTORY_MAX (((movescore_t)1)<<(MOVESCORE_WIDTH-8)) // see SearchScoreMove()
+#define MOVESCORE_WIDTH 48
+#define MOVESCORE_MAX (((movescore_t)1)<<MOVESCORE_WIDTH)
+#define HISTORY_MAX (((movescore_t)1)<<(MOVESCORE_WIDTH-7)) // see SearchScoreMove()
 movescore_t SearchHistory[16][64];
 
 TUNECONST int SearchNullReduction=1;
@@ -32,21 +33,6 @@ TUNECONST int SearchIIDMin=2;
 TUNECONST int SearchIIDReduction=3;
 
 bool SearchPonder=true;
-
-typedef enum
-{
-  movesstage_tt,
-  movesstage_main
-}movesstage_t;
-
-typedef struct
-{
-  move_t Moves[MOVES_MAX], *Next, *End;
-  movesstage_t Stage;
-  move_t TTMove;
-  const pos_t *Pos;
-  move_t * (*Gen)(const pos_t *Pos, move_t *Moves);
-}moves_t;
 
 typedef enum
 {
@@ -65,7 +51,6 @@ typedef struct
   bool InCheck; // *
   move_t Move; // #
   score_t Score; // #
-  moves_t Moves;
   // * - search functions should not modify these entries
   // # - search functions should ensure these are set correctly before returning (even if only say Move==MOVE_NONE)
 }node_t;
@@ -106,11 +91,6 @@ void SearchQNodeInternal(node_t *Node);
 static inline bool SearchIsTimeUp();
 void SearchOutput(node_t *N);
 void SearchScoreToStr(score_t Score, int Type, char Str[static 32]);
-static inline void SearchMovesInit(node_t *N, move_t TTMove);
-static inline void SearchMovesRewind(node_t *N, move_t TTMove);
-move_t SearchMovesNext(moves_t *Moves);
-void SearchSortMoves(moves_t *Moves);
-static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move);
 void SearchHistoryUpdate(const node_t *N);
 void SearchHistoryAge();
 void SearchHistoryClear();
@@ -234,6 +214,29 @@ void SearchClear()
 void SearchPonderHit()
 {
   SearchInfinite=false;
+}
+
+movescore_t SearchScoreMove(const pos_t *Pos, move_t Move)
+{
+  movescore_t Score=0;
+  
+  // Sort first by captured/promotion piece (most valuable first)
+  piece_t FromPiece=PosGetPieceOnSq(Pos, MOVE_GETFROMSQ(Move));
+  piece_t ToPieceType=PIECE_TYPE(MOVE_ISPROMO(Move) ? MOVE_GETPROMO(Move) : FromPiece);
+  piece_t CapturedPieceType=(MOVE_ISEP(Move) ? pawn : PIECE_TYPE(PosGetPieceOnSq(Pos, MOVE_GETTOSQ(Move))));
+  int Delta=(CapturedPieceType+ToPieceType-PIECE_TYPE(FromPiece));
+  assert(Delta>=0 && Delta<16);
+  Score+=Delta*8*HISTORY_MAX;
+  
+  // Sort second by capturing piece (least valuable first)
+  Score+=(8-ToPieceType)*HISTORY_MAX;
+  
+  // Further sort using history tables
+  assert(SearchHistory[FromPiece][MOVE_GETTOSQ(Move)]<HISTORY_MAX);
+  Score+=SearchHistory[FromPiece][MOVE_GETTOSQ(Move)];
+  
+  assert(Score>=0 && Score<MOVESCORE_MAX);
+  return Score;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -410,7 +413,9 @@ void SearchNodeInternal(node_t *N)
   }
   
   // Begin IID loop
-  SearchMovesInit(N, TTMove);
+  moves_t Moves;
+  MovesInit(&Moves, N->Pos, true);
+  MovesRewind(&Moves, TTMove);
   do
   {
     assert(Depth>=0 && Depth<=N->Depth);
@@ -423,7 +428,7 @@ void SearchNodeInternal(node_t *N)
     Child.Alpha=-N->Beta;
     Child.Beta=-Alpha;
     move_t Move;
-    while((Move=SearchMovesNext(&N->Moves))!=MOVE_INVALID)
+    while((Move=MovesNext(&Moves))!=MOVE_INVALID)
     {
       // Make move (might leave us in check, if so skip)
       if (!PosMakeMove(N->Pos, Move))
@@ -528,9 +533,7 @@ void SearchNodeInternal(node_t *N)
     }
     
     cutoff:
-    
-    // Update TTMove and rewind move pointer
-    SearchMovesRewind(N, N->Move);
+    MovesRewind(&Moves, N->Move);
     
     // Continue onto next depth or done
   }while((Depth+=SearchIIDReduction)<=N->Depth);
@@ -584,10 +587,12 @@ void SearchQNodeInternal(node_t *N)
   Child.Ply=N->Ply+1;
   Child.Alpha=-N->Beta;
   Child.Beta=-Alpha;
-  SearchMovesInit(N, MOVE_INVALID);
+  moves_t Moves;
+  MovesInit(&Moves, N->Pos, N->InCheck);
+  MovesRewind(&Moves, MOVE_INVALID);
   move_t Move;
   bool NoLegalMove=true;
-  while((Move=SearchMovesNext(&N->Moves))!=MOVE_INVALID)
+  while((Move=MovesNext(&Moves))!=MOVE_INVALID)
   {
     // Search move
     if (!PosMakeMove(N->Pos, Move))
@@ -735,101 +740,6 @@ void SearchScoreToStr(score_t Score, int Type, char Str[static 32])
     strcat(Str, " lowerbound");
   if (Type==nodetype_upper)
     strcat(Str, " upperbound");
-}
-
-static inline void SearchMovesInit(node_t *N, move_t TTMove)
-{
-  N->Moves.Next=N->Moves.End=N->Moves.Moves;
-  N->Moves.Stage=movesstage_tt;
-  N->Moves.TTMove=TTMove;
-  N->Moves.Pos=N->Pos;
-  N->Moves.Gen=((!NODE_ISQ(N) || N->InCheck) ? &PosGenPseudoMoves : &PosGenPseudoCaptures);
-}
-
-static inline void SearchMovesRewind(node_t *N, move_t TTMove)
-{
-  N->Moves.Next=N->Moves.Moves;
-  N->Moves.Stage=movesstage_tt;
-  N->Moves.TTMove=TTMove;
-}
-
-move_t SearchMovesNext(moves_t *Moves)
-{
-  switch(Moves->Stage)
-  {
-    case movesstage_tt:
-      // Update stage ready for next call
-      Moves->Stage=movesstage_main;
-      
-      // Do we have a TT move?
-      if (MOVE_ISVALID(Moves->TTMove))
-        return Moves->TTMove;
-      
-      // Fall through to generate/choose a move
-    case movesstage_main:
-      // Do we need to generate any moves? (we might have already done this)
-      if (Moves->Gen!=NULL)
-      {
-        assert(Moves->Next==Moves->Moves);
-        Moves->End=Moves->Gen(Moves->Pos, Moves->Moves);
-        Moves->Gen=NULL;
-        SearchSortMoves(Moves);
-      }
-      
-      // Choose move
-      while(Moves->Next<Moves->End)
-        if (*Moves->Next++!=Moves->TTMove)
-          return *(Moves->Next-1);
-      
-      // No moves left
-      return MOVE_INVALID;
-    break;
-  }
-  
-  assert(false);
-  return MOVE_INVALID;
-}
-
-void SearchSortMoves(moves_t *Moves)
-{
-  // Calculate scores
-  movescore_t Scores[MOVES_MAX], *ScorePtr;
-  move_t *MovePtr;
-  for(MovePtr=Moves->Moves,ScorePtr=Scores;MovePtr<Moves->End;++MovePtr)
-    *ScorePtr++=SearchScoreMove(Moves->Pos, *MovePtr);
-  
-  // Sort (best move first)
-  for(MovePtr=Moves->Moves+1,ScorePtr=Scores+1;MovePtr<Moves->End;++MovePtr,++ScorePtr)
-  {
-    move_t TempMove=*MovePtr, *TempMovePtr;
-    movescore_t TempScore=*ScorePtr, *TempScorePtr;
-    for(TempMovePtr=MovePtr-1,TempScorePtr=ScorePtr-1;TempScore>*TempScorePtr && TempScorePtr>=Scores;--TempMovePtr,--TempScorePtr)
-    {
-      *(TempScorePtr+1)=*TempScorePtr;
-      *(TempMovePtr+1)=*TempMovePtr;
-    }
-    *(TempScorePtr+1)=TempScore;
-    *(TempMovePtr+1)=TempMove;
-  }
-}
-
-static inline movescore_t SearchScoreMove(const pos_t *Pos, move_t Move)
-{
-  movescore_t Score=0;
-  
-  // Sort first by captured/promotion piece (most valuable first)
-  piece_t FromPiece=PosGetPieceOnSq(Pos, MOVE_GETFROMSQ(Move));
-  piece_t ToPiece=(MOVE_ISPROMO(Move) ? MOVE_GETPROMO(Move) : FromPiece);
-  piece_t CapturedPiece=(MOVE_ISEP(Move) ? pawn : PIECE_TYPE(PosGetPieceOnSq(Pos, MOVE_GETTOSQ(Move))));
-  Score+=(CapturedPiece+PIECE_TYPE(ToPiece)-PIECE_TYPE(FromPiece))*8*HISTORY_MAX;
-  
-  // Sort second by capturing piece (least valuable first)
-  Score+=(8-PIECE_TYPE(ToPiece))*HISTORY_MAX;
-  
-  // Further sort using history tables
-  Score+=SearchHistory[FromPiece][MOVE_GETTOSQ(Move)];
-  
-  return Score;
 }
 
 void SearchHistoryUpdate(const node_t *N)

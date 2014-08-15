@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "perft.h"
 #include "time.h"
+#include "moves.h"
 #include "types.h"
 
 void Perft(pos_t *Pos, unsigned int MaxDepth)
@@ -31,15 +32,17 @@ void Divide(pos_t *Pos, unsigned int Depth)
     return;
   
   unsigned long long int Total=0;
-  move_t Moves[MOVES_MAX], *Move;
-  move_t *End=PosGenPseudoMoves(Pos, Moves);
-  for(Move=Moves;Move<End;++Move)
+  moves_t Moves;
+  MovesInit(&Moves, Pos, true);
+  MovesRewind(&Moves, MOVE_INVALID);
+  move_t Move;
+  while((Move=MovesNext(&Moves))!=MOVE_INVALID)
   {
-    if (!PosMakeMove(Pos, *Move))
+    if (!PosMakeMove(Pos, Move))
       continue;
     unsigned long long int Nodes=PerftRaw(Pos, Depth-1);
     char Str[8];
-    PosMoveToStr(*Move, Str);
+    PosMoveToStr(Move, Str);
     printf("  %6s %12llu\n", Str, Nodes);
     Total+=Nodes;
     PosUndoMove(Pos);
@@ -53,11 +56,13 @@ unsigned long long int PerftRaw(pos_t *Pos, unsigned int Depth)
     return 1;
   
   unsigned long long int Total=0;
-  move_t Moves[MOVES_MAX], *Move;
-  move_t *End=PosGenPseudoMoves(Pos, Moves);
-  for(Move=Moves;Move<End;++Move)
+  moves_t Moves;
+  MovesInit(&Moves, Pos, true);
+  MovesRewind(&Moves, MOVE_INVALID);
+  move_t Move;
+  while((Move=MovesNext(&Moves))!=MOVE_INVALID)
   {
-    if (!PosMakeMove(Pos, *Move))
+    if (!PosMakeMove(Pos, Move))
       continue;
     Total+=PerftRaw(Pos, Depth-1);
     PosUndoMove(Pos);

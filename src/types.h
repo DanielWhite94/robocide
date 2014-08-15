@@ -73,7 +73,8 @@ typedef uint16_t move_t;
 #define MOVE_INVALID ((A1<<MOVE_SHIFTTOSQ) | (A1<<MOVE_SHIFTFROMSQ) | (0u<<MOVE_SHIFTEXTRA)) // i.e. undefined/not set
 #define MOVE_NONE ((A1<<MOVE_SHIFTTOSQ) | (A1<<MOVE_SHIFTFROMSQ) | (1u<<MOVE_SHIFTEXTRA)) // i.e. no/null move (e.g. in null move pruning one makes a move like this)
 #define MOVE_ISVALID(M) ((M)!=MOVE_INVALID && (M)!=MOVE_NONE)
-#define MOVES_MAX 256
+
+typedef struct moves_t moves_t;
 
 typedef enum
 {

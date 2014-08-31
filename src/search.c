@@ -251,6 +251,9 @@ void searchIDLoop(void *posPtr)
   
   // Free position
   posFree(node.pos);
+  
+  // Age history table.
+  historyAge();
 }
 
 Score searchNode(Node *node)

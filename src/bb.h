@@ -1,115 +1,36 @@
 #ifndef BB_H
 #define BB_H
 
-#include <assert.h>
-#include "types.h"
+#include <stdint.h>
 
-extern const bb_t BBNone, BBAll;
-extern const bb_t BBA1, BBB1, BBC1, BBD1, BBE1, BBF1, BBG1, BBH1,
-                  BBA8, BBB8, BBC8, BBD8, BBE8, BBF8, BBG8, BBH8;
-extern const bb_t BBFileA, BBFileB, BBFileC, BBFileD,
-                  BBFileE, BBFileF, BBFileG, BBFileH;
-extern const bb_t BBRank1, BBRank2, BBRank3, BBRank4,
-                  BBRank5, BBRank6, BBRank7, BBRank8;
-extern const bb_t BBLight, BBDark;
+#include "square.h"
 
-extern bb_t BBBetween[64][64], BBBeyond[64][64];
+typedef uint64_t BB;
 
-extern const int BBScanForwardTable[64];
+extern const BB BBNone, BBAll;
+extern const BB BBLight, BBDark; // Bitboards with all light/dark squares set.
 
-void BBInit();
-static inline sq_t BBScanReset(bb_t *Set);
-static inline sq_t BBScanForward(bb_t Set);
-static inline bb_t BBNorthOne(bb_t Set);
-static inline bb_t BBSouthOne(bb_t Set);
-static inline bb_t BBWestOne(bb_t Set);
-static inline bb_t BBEastOne(bb_t Set);
-static inline bb_t BBNorthFill(bb_t Set);
-static inline bb_t BBSouthFill(bb_t Set);
-static inline bb_t BBFileFill(bb_t Set);
-static inline bb_t BBSqToRank(sq_t Sq);
-static inline bb_t BBWingify(bb_t Set);
-static inline int BBPopCount(bb_t X);
-static inline bb_t BBForwardOne(bb_t Set, col_t Colour);
-void BBDraw(bb_t Set);
-
-static inline sq_t BBScanReset(bb_t *Set)
-{
-  assert(*Set!=BBNone);
-  sq_t Sq=BBScanForward(*Set);
-  *Set&=((*Set)-1); // Reset LS1B
-  return Sq;
-}
-
-static inline sq_t BBScanForward(bb_t Set)
-{
-  assert(Set!=BBNone);
-  return BBScanForwardTable[((Set^(Set-1))*0x03f79d71b4cb0a89llu)>>58];
-}
-
-static inline bb_t BBNorthOne(bb_t Set)
-{
-  return (Set<<8);
-}
-
-static inline bb_t BBSouthOne(bb_t Set)
-{
-  return (Set>>8);
-}
-
-static inline bb_t BBWestOne(bb_t Set)
-{
-  return ((Set & ~BBFileA)>>1);
-}
-
-static inline bb_t BBEastOne(bb_t Set)
-{
-  return ((Set & ~BBFileH)<<1);
-}
-
-static inline bb_t BBNorthFill(bb_t Set)
-{
-  Set|=(Set<<8);
-  Set|=(Set<<16);
-  Set|=(Set<<32);
-  return Set;
-}
-
-static inline bb_t BBSouthFill(bb_t Set)
-{
-  Set|=(Set>>8);
-  Set|=(Set>>16);
-  Set|=(Set>>32);
-  return Set;
-}
-
-static inline bb_t BBFileFill(bb_t Set)
-{
-  return (BBNorthFill(Set) | BBSouthFill(Set));
-}
-
-static inline bb_t BBSqToRank(sq_t Sq)
-{
-  return (BBRank1<<(SQ_Y(Sq)*8));
-}
-
-static inline bb_t BBWingify(bb_t Set)
-{
-  return (BBWestOne(Set) | BBEastOne(Set));
-}
-
-static inline int BBPopCount(bb_t X)
-{
-  X=X-((X>>1) & 0x5555555555555555llu);
-  X=(X&0x3333333333333333llu)+((X>>2) & 0x3333333333333333llu);
-  X=(X+(X>>4)) & 0x0f0f0f0f0f0f0f0fllu;
-  X=(X*0x0101010101010101llu)>>56;
-  return (int)X;
-}
-
-static inline bb_t BBForwardOne(bb_t Set, col_t Colour)
-{
-  return (Colour==white ? BBNorthOne(Set) : BBSouthOne(Set));
-}
+void bbInit(void); // Must be called before any other bb functions.
+void bbDraw(BB bb); // Prints bitboard as 8x8 table with a1 at the bottom left.
+BB bbSq(Sq sq); // Returns bitboard with single square 'sq' set.
+BB bbFile(File file); // Returns bitboard with all squares on the given file set.
+BB bbRank(Rank rank); // Returns bitboard with all squares on the given rank set.
+unsigned int bbPopCount(BB bb); // Returns number of 1 bits in given bitboard.
+Sq bbScanReset(BB *bb); // Finds a set bit, clears it, and then returns the square it represents. bb should not be BBNone (i.e. at least one bit should be set).
+Sq bbScanForward(BB bb); // Scans for least-significant set bit and returns the square it represents. bb should not be BBNone (i.e. at least one bit should be set).
+BB bbNorth(BB bb, unsigned int n); // Shifts all set bits north n times.
+BB bbSouth(BB bb, unsigned int n); // Shift all set bits south n times.
+BB bbNorthOne(BB bb); // Shifts all set bits north one.
+BB bbSouthOne(BB bb); // Shifts all set bits south one.
+BB bbWestOne(BB bb); // Shift all set bits west one.
+BB bbEastOne(BB bb); // Shift all set bits east one.
+BB bbForwardOne(BB bb, Colour colour); // (colour==ColourWhite ? bbNorthOne(bb) : bbSouthOne(bb))
+BB bbNorthFill(BB bb); // If a bit is set, all of those directly north of it on the same file will also be set.
+BB bbSouthFill(BB bb); // If a bit is set, all of those directly south of it on the same file will also be set.
+BB bbFileFill(BB bb); // (bbNorthFill(bb) | bbSouthFill(bb))
+BB bbWingify(BB bb); // (bbWestOne(bb) | bbEastOne(bb))
+BB bbBetween(BB sq1, BB sq2); // If sq1 and sq2 lie on the same file, rank or diagonal then returns a bitboard of all squares between sq1 and sq2 (otherwise BBNone).
+BB bbBeyond(BB sq1, BB sq2); // If sq1 and sq2 lie on the same file, rank or diagonal then returns a bitboard of squares behind sq2 from sq1's point of view,
+  // otherwise BBNone is returned. e.g. bbBeyond(SqA2, SqE5)==(bbSq(SqF6)|bbSq(SqG7)|bbSq(SqH8)).
 
 #endif

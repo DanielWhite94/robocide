@@ -3,6 +3,6 @@
 
 #include <stdarg.h>
 
-void mainFatalError(const char *Format, ...);
+void mainFatalError(const char *format, ...);
 
 #endif

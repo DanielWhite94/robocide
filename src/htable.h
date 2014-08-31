@@ -4,15 +4,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct htable_t htable_t;
+typedef struct HTable HTable;
 
-htable_t *HTableNew(size_t EntrySize, const void *NullEntry, unsigned int SizeMB); // EntrySize must be a power of two, SizeMB>0
-void HTableFree(htable_t *Table);
-bool HTableResize(htable_t *Table, unsigned int SizeMB); // SizeMB>0
-void HTableResizeInterface(int SizeMB, void *Table); // interface for UCI spin option code
-void HTableClear(htable_t *Table);
-void HTableClearInterface(void *Table); // interface for UCI button option code
-void *HTableGrab(htable_t *Table, uint64_t Key); // will never return NULL
-void HTableRelease(htable_t *Table, uint64_t Key); // should be called after Grab() to release entry
+HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb); // entrySize must be a power of two, sizeMb>0
+void htableFree(HTable *table);
+bool htableResize(HTable *table, unsigned int sizeMb); // SizeMb>0
+void htableResizeInterface(void *table, int sizeMb); // interface for UCI spin option code
+void htableClear(HTable *table);
+void htableClearInterface(void *table); // interface for UCI button option code
+void *htableGrab(HTable *table, uint64_t key); // will never return NULL
+void htableRelease(HTable *table, uint64_t key); // should be called after Grab() to release entry
 
 #endif

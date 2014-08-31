@@ -1,8 +1,9 @@
 #include <stdlib.h>
 #include <sys/time.h>
+
 #include "time.h"
 
-ms_t TimeGet()
+TimeMs timeGet()
 {
   struct timeval tp;
   gettimeofday(&tp, NULL);

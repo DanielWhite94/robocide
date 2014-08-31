@@ -2,9 +2,9 @@
 #define SEE_H
 
 #include "pos.h"
-#include "types.h"
+#include "square.h"
 
-int SEE(const pos_t *Pos, sq_t FromSq, sq_t ToSq);
-int SEESign(const pos_t *Pos, sq_t FromSq, sq_t ToSq);
+int see(const Pos *pos, Sq fromSq, Sq toSq);
+int seeSign(const Pos *pos, Sq fromSq, Sq toSq);
 
 #endif

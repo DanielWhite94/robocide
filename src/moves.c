@@ -1,122 +1,121 @@
+#include <assert.h>
+
 #include "moves.h"
-#include "pos.h"
 #include "search.h"
-#include "see.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-void MovesSort(scoredmove_t *Start, scoredmove_t *End);
+void movesSort(ScoredMove *start, ScoredMove *end); // descending order (best move first)
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void MovesInit(moves_t *Moves, const pos_t *Pos, bool Quiets)
+void movesInit(Moves *moves, const Pos *pos, bool quiets)
 {
-  Moves->Pos=Pos;
-  Moves->GenCaptures=true;
-  Moves->GenQuiets=Quiets;
+  moves->pos=pos;
+  moves->genCaptures=true;
+  moves->genQuiets=quiets;
 }
 
-void MovesRewind(moves_t *Moves, move_t TTMove)
+void movesRewind(Moves *moves, Move ttMove)
 {
-  Moves->Stage=movesstage_tt;
-  Moves->TTMove=TTMove;
+  moves->stage=MovesStageTT;
+  moves->ttMove=ttMove;
 }
 
-move_t MovesNext(moves_t *Moves)
+Move movesNext(Moves *moves)
 {
-  switch(Moves->Stage)
+  switch(moves->stage)
   {
-    case movesstage_tt:
+    case MovesStageTT:
       // Update stage and Next ptr ready for next call (at most one TT move)
-      Moves->Stage=movesstage_captures;
-      Moves->Next=Moves->List;
+      moves->stage=MovesStageCaptures;
+      moves->next=moves->list;
       
       // Do we have a TT move?
-      if (MOVE_ISVALID(Moves->TTMove))
-        return Moves->TTMove;
+      if (moveIsValid(moves->ttMove))
+        return moves->ttMove;
       
       // Fall through
-    case movesstage_captures:
+    case MovesStageCaptures:
       // Do we need to generate any moves?
-      if (Moves->GenCaptures)
+      if (moves->genCaptures)
       {
-        assert(Moves->Next==Moves->List);
-        
-        Moves->End=Moves->List;
-        PosGenPseudoCaptures(Moves);
-        MovesSort(Moves->Next, Moves->End);
-        Moves->GenCaptures=false;
+        assert(moves->next==moves->list);
+        moves->end=moves->list;
+        posGenPseudoCaptures(moves);
+        movesSort(moves->next, moves->end);
+        moves->genCaptures=false;
       }
       
       // Return moves one at a time
-      while (Moves->Next<Moves->End)
+      while (moves->next<moves->end)
       {
-        move_t Move=SCOREDMOVE_MOVE(*Moves->Next++);
-        if (Move!=Moves->TTMove) // exclude TT move as this is searched earlier
-          return Move;
+        Move move=scoredMoveGetMove(*moves->next++);
+        if (move!=moves->ttMove) // exclude TT move as this is searched earlier
+          return move;
       }
       
       // No captures left, fall through
-      Moves->Stage=movesstage_quiets;
-      assert(Moves->Next==Moves->End);
-    case movesstage_quiets:
+      moves->stage=MovesStageQuiets;
+      assert(moves->next==moves->end);
+    case MovesStageQuiets:
       // Do we need to generate any moves?
-      if (Moves->GenQuiets)
+      if (moves->genQuiets)
       {
-        assert(Moves->Next==Moves->End);
-        PosGenPseudoQuiets(Moves);
-        MovesSort(Moves->Next, Moves->End);
-        Moves->GenQuiets=false;
+        assert(moves->next==moves->end);
+        posGenPseudoQuiets(moves);
+        movesSort(moves->next, moves->end);
+        moves->genQuiets=false;
       }
       
       // Return moves one at a time
-      while (Moves->Next<Moves->End)
+      while (moves->next<moves->end)
       {
-        move_t Move=SCOREDMOVE_MOVE(*Moves->Next++);
-        if (Move!=Moves->TTMove) // exclude TT move as this is searched earlier
-          return Move;
+        Move move=scoredMoveGetMove(*moves->next++);
+        if (move!=moves->ttMove) // exclude TT move as this is searched earlier
+          return move;
       }
       
       // No moves left
-      return MOVE_INVALID;
+      return MoveInvalid;
     break;
   }
   
   assert(false);
-  return MOVE_INVALID;
+  return MoveInvalid;
 }
 
-const pos_t *MovesPos(moves_t *Moves)
+const Pos *movesGetPos(Moves *moves)
 {
-  return Moves->Pos;
+  return moves->pos;
 }
 
-void MovesPush(moves_t *Moves, move_t Move)
+void movesPush(Moves *moves, Move move)
 {
-  assert(Moves->End>=Moves->List && Moves->End<Moves->List+MOVES_MAX);
+  assert(moves->end>=moves->list && moves->end<moves->list+MovesMax);
   
   // Combine with score and add to list
-  movescore_t Score=SearchScoreMove(Moves->Pos, Move);
-  *Moves->End++=SCOREDMOVE_MAKE(Score, Move);
+  MoveScore score=searchScoreMove(moves->pos, move);
+  *moves->end++=scoredMoveMake(score, move);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void MovesSort(scoredmove_t *Start, scoredmove_t *End)
+void movesSort(ScoredMove *start, ScoredMove *end)
 {
   // Insertion sort - best move first
-  scoredmove_t *Ptr;
-  for(Ptr=Start+1;Ptr<End;++Ptr)
+  ScoredMove *ptr;
+  for(ptr=start+1;ptr<end;++ptr)
   {
-    scoredmove_t Temp=*Ptr, *TempPtr;
-    for(TempPtr=Ptr-1;TempPtr>=Start && Temp>*TempPtr;--TempPtr)
-      *(TempPtr+1)=*TempPtr;
-    *(TempPtr+1)=Temp;
+    ScoredMove temp=*ptr, *tempPtr;
+    for(tempPtr=ptr-1;tempPtr>=start && temp>*tempPtr;--tempPtr)
+      *(tempPtr+1)=*tempPtr;
+    *(tempPtr+1)=temp;
   }
 }

@@ -1,72 +1,70 @@
-#include <stdio.h>
+#include "moves.h"
 #include "perft.h"
 #include "time.h"
-#include "moves.h"
-#include "types.h"
+#include "uci.h"
 
-void Perft(pos_t *Pos, unsigned int MaxDepth)
+void perft(Pos *pos, unsigned int maxDepth)
 {
-  printf("Perft:\n");
-  printf("%6s %11s %9s %15s\n", "Depth", "Nodes", "Time", "NPS");
-  unsigned int Depth;
-  for(Depth=1;Depth<=MaxDepth;++Depth)
+  uciWrite("Perft:\n");
+  uciWrite("%6s %11s %9s %15s\n", "Depth", "Nodes", "Time", "NPS");
+  unsigned int depth;
+  for(depth=1;depth<=maxDepth;++depth)
   {
-    ms_t Time=TimeGet();
-    unsigned long long int Nodes=PerftRaw(Pos, Depth);
-    Time=TimeGet()-Time;
+    TimeMs time=timeGet();
+    unsigned long long int nodes=perftRaw(pos, depth);
+    time=timeGet()-time;
     
-    if (Time>0)
+    if (time>0)
     {
-      unsigned long long int NPS=(Nodes*1000llu)/Time;
-      printf("%6i %11llu %9llu %4llu,%03llu,%03llunps\n", Depth, Nodes,
-             Time, NPS/1000000, (NPS/1000)%1000, NPS%1000);
+      unsigned long long int nps=(nodes*1000llu)/time;
+      uciWrite("%6i %11llu %9llu %4llu,%03llu,%03llunps\n", depth, nodes, time, nps/1000000, (nps/1000)%1000, nps%1000);
     }
     else
-      printf("%6i %11llu %9i %15s\n", Depth, Nodes, 0, "-");
+      uciWrite("%6i %11llu %9i %15s\n", depth, nodes, 0, "-");
   }
 }
 
-void Divide(pos_t *Pos, unsigned int Depth)
+void divide(Pos *pos, unsigned int depth)
 {
-  if (Depth<1)
+  if (depth<1)
     return;
   
-  unsigned long long int Total=0;
-  moves_t Moves;
-  MovesInit(&Moves, Pos, true);
-  MovesRewind(&Moves, MOVE_INVALID);
-  move_t Move;
-  while((Move=MovesNext(&Moves))!=MOVE_INVALID)
+  unsigned long long int total=0;
+  Moves moves;
+  movesInit(&moves, pos, true);
+  movesRewind(&moves, MoveInvalid);
+  Move move;
+  while((move=movesNext(&moves))!=MoveInvalid)
   {
-    if (!PosMakeMove(Pos, Move))
+    if (!posMakeMove(pos, move))
       continue;
-    unsigned long long int Nodes=PerftRaw(Pos, Depth-1);
-    char Str[8];
-    PosMoveToStr(Move, Str);
-    printf("  %6s %12llu\n", Str, Nodes);
-    Total+=Nodes;
-    PosUndoMove(Pos);
+    unsigned long long int nodes=perftRaw(pos, depth-1);
+    char str[8];
+    posMoveToStr(pos, move, str);
+    uciWrite("  %6s %12llu\n", str, nodes);
+    total+=nodes;
+    posUndoMove(pos);
   }
-  printf("Total: %llu\n", Total);
+  uciWrite("Total: %llu\n", total);
 }
 
-unsigned long long int PerftRaw(pos_t *Pos, unsigned int Depth)
+unsigned long long int perftRaw(Pos *pos, unsigned int depth)
 {
-  if (Depth<1)
+  if (depth<1)
     return 1;
   
-  unsigned long long int Total=0;
-  moves_t Moves;
-  MovesInit(&Moves, Pos, true);
-  MovesRewind(&Moves, MOVE_INVALID);
-  move_t Move;
-  while((Move=MovesNext(&Moves))!=MOVE_INVALID)
+  unsigned long long int total=0;
+  Moves moves;
+  movesInit(&moves, pos, true);
+  movesRewind(&moves, MoveInvalid);
+  Move move;
+  while((move=movesNext(&moves))!=MoveInvalid)
   {
-    if (!PosMakeMove(Pos, Move))
+    if (!posMakeMove(pos, move))
       continue;
-    Total+=PerftRaw(Pos, Depth-1);
-    PosUndoMove(Pos);
+    total+=perftRaw(pos, depth-1);
+    posUndoMove(pos);
   }
   
-  return Total;
+  return total;
 }

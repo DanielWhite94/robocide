@@ -1,116 +1,133 @@
 #include <assert.h>
+
 #include "attacks.h"
+#include "bb.h"
 #include "see.h"
 
-const int SEEPieceValue[8]={0, 1, 3, 3, 3, 5, 9, 255};
+const int seePieceValue[PieceTypeNB]={
+  [PieceTypeNone]=0,
+  [PieceTypePawn]=1,
+  [PieceTypeKnight]=3,
+  [PieceTypeBishopL]=3,
+  [PieceTypeBishopD]=3,
+  [PieceTypeRook]=5,
+  [PieceTypeQueen]=9,
+  [PieceTypeKing]=255};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-bb_t SEEGetLeastValuable(const pos_t *Pos, bb_t AtkDef, col_t Colour, piece_t *Piece);
-bb_t SEEAttacksTo(const pos_t *Pos, sq_t Sq, bb_t Occ);
+BB seeGetLeastValuable(const Pos *pos, BB atkDef, Colour colour, PieceType *pieceType);
+BB seeAttacksTo(const Pos *pos, Sq sq, BB occ);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-int SEE(const pos_t *Pos, sq_t FromSq, sq_t ToSq)
+int see(const Pos *pos, Sq fromSq, Sq toSq)
 {
-  piece_t Attacker=PosGetPieceOnSq(Pos, FromSq);
-  piece_t Victim=PosGetPieceOnSq(Pos, ToSq);
-  col_t STM=PosGetSTM(Pos);  
-  assert(Attacker!=empty);
-  assert(Victim!=empty);
+  PieceType attackerType=pieceGetType(posGetPieceOnSq(pos, fromSq));
+  Piece victimType=pieceGetType(posGetPieceOnSq(pos, toSq));
+  Colour stm=posGetSTM(pos);
+  assert(pieceTypeIsValid(attackerType));
+  assert(pieceTypeIsValid(victimType));
   
-  bb_t Occ=PosGetBBAll(Pos);
-  bb_t AtkDef=SEEAttacksTo(Pos, ToSq, Occ);
-  bb_t FromSet=SQTOBB(FromSq);
+  BB occ=posGetBBAll(pos);
+  BB atkDef=seeAttacksTo(pos, toSq, occ);
+  BB fromSet=bbSq(fromSq);
   
-  bb_t MayXRay=Occ^PosGetBBPiece(Pos, wknight)^PosGetBBPiece(Pos, wking)^PosGetBBPiece(Pos, bknight)^PosGetBBPiece(Pos, bking);
-  assert(MayXRay==(PosGetBBPiece(Pos, wpawn) | PosGetBBPiece(Pos, wbishopl) | PosGetBBPiece(Pos, wbishopd) | PosGetBBPiece(Pos, wrook) | PosGetBBPiece(Pos, wqueen) | 
-                   PosGetBBPiece(Pos, bpawn) | PosGetBBPiece(Pos, bbishopl) | PosGetBBPiece(Pos, bbishopd) | PosGetBBPiece(Pos, brook) | PosGetBBPiece(Pos, bqueen)));
+  BB mayXRay=occ^posGetBBPiece(pos, PieceWKnight)^posGetBBPiece(pos, PieceWKing)^
+                 posGetBBPiece(pos, PieceBKnight)^posGetBBPiece(pos, PieceBKing);
+  assert(mayXRay==(posGetBBPiece(pos, PieceWPawn)|posGetBBPiece(pos, PieceBPawn)|
+                   posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceBBishopL)|
+                   posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceBBishopD)|
+                   posGetBBPiece(pos, PieceWRook)|posGetBBPiece(pos, PieceBRook)|
+                   posGetBBPiece(pos, PieceWQueen)|posGetBBPiece(pos, PieceBQueen)));
   
-  int Gain[32], Depth=0;
-  Gain[Depth]=SEEPieceValue[PIECE_TYPE(Victim)];
+  int gain[32], depth=0;
+  gain[depth]=seePieceValue[victimType];
   do
   {
-    ++Depth;
-    Gain[Depth]=SEEPieceValue[PIECE_TYPE(Attacker)]-Gain[Depth-1]; // speculative store, if defended
+    ++depth;
+    gain[depth]=seePieceValue[attackerType]-gain[depth-1]; // Speculative store, if defended.
     
-    // Pruning
-    if (MAX(-Gain[Depth-1], Gain[Depth])<0)
+    // Pruning.
+    if (utilMax(-gain[depth-1], gain[depth])<0)
       break;
     
-    // 'Capture'
-    Occ^=FromSet; // remove piece from occupancy
-    AtkDef^=FromSet; // remove piece from attacks & defenders list
-    STM=COL_SWAP(STM); // swap colour
+    // 'Capture'.
+    occ^=fromSet; // Remove piece from occupancy.
+    atkDef^=fromSet; // Remove piece from attacks & defenders list.
+    stm=colourSwap(stm); // Swap colour.
     
-    // Add any new attacks needed
-    if (FromSet & MayXRay)
-      AtkDef|=SEEAttacksTo(Pos, ToSq, Occ); // TODO: Something more intelligent?
+    // Add any new attacks needed.
+    if (fromSet & mayXRay)
+      atkDef|=seeAttacksTo(pos, toSq, occ); // TODO: Something more intelligent?
     
-    // Look for next attacker
-    FromSet=SEEGetLeastValuable(Pos, AtkDef, STM, &Attacker);
-  }while(FromSet);
+    // Look for next attacker.
+    fromSet=seeGetLeastValuable(pos, atkDef, stm, &attackerType);
+  }while(fromSet);
   
-  while (--Depth)
-    Gain[Depth-1]=-MAX(-Gain[Depth-1], Gain[Depth]);
+  while (--depth)
+    gain[depth-1]=-utilMax(-gain[depth-1], gain[depth]);
   
-  return Gain[0];
+  return gain[0];
 }
 
-int SEESign(const pos_t *Pos, sq_t FromSq, sq_t ToSq)
+int seeSign(const Pos *pos, Sq fromSq, Sq toSq)
 {
   // No need for SEE?
-  piece_t Victim=PosGetPieceOnSq(Pos, ToSq);
-  piece_t Attacker=PosGetPieceOnSq(Pos, FromSq);
-  if (Victim==empty || SEEPieceValue[PIECE_TYPE(Attacker)]<=SEEPieceValue[PIECE_TYPE(Victim)])
+  PieceType victimType=pieceGetType(posGetPieceOnSq(pos, toSq));
+  PieceType attackerType=pieceGetType(posGetPieceOnSq(pos, fromSq));
+  if (victimType==PieceTypeNone || seePieceValue[attackerType]<=seePieceValue[victimType])
     return 0;
   
-  return SEE(Pos, FromSq, ToSq);
+  return see(pos, fromSq, toSq);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private Functions
 ////////////////////////////////////////////////////////////////////////////////
 
-bb_t SEEGetLeastValuable(const pos_t *Pos, bb_t AtkDef, col_t Colour, piece_t *Piece)
+BB seeGetLeastValuable(const Pos *pos, BB atkDef, Colour colour, PieceType *pieceType)
 {
-  piece_t EndPiece=PIECE_MAKE(king,Colour);
-  for(*Piece=PIECE_MAKE(pawn,Colour);*Piece<=EndPiece;++*Piece)
+  for(*pieceType=PieceTypePawn;*pieceType<=PieceTypeKing;++*pieceType)
   {
-    bb_t Set=(AtkDef & PosGetBBPiece(Pos, *Piece));
-    if (Set)
-      return Set & -Set;
+    BB set=(atkDef & posGetBBPiece(pos, pieceMake(*pieceType, colour)));
+    if (set)
+      return (set & -set);
   }
   
   // No attackers
-  return 0;
+  return BBNone;
 }
 
-bb_t SEEAttacksTo(const pos_t *Pos, sq_t Sq, bb_t Occ)
+BB seeAttacksTo(const Pos *pos, Sq sq, BB occ)
 {
-  bb_t Set=BBNone;
+  BB set=BBNone;
   
   // Pawns
-  bb_t Wing=BBWingify(SQTOBB(Sq));
-  Set|=((BBForwardOne(Wing, white) & PosGetBBPiece(Pos, wpawn)) |
-        (BBForwardOne(Wing, black) & PosGetBBPiece(Pos, bpawn)));
+  BB wing=bbWingify(bbSq(sq));
+  set|=((bbForwardOne(wing, ColourWhite) & posGetBBPiece(pos, PieceWPawn)) |
+        (bbForwardOne(wing, ColourBlack) & posGetBBPiece(pos, PieceBPawn)));
   
   // Knights
-  Set|=(AttacksKnight(Sq) & (PosGetBBPiece(Pos, wknight) | PosGetBBPiece(Pos, bknight)));
+  set|=(attacksKnight(sq) & (posGetBBPiece(pos, PieceWKnight) | posGetBBPiece(pos, PieceBKnight)));
   
   // Diagonal sliders
-  Set|=(AttacksBishop(Sq, Occ) & (PosGetBBPiece(Pos, wbishopl) | PosGetBBPiece(Pos, wbishopd) | PosGetBBPiece(Pos, bbishopl) | PosGetBBPiece(Pos, bbishopd) |
-                                  PosGetBBPiece(Pos, wqueen) | PosGetBBPiece(Pos, bqueen)));
+  set|=(attacksBishop(sq, occ) &
+        (posGetBBPiece(pos, PieceWBishopL) | posGetBBPiece(pos, PieceBBishopL) |
+         posGetBBPiece(pos, PieceWBishopD) | posGetBBPiece(pos, PieceBBishopD) |
+         posGetBBPiece(pos, PieceWQueen) | posGetBBPiece(pos, PieceBQueen)));
   
   // Horizontal/vertical sliders
-  Set|=(AttacksRook(Sq, Occ) & (PosGetBBPiece(Pos, wrook) | PosGetBBPiece(Pos, brook) | PosGetBBPiece(Pos, wqueen) | PosGetBBPiece(Pos, bqueen)));
+  set|=(attacksRook(sq, occ) &
+        (posGetBBPiece(pos, PieceWRook) | posGetBBPiece(pos, PieceBRook) |
+         posGetBBPiece(pos, PieceWQueen) | posGetBBPiece(pos, PieceBQueen)));
   
   // Kings
-  Set|=(AttacksKing(Sq) & (PosGetBBPiece(Pos, wking) | PosGetBBPiece(Pos, bking)));
+  set|=(attacksKing(sq) & (posGetBBPiece(pos, PieceWKing) | posGetBBPiece(pos, PieceBKing)));
   
-  return (Set & Occ);
+  return (set & occ);
 }

@@ -1,19 +1,26 @@
+#include <string.h>
+
 #include "util.h"
 
-uint64_t NextPowTwo64(uint64_t X)
+uint64_t utilNextPowTwo64(uint64_t x)
 {
-  X--;
-  X|=X>>1;
-  X|=X>>2;
-  X|=X>>4;
-  X|=X>>8;
-  X|=X>>16;
-  X|=X>>32;
-  X++;
-  return X;
+  x--;
+  x|=x>>1;
+  x|=x>>2;
+  x|=x>>4;
+  x|=x>>8;
+  x|=x>>16;
+  x|=x>>32;
+  x++;
+  return x;
 }
 
-bool IsPowTwo64(uint64_t X)
+bool utilIsPowTwo64(uint64_t x)
 {
-  return (X&(X-1))==0;
+  return (x&(x-1))==0;
+}
+
+bool utilStrEqual(const char *a, const char *b)
+{
+  return (strcmp(a, b)==0);
 }

@@ -2,17 +2,21 @@
 #define FEN_H
 
 #include <stdbool.h>
-#include "types.h"
+
+#include "colour.h"
+#include "piece.h"
+#include "pos.h"
+#include "square.h"
 
 typedef struct
 {
-  piece_t Array[64];
-  col_t STM;
-  castrights_t CastRights;
-  sq_t EPSq;
-  unsigned int HalfMoveClock, FullMoveNumber;
-}fen_t;
+  Piece array[64];
+  Colour stm;
+  CastRights castRights;
+  Sq epSq;
+  unsigned int halfMoveNumber, fullMoveNumber;
+}Fen;
 
-bool FENRead(fen_t *Data, const char *String);
+bool fenRead(Fen *data, const char *string);
 
 #endif

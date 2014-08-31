@@ -1,34 +1,38 @@
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "attacks.h"
 #include "bb.h"
 #include "eval.h"
 #include "main.h"
 #include "pos.h"
 #include "search.h"
+#include "tt.h"
 #include "uci.h"
 
 int main()
 {
-  BBInit();
-  AttacksInit();
-  PosInit();
-  EvalInit();
-  SearchInit();
+  bbInit();
+  attacksInit();
+  posInit();
+  evalInit();
+  ttInit();
+  searchInit();
   
-  UCILoop();
+  uciLoop();
   
-  SearchQuit();
-  EvalQuit();
+  searchQuit();
+  ttQuit();
+  evalQuit();
   
-  return 0;
+  return EXIT_SUCCESS;
 }
 
-void mainFatalError(const char *Format, ...)
+void mainFatalError(const char *format, ...)
 {
   va_list ap;
-  va_start(ap, Format);
-  vfprintf(stderr, Format, ap);
+  va_start(ap, format);
+  vfprintf(stderr, format, ap);
   va_end(ap);
   exit(EXIT_FAILURE);
 }

@@ -2,35 +2,30 @@
 #define MOVES_H
 
 #include <stdbool.h>
-#include "types.h"
+
+typedef struct Moves Moves;
+
+#include "move.h"
 #include "pos.h"
+#include "scoredmove.h"
 
-typedef enum
+typedef enum { MovesStageTT, MovesStageCaptures, MovesStageQuiets } MovesStage;
+
+#define MovesMax 256
+struct Moves
 {
-  movesstage_tt,
-  movesstage_captures,
-  movesstage_quiets,
-}movesstage_t;
-
-typedef uint64_t scoredmove_t;
-#define SCOREDMOVE_MOVE(SM) ((move_t)((SM)&0xFFFF))
-#define SCOREDMOVE_MAKE(S,M) ((((scoredmove_t)(S))<<16)|((scoredmove_t)(M)))
-
-#define MOVES_MAX 256
-struct moves_t
-{
-  // All entries should be considered private - only here to allow easy allocation on the stack
-  scoredmove_t List[MOVES_MAX], *Next, *End;
-  movesstage_t Stage;
-  move_t TTMove;
-  const pos_t *Pos;
-  bool GenCaptures, GenQuiets; // true => still need to generate
+  // All entries should be considered private - only here to allow easy allocation on the stack.
+  ScoredMove list[MovesMax], *next, *end;
+  MovesStage stage;
+  Move ttMove;
+  const Pos *pos;
+  bool genCaptures, genQuiets; // true => still need to generate.
 };
 
-void MovesInit(moves_t *Moves, const pos_t *Pos, bool Quiets); // Quiets - should quiet moves be generated
-void MovesRewind(moves_t *Moves, move_t TTMove); // should be called before MovesNext() to rewind to first move (and potentially set/update TT move)
-move_t MovesNext(moves_t *Moves); // returns distinct moves until none remain (returning MOVE_INVALID)
-const pos_t *MovesPos(moves_t *Moves);
-void MovesPush(moves_t *Moves, move_t Move); // used by generators to add moves
+void movesInit(Moves *moves, const Pos *pos, bool quiets); // quiets - should quiet moves be generated.
+void movesRewind(Moves *moves, Move ttMove); // Should be called before movesNext() to rewind to first move (and potentially set/update TT move).
+Move movesNext(Moves *moves); // Returns distinct moves until none remain (then returning MoveInvalid).
+const Pos *movesGetPos(Moves *moves);
+void movesPush(Moves *moves, Move move); // Used by generators to add moves.
 
 #endif

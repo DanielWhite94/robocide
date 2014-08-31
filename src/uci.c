@@ -1,452 +1,459 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "eval.h"
 #include "perft.h"
 #include "pos.h"
+#include "main.h"
 #include "moves.h"
 #include "search.h"
 #include "see.h"
 #include "time.h"
 #include "uci.h"
 
-////////////////////////////////////////////////////////////////////////////////
-// 
-////////////////////////////////////////////////////////////////////////////////
-
 typedef enum
 {
-  ucioptiontype_check,  // "a checkbox that can either be true or false" */
-  ucioptiontype_spin,   // "a spin wheel that can be an integer in a certain
-                        //  range"
-  ucioptiontype_combo,  // "a combo box that can have different predefined
-                        //  strings as a value"
-  ucioptiontype_button, // "a button that can be pressed to send a command to
-                        //  the engine"
-  ucioptiontype_string  // "a text field that has a string as a value"
-}ucioptiontype_t;
+  UciOptionTypeCheck,  // "a checkbox that can either be true or false"
+  UciOptionTypeSpin,   // "a spin wheel that can be an integer in a certain
+                       //  range"
+  UciOptionTypeCombo,  // "a combo box that can have different predefined
+                       //  strings as a value"
+  UciOptionTypeButton, // "a button that can be pressed to send a command to
+                       //  the engine"
+  UciOptionTypeString  // "a text field that has a string as a value"
+}UciOptionType;
 
 typedef struct
 {
-  void(*Function)(bool Value, void *UserData);
-  bool Default;
-}ucioptioncheck_t;
+  void(*function)(void *userData, bool value);
+  bool initial;
+}UciOptionCheck;
 
 typedef struct
 {
-  void(*Function)(int Value, void *UserData);
-  int Min, Max, Default;
-}ucioptionspin_t;
+  void(*function)(void *userData, int value);
+  int initial, min, max;
+}UciOptionSpin;
 
 typedef struct
 {
-  void(*Function)(const char *Value, void *UserData);
-  char *Default;
-  char **Options; // Default should also be in this list
-  int OptionCount;
-}ucioptioncombo_t;
+  void(*function)(void *userData, const char *value);
+  char *initial, **options;
+  size_t optionCount;
+}UciOptionCombo;
 
 typedef struct
 {
-  void(*Function)(void *UserData);
-}ucioptionbutton_t;
+  void(*function)(void *userData);
+}UciOptionButton;
 
 typedef struct
 {
-  void(*Function)(const char *Value, void *UserData);
-  char *Default;
-}ucioptionstring_t;
+  void(*function)(void *userData, const char *value);
+  char *initial;
+}UciOptionString;
 
 typedef struct
 {
-  char *Name;
-  ucioptiontype_t Type;
-  void *UserData;
+  char *name;
+  UciOptionType type;
+  void *userData;
   union
   {
-    ucioptioncheck_t Check;
-    ucioptionspin_t Spin;
-    ucioptioncombo_t Combo;
-    ucioptionbutton_t Button;
-    ucioptionstring_t String;
-  }Data;
-}ucioption_t;
+    UciOptionCheck check;
+    UciOptionSpin spin;
+    UciOptionCombo combo;
+    UciOptionButton button;
+    UciOptionString string;
+  }o;
+}UciOption;
 
-ucioption_t *UCIOptions=NULL;
-size_t UCIOptionCount=0;
+UciOption *uciOptions=NULL;
+size_t uciOptionCount=0;
 
-const char UCIBoolToString[2][8]={"false", "true"};
+const char uciBoolToString[2][8]={[false]="false", [true]="true"};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-void UCIQuit();
-void UCIOptionParseSetOptionString(char *String);
-void UCIOptionPrint();
-ucioption_t *UCIOptionNewBase();
-ucioption_t *UCIOptionFromName(const char *Name);
-bool UCIStringToBool(const char *String);
+void uciQuit(void);
+bool uciRead(char **linePtr, size_t *lineSize); // Essentially a wrapper around getline().
+void uciParseSetOption(char *string);
+void uciOptionPrint(void);
+UciOption *uciOptionNewBase(void);
+UciOption *uciOptionFromName(const char *name);
+bool uciStringToBool(const char *string);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void UCILoop()
+void uciLoop(void)
 {
-  // Turn off output buffering (saves us having to call fflush())
+  // Turn off output buffering (saves us having to call fflush() after every
+  // output).
   if (setvbuf(stdout, NULL, _IOLBF, 0)!=0)
-    return;
+    mainFatalError("Error: Could not turn off output buffering.\n");
   
-  // Create 'working' position
-  pos_t *Pos=PosNew(NULL);
-  if (Pos==NULL)
-    return;
+  // Create 'working' position.
+  Pos *pos=posNew(NULL);
+  if (pos==NULL)
+    mainFatalError("Error: Could not create 'working position'.\n");
   
-  // Read lines from the GUI
-  char *Line=NULL;
-  size_t LineLen=0;
+  // Read lines from the GUI.
+  char *line=NULL;
+  size_t lineSize=0;
   while(1)
   {
-    // Get line from 'GUI' (and strip newline character)
-    if (getline(&Line, &LineLen, stdin)==-1)
+    // Get line from 'GUI'.
+    if (!uciRead(&line, &lineSize))
       break; // Error
-    if (Line[strlen(Line)-1]=='\n')
-      Line[strlen(Line)-1]='\0';
     
-    // setoption is handled differently
-    if (!strncmp(Line, "setoption", 9))
+    // Store time command was received (do this now to be more accurate if needed).
+    TimeMs recvTime=timeGet();
+    
+    // Strip newline to simplify parsing.
+    if (line[strlen(line)-1]=='\n')
+      line[strlen(line)-1]='\0';
+    
+    // Parse command.
+    char *savePtr, *part;
+    if ((part=strtok_r(line, " ", &savePtr))==NULL) continue;
+    if (utilStrEqual(part, "go"))
     {
-      UCIOptionParseSetOptionString(Line);
-      continue;
-    }
-    
-    // Store time command was received
-    ms_t RecvTime=TimeGet();
-    
-    // Parse command
-    char *SavePtr, *Part;
-    Part=strtok_r(Line, " ", &SavePtr);
-    if (Part==NULL)
-      continue;
-    if (!strcmp(Part, "go"))
-    {
-      // Parse arguments
-      ms_t MoveTime=0, TotalTime=0, IncTime=0;
-      int MovesToGo=0;
-      bool Infinite=false, Ponder=false;
+      // Parse arguments.
+      TimeMs moveTime=0, totalTime=0, incTime=0;
+      int movesToGo=0;
+      bool infinite=false, ponder=false;
       
-      while((Part=strtok_r(NULL, " ", &SavePtr))!=NULL)
+      while((part=strtok_r(NULL, " ", &savePtr))!=NULL)
       {
-        if ((!strcmp(Part, "wtime") && PosGetSTM(Pos)==white) ||
-            (!strcmp(Part, "btime") && PosGetSTM(Pos)==black))
+        if ((utilStrEqual(part, "wtime") && posGetSTM(pos)==ColourWhite) ||
+            (utilStrEqual(part, "btime") && posGetSTM(pos)==ColourBlack))
         {
-          if ((Part=strtok_r(NULL, " ", &SavePtr))!=NULL)
-            TotalTime=atoll(Part);
+          if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
+            totalTime=atoll(part);
         }
-        else if ((!strcmp(Part, "winc") && PosGetSTM(Pos)==white) ||
-                 (!strcmp(Part, "binc") && PosGetSTM(Pos)==black))
+        else if ((utilStrEqual(part, "winc") && posGetSTM(pos)==ColourWhite) ||
+                 (utilStrEqual(part, "binc") && posGetSTM(pos)==ColourBlack))
         {
-          if ((Part=strtok_r(NULL, " ", &SavePtr))!=NULL)
-            IncTime=atoll(Part);
+          if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
+            incTime=atoll(part);
         }
-        else if (!strcmp(Part, "movestogo"))
+        else if (utilStrEqual(part, "movestogo"))
         {
-          if ((Part=strtok_r(NULL, " ", &SavePtr))!=NULL)
-            MovesToGo=atoi(Part);
+          if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
+            movesToGo=atoi(part);
         }
-        else if (!strcmp(Part, "movetime"))
+        else if (utilStrEqual(part, "movetime"))
         {
-          if ((Part=strtok_r(NULL, " ", &SavePtr))!=NULL)
-            MoveTime=atoll(Part);
+          if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
+            moveTime=atoll(part);
         }
-        else if (!strcmp(Part, "infinite"))
-          Infinite=true;
-        else if (!strcmp(Part, "ponder"))
-          Ponder=true;
+        else if (utilStrEqual(part, "infinite"))
+          infinite=true;
+        else if (utilStrEqual(part, "ponder"))
+          ponder=true;
       }
       
-      // Decide how to use our time
-      if (MovesToGo<=0)
-        MovesToGo=25;
-      if (MoveTime==0)
-        MoveTime=TotalTime/MovesToGo+IncTime;
-      ms_t MaxTime=TotalTime-25;
-      if (MoveTime>MaxTime)
-        MoveTime=MaxTime;
+      // Decide how to use our time.
+      if (movesToGo<=0)
+        movesToGo=25;
+      if (moveTime<=0)
+        moveTime=totalTime/movesToGo+incTime;
+      TimeMs maxTime=totalTime-25;
+      moveTime=utilMin(moveTime, maxTime);
       
-      // Search
-      SearchThink(Pos, RecvTime, MoveTime, Infinite, Ponder);
+      // Search.
+      searchThink(pos, recvTime, moveTime, infinite, ponder);
     }
-    else if (!strcmp(Part, "position"))
+    else if (utilStrEqual(part, "position"))
     {
-      // Get position (either startpos or FEN string)
-      if ((Part=strtok_r(NULL, " ", &SavePtr))==NULL)
+      // Get position (either 'startpos' or FEN string).
+      if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
         continue;
-      if (!strcmp(Part, "startpos"))
+      if (utilStrEqual(part, "startpos"))
       {
-        if (!PosSetToFEN(Pos, NULL))
+        if (!posSetToFEN(pos, NULL))
           continue;
       }
-      else if (!strcmp(Part, "fen"))
+      else if (utilStrEqual(part, "fen"))
       {
-        char *Start=Part+4;
-        char *End=strstr(Start, "moves");
-        if (End!=NULL)
-          *(End-1)='\0';
-        if (!PosSetToFEN(Pos, Start))
+        char *start=part+4;
+        char *end=strstr(start, "moves");
+        if (end!=NULL)
+          *(end-1)='\0';
+        if (!posSetToFEN(pos, start))
           continue;
-        if (End!=NULL)
-          *(End-1)=' ';
+        if (end!=NULL)
+          *(end-1)=' ';
       }
       else
         continue;
       
-      // Make any moves given
-      bool InMoves=false;
-      while((Part=strtok_r(NULL, " ", &SavePtr))!=NULL)
+      // Make any moves given.
+      bool inMoves=false;
+      while((part=strtok_r(NULL, " ", &savePtr))!=NULL)
       {
-        if (!InMoves && !strcmp(Part, "moves"))
-          InMoves=true;
-        else if (InMoves)
+        if (!inMoves && utilStrEqual(part, "moves"))
+          inMoves=true;
+        else if (inMoves)
         {
-          move_t Move=PosStrToMove(Pos, Part);
-          if (!PosMakeMove(Pos, Move))
+          Move move=posMoveFromStr(pos, part);
+          if (!posMakeMove(pos, move))
             break;
         }
       }
     }
-    else if (!strcmp(Part, "ponderhit"))
-      SearchPonderHit();
-    else if (!strcmp(Part, "isready"))
-      puts("readyok");
-    else if (!strcmp(Part, "stop"))
-      SearchStop();
-    else if (!strcmp(Part, "ucinewgame"))
+    else if (utilStrEqual(part, "ponderhit"))
+      searchPonderHit();
+    else if (utilStrEqual(part, "isready"))
+      uciWrite("readyok\n");
+    else if (utilStrEqual(part, "stop"))
+      searchStop();
+    else if (utilStrEqual(part, "ucinewgame"))
     {
-      SearchClear();
-      EvalClear();
+      searchClear();
+      evalClear();
     }
-    else if (!strcmp(Part, "quit"))
+    else if (utilStrEqual(part, "setoption"))
+    {
+      part=line+strlen("setoption");
+      uciParseSetOption(part+1);
+    }
+    else if (utilStrEqual(part, "quit"))
       break;
-    else if (!strcmp(Part, "disp"))
-      PosDraw(Pos);
-    else if (!strcmp(Part, "perft"))
+    else if (utilStrEqual(part, "disp"))
     {
-      if ((Part=strtok_r(NULL, " ", &SavePtr))==NULL)
-        continue;
-      unsigned int Depth=atoi(Part);
-      if (Depth>=1)
-        Perft(Pos, Depth);
+      posDraw(pos);
+      uciWrite("Eval: %i\n", (int)evaluate(pos));
     }
-    else if (!strcmp(Part, "divide"))
+    else if (utilStrEqual(part, "perft"))
     {
-      if ((Part=strtok_r(NULL, " ", &SavePtr))==NULL)
+      if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
         continue;
-      unsigned int Depth=atoi(Part);
-      if (Depth>=1)
-        Divide(Pos, Depth);
+      unsigned int depth=atoi(part);
+      perft(pos, depth);
     }
-    else if (!strcmp(Part, "see"))
+    else if (utilStrEqual(part, "divide"))
     {
-      moves_t Moves;
-      MovesInit(&Moves, Pos, true);
-      MovesRewind(&Moves, MOVE_INVALID);
-      move_t Move;
-      while((Move=MovesNext(&Moves))!=MOVE_INVALID)
+      if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
+        continue;
+      unsigned int depth=atoi(part);
+      divide(pos, depth);
+    }
+    else if (utilStrEqual(part, "see"))
+    {
+      Moves moves;
+      movesInit(&moves, pos, true);
+      movesRewind(&moves, MoveInvalid);
+      Move move;
+      while((move=movesNext(&moves))!=MoveInvalid)
       {
-        sq_t ToSq=MOVE_GETTOSQ(Move);
-        if (PosGetPieceOnSq(Pos, ToSq)==empty)
+        Sq toSq=moveGetToSq(move);
+        if (posGetPieceOnSq(pos, toSq)==PieceNone)
           continue;
-        char Str[8];
-        PosMoveToStr(Move, Str);
-        printf("  %6s %4i\n", Str, SEE(Pos, MOVE_GETFROMSQ(Move), ToSq));
+        char str[8];
+        posMoveToStr(pos, move, str);
+        uciWrite("  %6s %4i\n", str, see(pos, moveGetFromSq(move), toSq));
       }
     }
-    else if (!strcmp(Part, "uci"))
+    else if (utilStrEqual(part, "uci"))
     {
-      puts("id name robocide\nid author Daniel White");
-      UCIOptionPrint();
-      puts("uciok");
+      uciWrite("id name robocide\nid author Daniel White\n");
+      uciOptionPrint();
+      uciWrite("uciok\n");
     }
   }
   
   // Clean up
-  free(Line);
-  PosFree(Pos);
-  UCIQuit();
+  free(line);
+  posFree(pos);
+  uciQuit();
 }
 
-bool UCIOptionNewCheck(const char *Name, void(*Function)(bool Value, void *UserData), void *UserData, bool Default)
+bool uciWrite(const char *format, ...)
 {
-  // Allocate any memory needed
-  char *NameMem=malloc(strlen(Name)+1);
-  if (NameMem==NULL)
-    return false;
-  
-  // Allocate new option
-  ucioption_t *Option=UCIOptionNewBase();
-  if (Option==NULL)
-  {
-    free(NameMem);
-    return false;
-  }
-  
-  // Set data
-  Option->Name=NameMem;
-  strcpy(Option->Name, Name);
-  Option->Type=ucioptiontype_check;
-  Option->UserData=UserData;
-  Option->Data.Check.Function=Function;
-  Option->Data.Check.Default=Default;
-  
-  return true;
-}
-
-bool UCIOptionNewSpin(const char *Name, void(*Function)(int Value, void *UserData), void *UserData, int Min, int Max, int Default)
-{
-  // Allocate any memory needed
-  char *NameMem=malloc(strlen(Name)+1);
-  if (NameMem==NULL)
-    return false;
-  
-  // Allocate new option
-  ucioption_t *Option=UCIOptionNewBase();
-  if (Option==NULL)
-  {
-    free(NameMem);
-    return false;
-  }
-  
-  // Set data
-  Option->Name=NameMem;
-  strcpy(Option->Name, Name);
-  Option->Type=ucioptiontype_spin;
-  Option->UserData=UserData;
-  Option->Data.Spin.Function=Function;
-  Option->Data.Spin.Min=Min;
-  Option->Data.Spin.Max=Max;
-  Option->Data.Spin.Default=Default;
-  
-  return true;
-}
-
-bool UCIOptionNewCombo(const char *Name, void(*Function)(const char *Value, void *UserData), void *UserData, const char *Default, int OptionCount, ...)
-{
-  // Allocate any memory needed
-  char *NameMem=malloc(strlen(Name)+1);
-  char *DefaultMem=malloc(strlen(Default)+1);
-  char **OptionsMem=malloc(OptionCount*sizeof(char *));
-  if (NameMem==NULL || DefaultMem==NULL || OptionsMem==NULL)
-  {
-    free(NameMem);
-    free(DefaultMem);
-    free(OptionsMem);
-    return false;
-  }
-  
-  // Parse variable number of options
   va_list ap;
-  va_start(ap, OptionCount);
-  int I;
-  for(I=0;I<OptionCount;++I)
+  va_start(ap, format);
+  bool success=(vprintf(format, ap)>=0);
+  va_end(ap);
+  return success;
+}
+
+bool uciOptionNewCheck(const char *name, void(*function)(void *userData, bool value), void *userData, bool initial)
+{
+  // Allocate memory needed.
+  char *nameMem=malloc(strlen(name)+1);
+  if (nameMem==NULL)
+    return false;
+  
+  // Allocate new option.
+  UciOption *option=uciOptionNewBase();
+  if (option==NULL)
   {
-    char *Arg=va_arg(ap, char *);
-    OptionsMem[I]=malloc(strlen(Arg)+1);
-    if (OptionsMem[I]==NULL)
+    free(nameMem);
+    return false;
+  }
+  
+  // Set data.
+  option->name=nameMem;
+  strcpy(option->name, name);
+  option->type=UciOptionTypeCheck;
+  option->userData=userData;
+  option->o.check.function=function;
+  option->o.check.initial=initial;
+  
+  return true;
+}
+
+bool uciOptionNewSpin(const char *name, void(*function)(void *userData, int value), void *userData, int min, int max, int initial)
+{
+  // Allocate any memory needed.
+  char *nameMem=malloc(strlen(name)+1);
+  if (nameMem==NULL)
+    return false;
+  
+  // Allocate new option.
+  UciOption *option=uciOptionNewBase();
+  if (option==NULL)
+  {
+    free(nameMem);
+    return false;
+  }
+  
+  // Set data.
+  option->name=nameMem;
+  strcpy(option->name, name);
+  option->type=UciOptionTypeSpin;
+  option->userData=userData;
+  option->o.spin.function=function;
+  option->o.spin.min=min;
+  option->o.spin.max=max;
+  option->o.spin.initial=initial;
+  
+  return true;
+}
+
+bool uciOptionNewCombo(const char *name, void(*function)(void *userData, const char *value), void *userData, const char *initial, size_t optionCount, ...)
+{
+  // Allocate any memory needed.
+  char *nameMem=malloc(strlen(name)+1);
+  char *initialMem=malloc(strlen(initial)+1);
+  char **optionsMem=malloc(optionCount*sizeof(char *));
+  if (nameMem==NULL || initialMem==NULL || optionsMem==NULL)
+  {
+    free(nameMem);
+    free(initialMem);
+    free(optionsMem);
+    return false;
+  }
+  
+  // Parse variable number of options.
+  va_list ap;
+  va_start(ap, optionCount);
+  size_t i;
+  for(i=0;i<optionCount;++i)
+  {
+    char *arg=va_arg(ap, char *);
+    optionsMem[i]=malloc(strlen(arg)+1);
+    if (optionsMem[i]==NULL)
     {
       va_end(ap);
-      for(--I;I>=0;--I)
-        free(OptionsMem[I]);
-      free(NameMem);
-      free(DefaultMem);
-      free(OptionsMem);
+      for(--i;i>=0;--i)
+        free(optionsMem[i]);
+      free(nameMem);
+      free(initialMem);
+      free(optionsMem);
       return false;
     }
-    strcpy(OptionsMem[I], Arg);
+    strcpy(optionsMem[i], arg);
   }
   va_end(ap);
   
-  // Allocate new option
-  ucioption_t *Option=UCIOptionNewBase();
-  if (Option==NULL)
+  // Allocate new option.
+  UciOption *option=uciOptionNewBase();
+  if (option==NULL)
   {
-    free(NameMem);
-    free(DefaultMem);
-    for(I=0;I<OptionCount;++I)
-      free(OptionsMem[I]);
-    free(OptionsMem);
+    free(nameMem);
+    free(initialMem);
+    for(i=0;i<optionCount;++i)
+      free(optionsMem[i]);
+    free(optionsMem);
     return false;
   }
   
-  // Set data
-  Option->Name=NameMem;
-  strcpy(Option->Name, Name);
-  Option->Type=ucioptiontype_combo;
-  Option->UserData=UserData;
-  Option->Data.Combo.Function=Function;
-  Option->Data.Combo.Default=DefaultMem;
-  strcpy(Option->Data.Combo.Default, Default);
-  Option->Data.Combo.Options=OptionsMem;
-  Option->Data.Combo.OptionCount=OptionCount;
+  // Set data.
+  option->name=nameMem;
+  strcpy(option->name, name);
+  option->type=UciOptionTypeCombo;
+  option->userData=userData;
+  option->o.combo.function=function;
+  option->o.combo.initial=initialMem;
+  strcpy(option->o.combo.initial, initial);
+  option->o.combo.options=optionsMem;
+  option->o.combo.optionCount=optionCount;
   
   return true;
 }
 
-bool UCIOptionNewButton(const char *Name, void(*Function)(void *UserData), void *UserData)
+bool uciOptionNewButton(const char *name, void(*function)(void *userData), void *userData)
 {
-  // Allocate any memory needed
-  char *NameMem=malloc(strlen(Name)+1);
-  if (NameMem==NULL)
+  // Allocate any memory needed.
+  char *nameMem=malloc(strlen(name)+1);
+  if (nameMem==NULL)
     return false;
   
-  // Allocate new option
-  ucioption_t *Option=UCIOptionNewBase();
-  if (Option==NULL)
+  // Allocate new option.
+  UciOption *option=uciOptionNewBase();
+  if (option==NULL)
   {
-    free(NameMem);
+    free(nameMem);
     return false;
   }
   
-  // Set data
-  Option->Name=NameMem;
-  strcpy(Option->Name, Name);
-  Option->Type=ucioptiontype_button;
-  Option->UserData=UserData;
-  Option->Data.Button.Function=Function;
+  // Set data.
+  option->name=nameMem;
+  strcpy(option->name, name);
+  option->type=UciOptionTypeButton;
+  option->userData=userData;
+  option->o.button.function=function;
   
   return true;
 }
 
-bool UCIOptionNewString(const char *Name, void(*Function)(const char *Value, void *UserData), void *UserData, const char *Default)
+bool uciOptionNewString(const char *name, void(*function)(void *userData, const char *value), void *userData, const char *initial)
 {
-  // Allocate any memory need
-  char *NameMem=malloc(strlen(Name)+1);
-  char *DefaultMem=malloc(strlen(Default)+1);
-  if (NameMem==NULL || DefaultMem==NULL)
+  // Allocate any memory need.
+  char *nameMem=malloc(strlen(name)+1);
+  char *initialMem=malloc(strlen(initial)+1);
+  if (nameMem==NULL || initialMem==NULL)
   {
-    free(NameMem);
-    free(DefaultMem);
+    free(nameMem);
+    free(initialMem);
     return false;
   }
   
-  // Allocate new option
-  ucioption_t *Option=UCIOptionNewBase();
-  if (Option==NULL)
+  // Allocate new option.
+  UciOption *option=uciOptionNewBase();
+  if (option==NULL)
   {
-    free(NameMem);
-    free(DefaultMem);
+    free(nameMem);
+    free(initialMem);
     return false;
   }
   
-  // Set data
-  Option->Name=NameMem;
-  strcpy(Option->Name, Name);
-  Option->Type=ucioptiontype_string;
-  Option->UserData=UserData;
-  Option->Data.String.Function=Function;
-  Option->Data.String.Default=DefaultMem;
-  strcpy(Option->Data.String.Default, Default);
+  // Set data.
+  option->name=nameMem;
+  strcpy(option->name, name);
+  option->type=UciOptionTypeString;
+  option->userData=userData;
+  option->o.string.function=function;
+  option->o.string.initial=initialMem;
+  strcpy(option->o.string.initial, initial);
   
   return true;
 }
@@ -455,156 +462,152 @@ bool UCIOptionNewString(const char *Name, void(*Function)(const char *Value, voi
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void UCIQuit()
+void uciQuit(void)
 {
-  // Clear up each option
-  int I, J;
-  for(I=0;I<UCIOptionCount;++I)
+  // Free each option.
+  unsigned int i, j;
+  for(i=0;i<uciOptionCount;++i)
   {
-    ucioption_t *Option=&UCIOptions[I];
+    UciOption *option=&uciOptions[i];
     
-    // Name
-    free(Option->Name);
-    
-    // Data
-    switch(Option->Type)
+    free(option->name);
+    switch(option->type)
     {
-      case ucioptiontype_check:
-      case ucioptiontype_spin:
-      case ucioptiontype_button:
-        // Nothing to do
+      case UciOptionTypeCheck: break;
+      case UciOptionTypeSpin: break;
+      case UciOptionTypeButton: break;
+      case UciOptionTypeCombo:
+        free(option->o.combo.initial);
+        for(j=0;j<option->o.combo.optionCount;++j)
+          free(option->o.combo.options[j]);
+        free(option->o.combo.options);
       break;
-      case ucioptiontype_combo:
-        free(Option->Data.Combo.Default);
-        for(J=0;J<Option->Data.Combo.OptionCount;++J)
-          free(Option->Data.Combo.Options[J]);
-        free(Option->Data.Combo.Options);
-      break;
-      case ucioptiontype_string:
-        free(Option->Data.String.Default);
+      case UciOptionTypeString:
+        free(option->o.string.initial);
       break;
     }
   }
   
-  // Free array of options
-  free(UCIOptions);
-  UCIOptions=NULL;
-  UCIOptionCount=0;
+  // Free array of options.
+  free(uciOptions);
+  uciOptions=NULL;
+  uciOptionCount=0;
 }
 
-void UCIOptionParseSetOptionString(char *String)
+bool uciRead(char **linePtr, size_t *lineSize)
 {
-  // Check we are actually parsing an 'option' command
-  if (strncmp(String, "setoption ", 10))
+  return (getline(linePtr, lineSize, stdin)>=0);
+}
+
+void uciParseSetOption(char *string)
+{
+  // Extract name and value arguments.
+  char *name=strstr(string, "name");
+  if (name==NULL || name[4]=='\0')
     return;
-  
-  // Extract name and value arguments
-  char *Name=strstr(String, "name");
-  if (Name==NULL)
-    return;
-  Name+=5; // Skip 'name '
-  char *Value=strstr(String, "value");
-  char *NameEnd=String+strlen(String);
-  if (Value!=NULL)
+  name+=5; // Skip 'name '.
+  char *value=strstr(string, "value");
+  char *nameEnd=string+strlen(string);
+  if (value!=NULL)
   {
-    NameEnd=Value-1;
-    Value+=6; // Skip 'value '
+    nameEnd=value-1;
+    value+=6; // Skip 'value '.
   }
-  *NameEnd='\0';
+  *nameEnd='\0';
   
-  // Find option with given name
-  ucioption_t *Option=UCIOptionFromName(Name);
-  if (Option==NULL)
+  // Find option with given name.
+  UciOption *option=uciOptionFromName(name);
+  if (option==NULL)
     return;
   
-  // Each type of option is handled separately
-  int IntValue, I;
-  bool BoolValue;
-  switch(Option->Type)
+  // Each type of option is handled separately.
+  switch(option->type)
   {
-    case ucioptiontype_check:
-      BoolValue=UCIStringToBool(Value);
-      (*Option->Data.Check.Function)(BoolValue, Option->UserData);
+    case UciOptionTypeCheck:
+      if (value!=NULL)
+        (*option->o.check.function)(option->userData, uciStringToBool(value));
     break;
-    case ucioptiontype_spin:
-      IntValue=atoi(Value);
-      if (IntValue<Option->Data.Spin.Min)
-        IntValue=Option->Data.Spin.Min;
-      if (IntValue>Option->Data.Spin.Max)
-        IntValue=Option->Data.Spin.Max;
-      (*Option->Data.Spin.Function)(IntValue, Option->UserData);
+    case UciOptionTypeSpin:
+      if (value!=NULL)
+      {
+        int intValue=atoi(value);
+        intValue=utilMax(intValue, option->o.spin.min);
+        intValue=utilMin(intValue, option->o.spin.max);
+        (*option->o.spin.function)(option->userData, intValue);
+      }
     break;
-    case ucioptiontype_combo:
-      for(I=0;I<Option->Data.Combo.OptionCount;++I)
-        if (!strcmp(Option->Data.Combo.Options[I], Value))
-        {
-          (*Option->Data.Combo.Function)(Option->Data.Combo.Options[I], Option->UserData);
-          break;
-        }
+    case UciOptionTypeCombo:
+      if (value!=NULL)
+      {
+        unsigned int i;
+        for(i=0;i<option->o.combo.optionCount;++i)
+          if (utilStrEqual(option->o.combo.options[i], value))
+          {
+            (*option->o.combo.function)(option->userData, value);
+            break;
+          }
+      }
     break;
-    case ucioptiontype_button:
-      (*Option->Data.Button.Function)(Option->UserData);
+    case UciOptionTypeButton:
+      (*option->o.button.function)(option->userData);
     break;
-    case ucioptiontype_string:
-      (*Option->Data.String.Function)(Value, Option->UserData);
+    case UciOptionTypeString:
+      if (value!=NULL)
+        (*option->o.string.function)(option->userData, value);
     break;
   }
 }
 
-void UCIOptionPrint()
+void uciOptionPrint(void)
 {
-  int I, J;
-  for(I=0;I<UCIOptionCount;++I)
+  unsigned int i, j;
+  for(i=0;i<uciOptionCount;++i)
   {
-    ucioption_t *Option=&UCIOptions[I];
-    switch(Option->Type)
+    UciOption *option=&uciOptions[i];
+    switch(option->type)
     {
-      case ucioptiontype_check:
-        printf("option name %s type check default %s\n", Option->Name,
-               UCIBoolToString[Option->Data.Check.Default]);
+      case UciOptionTypeCheck:
+        uciWrite("option name %s type check default %s\n", option->name, uciBoolToString[option->o.check.initial]);
       break;
-      case ucioptiontype_spin:
-        printf("option name %s type spin default %i min %i max %i\n",
-               Option->Name, Option->Data.Spin.Default, Option->Data.Spin.Min,
-               Option->Data.Spin.Max);
+      case UciOptionTypeSpin:
+        uciWrite("option name %s type spin default %i min %i max %i\n", option->name, option->o.spin.initial, option->o.spin.min, option->o.spin.max);
       break;
-      case ucioptiontype_combo:
-        printf("option name %s type combo default %s", Option->Name, Option->Data.Combo.Default);
-        for(J=0;J<Option->Data.Combo.OptionCount;++J)
-          printf(" var %s", Option->Data.Combo.Options[J]);
-        printf("\n");
+      case UciOptionTypeCombo:
+        uciWrite("option name %s type combo default %s", option->name, option->o.combo.initial);
+        for(j=0;j<option->o.combo.optionCount;++j)
+          uciWrite(" var %s", option->o.combo.options[j]);
+        uciWrite("\n");
       break;
-      case ucioptiontype_button:
-        printf("option name %s type button\n", Option->Name);
+      case UciOptionTypeButton:
+        uciWrite("option name %s type button\n", option->name);
       break;
-      case ucioptiontype_string:
-        printf("option name %s type string default %s\n", Option->Name, Option->Data.String.Default);
+      case UciOptionTypeString:
+        uciWrite("option name %s type string default %s\n", option->name, option->o.string.initial);
       break;
     }
   }
 }
 
-ucioption_t *UCIOptionNewBase()
+UciOption *uciOptionNewBase(void)
 {
-  ucioption_t *TempPtr=realloc(UCIOptions, (UCIOptionCount+1)*sizeof(ucioption_t));
-  if (TempPtr==NULL)
+  UciOption *tempPtr=realloc(uciOptions, (uciOptionCount+1)*sizeof(UciOption));
+  if (tempPtr==NULL)
     return NULL;
-  UCIOptions=TempPtr;
-  ucioption_t *Return=&UCIOptions[UCIOptionCount];
-  ++UCIOptionCount;
-  return Return;
+  uciOptions=tempPtr;
+  return &uciOptions[uciOptionCount++];
 }
 
-ucioption_t *UCIOptionFromName(const char *Name)
+UciOption *uciOptionFromName(const char *name)
 {
-  int I;
-  for(I=0;I<UCIOptionCount;++I)
-    if (!strcmp(UCIOptions[I].Name, Name))
-      return &UCIOptions[I];
+  unsigned int i;
+  for(i=0;i<uciOptionCount;++i)
+    if (utilStrEqual(uciOptions[i].name, name))
+      return &uciOptions[i];
   return NULL;
 }
 
-bool UCIStringToBool(const char *String)
+bool uciStringToBool(const char *string)
 {
-  return !strcmp(String, "true");
+  assert(string!=NULL);
+  return utilStrEqual(string, "true");
 }

@@ -3,8 +3,8 @@
 
 #include "pos.h"
 
-void Perft(pos_t *Pos, unsigned int MaxDepth);
-void Divide(pos_t *Pos, unsigned int Depth);
-unsigned long long int PerftRaw(pos_t *Pos, unsigned int Depth);
+void perft(Pos *pos, unsigned int maxDepth);
+void divide(Pos *pos, unsigned int depth);
+unsigned long long int perftRaw(Pos *pos, unsigned int depth);
 
 #endif

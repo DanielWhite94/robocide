@@ -1,81 +1,101 @@
+#include <assert.h>
 #include <math.h>
+#include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "attacks.h"
+#include "bb.h"
+#include "colour.h"
 #include "eval.h"
-#include "main.h"
 #include "htable.h"
+#include "main.h"
+#include "piece.h"
+#include "square.h"
+#include "tune.h"
 #include "uci.h"
 
-////////////////////////////////////////////////////////////////////////////////
-// 
-////////////////////////////////////////////////////////////////////////////////
+typedef int32_t Value;
+typedef struct { Value mg, eg; } VPair;
+const VPair VPairZero={0,0};
 
-typedef int32_t value_t;
+typedef struct EvalData EvalData;
 
 typedef struct
 {
-  value_t MG, EG;
-}vpair_t;
+  BB pawns[ColourNB], passed[ColourNB], semiOpenFiles[ColourNB], openFiles;
+  VPair score;
+}EvalPawnData;
+HTable *evalPawnTable=NULL;
+const size_t evalPawnTableDefaultSizeMb=1;
+const size_t evalPawnTableMaxSizeMb=1024*1024; // 1tb
 
-typedef struct evalpawndata_t evalpawndata_t;
-typedef struct evalmatdata_t evalmatdata_t;
-typedef struct evaldata_t evaldata_t;
-
-struct evalpawndata_t
+typedef struct
 {
-  bb_t Pawns[2], Passed[2], SemiOpenFiles[2], OpenFiles;
-  vpair_t Score;
-};
-htable_t *EvalPawnTable=NULL;
-const size_t EvalPawnTableDefaultSizeMB=1;
+  MatInfo mat;
+  EvalMatType type; // If this is EvalMatTypeInvalid implies not yet computed.
+  VPair (*function)(EvalData *data); // If this is NULL implies all entries below have yet to be computed.
+  VPair offset, tempo;
+  uint8_t weightMG, weightEG;
+  Score scoreOffset;
+}EvalMatData;
+HTable *evalMatTable=NULL;
+const size_t evalMatTableDefaultSizeMb=1;
+const size_t evalMatTableMaxSizeMb=1024*1024; // 1tb
 
-struct evalmatdata_t
+struct EvalData
 {
-  uint64_t Mat;
-  evalmattype_t Type; // if this is evalmattype_invalid implies not yet computed
-  vpair_t (*Function)(evaldata_t *Data); // if this is NULL implies all entries below have yet to be computed
-  vpair_t Offset, Tempo;
-  uint8_t WeightMG, WeightEG;
-  score_t ScoreOffset;
-};
-htable_t *EvalMatTable=NULL;
-const size_t EvalMatTableDefaultSizeMB=1;
-
-struct evaldata_t
-{
-  const pos_t *Pos;
-  evalpawndata_t PawnData;
-  evalmatdata_t MatData;
+  const Pos *pos;
+  EvalPawnData pawnData;
+  EvalMatData matData;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values
 ////////////////////////////////////////////////////////////////////////////////
-TUNECONST vpair_t EvalMaterial[8]={{0,0},{900,1300},{3100,3100},{3250,3250},{3250,3250},{5350,5350},{10000,10000},{0,0}};
-TUNECONST vpair_t EvalPawnDoubled={-100,-200};
-TUNECONST vpair_t EvalPawnIsolated={-300,-200};
-TUNECONST vpair_t EvalPawnBlocked={-100,-100};
-TUNECONST vpair_t EvalPawnPassedQuadA={56,50}; // coefficients used in quadratic formula for passed pawn score (with rank as the input)
-TUNECONST vpair_t EvalPawnPassedQuadB={-109,50};
-TUNECONST vpair_t EvalPawnPassedQuadC={155,50};
-TUNECONST vpair_t EvalKnightPawnAffinity={30,30}; // bonus each knight receives for each friendly pawn on the board
-TUNECONST vpair_t EvalBishopPair={500,500};
-TUNECONST vpair_t EvalBishopMob={40,30};
-TUNECONST vpair_t EvalRookPawnAffinity={-70,-70}; // bonus each rook receives for each friendly pawn on the board
-TUNECONST vpair_t EvalRookMobFile={20,30};
-TUNECONST vpair_t EvalRookMobRank={10,20};
-TUNECONST vpair_t EvalRookOpenFile={100,50};
-TUNECONST vpair_t EvalRookSemiOpenFile={50,20};
-TUNECONST vpair_t EvalRookOn7th={50,100};
-TUNECONST vpair_t EvalRookTrapped={-400,0};
-TUNECONST vpair_t EvalKingShieldClose={150,0};
-TUNECONST vpair_t EvalKingShieldFar={50,0};
-TUNECONST vpair_t EvalTempoDefault={0,0};
-TUNECONST value_t EvalWeightFactor=144;
 
-TUNECONST vpair_t EvalPST[8][64]={
-[pawn]={
+TUNECONST VPair evalMaterial[PieceTypeNB]={
+  [PieceTypeNone]={0,0},
+  [PieceTypePawn]={900,1300},
+  [PieceTypeKnight]={3100,3100},
+  [PieceTypeBishopL]={3250,3250},
+  [PieceTypeBishopD]={3250,3250},
+  [PieceTypeRook]={5350,5350},
+  [PieceTypeQueen]={10000,10000},
+  [PieceTypeKing]={0,0}};
+TUNECONST VPair evalPawnDoubled={-100,-200};
+TUNECONST VPair evalPawnIsolated={-300,-200};
+TUNECONST VPair evalPawnBlocked={-100,-100};
+TUNECONST VPair evalPawnPassedQuadA={56,50}; // Coefficients used in quadratic formula for passed pawn score (with rank as the input).
+TUNECONST VPair evalPawnPassedQuadB={-109,50};
+TUNECONST VPair evalPawnPassedQuadC={155,50};
+TUNECONST VPair evalKnightPawnAffinity={30,30}; // Bonus each knight receives for each friendly pawn on the board.
+TUNECONST VPair evalBishopPair={500,500};
+TUNECONST VPair evalBishopMob={40,30};
+TUNECONST VPair evalRookPawnAffinity={-70,-70}; // Bonus each rook receives for each friendly pawn on the board.
+TUNECONST VPair evalRookMobFile={20,30};
+TUNECONST VPair evalRookMobRank={10,20};
+TUNECONST VPair evalRookOpenFile={100,50};
+TUNECONST VPair evalRookSemiOpenFile={50,20};
+TUNECONST VPair evalRookOn7th={50,100};
+TUNECONST VPair evalRookTrapped={-400,0};
+TUNECONST VPair evalKingShieldClose={150,0};
+TUNECONST VPair evalKingShieldFar={50,0};
+TUNECONST VPair evalTempoDefault={0,0};
+TUNECONST Value evalWeightFactor=144;
+
+TUNECONST VPair evalPST[PieceTypeNB][SqNB]={
+[PieceTypeNone]={
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
+[PieceTypePawn]={
   {  -30, -410},{ -150, -400},{ -230, -380},{ -270, -370},{ -270, -370},{ -230, -380},{ -150, -400},{  -30, -410},
   { -150, -380},{    0, -350},{  -60, -340},{  -90, -320},{  -90, -320},{  -60, -340},{    0, -350},{ -150, -380},
   { -210, -300},{  -40, -270},{   70, -250},{   40, -220},{   40, -220},{   70, -250},{  -40, -270},{ -210, -300},
@@ -84,7 +104,7 @@ TUNECONST vpair_t EvalPST[8][64]={
   { -100,  120},{   50,  140},{  170,  170},{  150,  200},{  150,  200},{  170,  170},{   50,  140},{ -100,  120},
   {   20,  330},{  180,  350},{  110,  370},{   80,  380},{   80,  380},{  110,  370},{  180,  350},{   20,  330},
   {  210,  580},{   90,  590},{   10,  610},{  -20,  620},{  -20,  620},{   10,  610},{   90,  590},{  210,   58}},
-[knight]={
+[PieceTypeKnight]={
   { -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
   { -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
   {  -70,  -30},{  -20,   20},{   10,   50},{   20,   60},{   20,   60},{   10,   50},{  -20,   20},{  -70,  -30},
@@ -93,7 +113,7 @@ TUNECONST vpair_t EvalPST[8][64]={
   {    0,  -30},{   40,   20},{   70,   50},{   80,   60},{   80,   60},{   70,   50},{   40,   20},{    0,  -30},
   {  -10,  -60},{   40,  -10},{   70,   20},{   90,   30},{   90,   30},{   70,   20},{   40,  -10},{  -10,  -60},
   {  -20, -120},{   20,  -60},{   60,  -30},{   80,  -10},{   80,  -10},{   60,  -30},{   20,  -60},{  -20,  -12}},
-[bishopl]={
+[PieceTypeBishopL]={
   {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,  -75},
   {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
   {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
@@ -102,7 +122,7 @@ TUNECONST vpair_t EvalPST[8][64]={
   {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
   {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
   {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,   -7}},
-[bishopd]={
+[PieceTypeBishopD]={
   {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,  -75},
   {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
   {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
@@ -111,7 +131,7 @@ TUNECONST vpair_t EvalPST[8][64]={
   {  -15,  -20},{    0,   10},{   20,   30},{   30,   40},{   30,   40},{   20,   30},{    0,   10},{  -15,  -20},
   {  -30,  -40},{  -10,   -5},{    0,   10},{   10,   20},{   10,   20},{    0,   10},{  -10,   -5},{  -30,  -40},
   {  -55,  -75},{  -30,  -40},{  -15,  -20},{  -10,   -5},{  -10,   -5},{  -15,  -20},{  -30,  -40},{  -55,   -7}},
-[rook]={
+[PieceTypeRook]={
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
@@ -120,7 +140,7 @@ TUNECONST vpair_t EvalPST[8][64]={
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
-[queen]={
+[PieceTypeQueen]={
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
@@ -129,7 +149,7 @@ TUNECONST vpair_t EvalPST[8][64]={
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
-[king]={
+[PieceTypeKing]={
   {  570, -460},{  570, -240},{  410, -120},{  330,  -40},{  330,  -40},{  410, -120},{  570, -240},{  570, -460},
   {  560, -240},{  320,  -40},{  140,   60},{   30,  120},{   30,  120},{  140,   60},{  320,  -40},{  560, -240},
   {  370, -120},{  110,   60},{ -110,  180},{ -260,  240},{ -260,  240},{ -110,  180},{  110,   60},{  370, -120},
@@ -143,557 +163,567 @@ TUNECONST vpair_t EvalPST[8][64]={
 // Derived values
 ////////////////////////////////////////////////////////////////////////////////
 
-vpair_t EvalPawnPassed[8];
-uint8_t EvalWeightEGFactor[128];
+VPair evalPawnPassed[RankNB];
+uint8_t evalWeightEGFactor[128];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-vpair_t EvaluateDefault(evaldata_t *Data);
-void EvalGetMatData(const pos_t *Pos, evalmatdata_t *MatData);
-void EvalComputeMatData(const pos_t *Pos, evalmatdata_t *MatData);
-void EvalGetPawnData(const pos_t *Pos, evalpawndata_t *PawnData);
-void EvalComputePawnData(const pos_t *Pos, evalpawndata_t *PawnData);
-vpair_t EvalPiece(evaldata_t *Data, piece_t Piece, sq_t Sq, col_t Colour);
-static inline score_t EvalInterpolate(const evaldata_t *Data, const vpair_t *Score);
-static inline void EvalVPairAdd(vpair_t *A, vpair_t B);
-static inline void EvalVPairSub(vpair_t *A, vpair_t B);
-static inline void EvalVPairAddMul(vpair_t *A, vpair_t B, int C);
-static inline void EvalVPairSubMul(vpair_t *A, vpair_t B, int C);
+VPair evaluateDefault(EvalData *data);
+void evalGetMatData(const Pos *pos, EvalMatData *matData);
+void evalComputeMatData(const Pos *pos, EvalMatData *matData);
+void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData);
+void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData);
+VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour);
+Score evalInterpolate(const EvalData *data, const VPair *score);
+void evalVPairAdd(VPair *a, const VPair *b);
+void evalVPairSub(VPair *a, const VPair *b);
+void evalVPairAddMul(VPair *a, const VPair *b, int c);
+void evalVPairSubMul(VPair *a, const VPair *b, int c);
 #ifdef TUNE
-void EvalSetValue(int Value, void *UserData);
+void evalSetValue(void *varPtr, int value);
+bool evalOptionNewVPair(const char *name, VPair *score);
 #endif
-void EvalRecalc();
-evalmattype_t EvalComputeMatType(const pos_t *Pos);
+void evalRecalc(void);
+EvalMatType evalComputeMatType(const Pos *pos);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void EvalInit()
+void evalInit(void)
 {
-  // Setup pawn hash table
-  evalpawndata_t NullEntryPawn;
-  NullEntryPawn.Pawns[white]=NullEntryPawn.Pawns[black]=BBAll; // no position can have pawns on all squares
-  EvalPawnTable=HTableNew(sizeof(evalpawndata_t), &NullEntryPawn, EvalPawnTableDefaultSizeMB);
-  if (EvalPawnTable==NULL)
+  // Setup pawn hash table.
+  EvalPawnData nullEntryPawn;
+  nullEntryPawn.pawns[ColourWhite]=nullEntryPawn.pawns[ColourBlack]=BBAll; // No position can have pawns on all squares.
+  evalPawnTable=htableNew(sizeof(EvalPawnData), &nullEntryPawn, evalPawnTableDefaultSizeMb);
+  if (evalPawnTable==NULL)
     mainFatalError("Error: Could not allocate pawn hash table.\n");
-  UCIOptionNewSpin("PawnHash", &HTableResizeInterface, EvalPawnTable, 1, 16*1024, EvalPawnTableDefaultSizeMB);
-  UCIOptionNewButton("Clear PawnHash", &HTableClearInterface, EvalPawnTable);
+  uciOptionNewSpin("PawnHash", &htableResizeInterface, evalPawnTable, 1, evalPawnTableMaxSizeMb, evalPawnTableDefaultSizeMb);
+  uciOptionNewButton("Clear PawnHash", &htableClearInterface, evalPawnTable);
   
-  // Setup mat hash table
-  evalmatdata_t NullEntryMat;
-  NullEntryMat.Mat=0; // no position can have 0 pieces (kings are always required)
-  EvalMatTable=HTableNew(sizeof(evalmatdata_t), &NullEntryMat, EvalMatTableDefaultSizeMB);
-  if (EvalMatTable==NULL)
+  // Setup mat hash table.
+  EvalMatData nullEntryMat;
+  nullEntryMat.mat=(matInfoMake(PieceWKing, 0)|matInfoMake(PieceBKing, 0)); // No position can have 0 pieces (kings are always required)
+  evalMatTable=htableNew(sizeof(EvalMatData), &nullEntryMat, evalMatTableDefaultSizeMb);
+  if (evalMatTable==NULL)
     mainFatalError("Error: Could not allocate mat hash table.\n");
-  UCIOptionNewSpin("MatHash", &HTableResizeInterface, EvalMatTable, 1, 16*1024, EvalMatTableDefaultSizeMB);
-  UCIOptionNewButton("Clear MatHash", &HTableClearInterface, EvalMatTable);
+  uciOptionNewSpin("MatHash", &htableResizeInterface, evalMatTable, 1, evalMatTableMaxSizeMb, evalMatTableDefaultSizeMb);
+  uciOptionNewButton("Clear MatHash", &htableClearInterface, evalMatTable);
   
-  // Calculate dervied values (such as passed pawn table)
-  EvalRecalc();
+  // Calculate dervied values (such as passed pawn table).
+  evalRecalc();
   
-  // Setup callbacks for tuning values
+  // Setup callbacks for tuning values.
 # ifdef TUNE
-  value_t Min=-32767, Max=32767;
-  UCIOptionNewSpin("PawnMG", &EvalSetValue, &EvalMaterial[pawn].MG, Min, Max, EvalMaterial[pawn].MG);
-  UCIOptionNewSpin("PawnEG", &EvalSetValue, &EvalMaterial[pawn].EG, Min, Max, EvalMaterial[pawn].EG);
-  UCIOptionNewSpin("KnightMG", &EvalSetValue, &EvalMaterial[knight].MG, Min, Max, EvalMaterial[knight].MG);
-  UCIOptionNewSpin("KnightEG", &EvalSetValue, &EvalMaterial[knight].EG, Min, Max, EvalMaterial[knight].EG);
-  UCIOptionNewSpin("BishopMG", &EvalSetValue, &EvalMaterial[bishopl].MG, Min, Max, EvalMaterial[bishopl].MG);
-  UCIOptionNewSpin("BishopEG", &EvalSetValue, &EvalMaterial[bishopl].EG, Min, Max, EvalMaterial[bishopl].EG);
-  UCIOptionNewSpin("RookMG", &EvalSetValue, &EvalMaterial[rook].MG, Min, Max, EvalMaterial[rook].MG);
-  UCIOptionNewSpin("RookEG", &EvalSetValue, &EvalMaterial[rook].EG, Min, Max, EvalMaterial[rook].EG);
-  UCIOptionNewSpin("QueenMG", &EvalSetValue, &EvalMaterial[queen].MG, Min, Max, EvalMaterial[queen].MG);
-  UCIOptionNewSpin("QueenEG", &EvalSetValue, &EvalMaterial[queen].EG, Min, Max, EvalMaterial[queen].EG);
-  UCIOptionNewSpin("PawnDoubledMG", &EvalSetValue, &EvalPawnDoubled.MG, Min, Max, EvalPawnDoubled.MG);
-  UCIOptionNewSpin("PawnDoubledEG", &EvalSetValue, &EvalPawnDoubled.EG, Min, Max, EvalPawnDoubled.EG);
-  UCIOptionNewSpin("PawnIsolatedMG", &EvalSetValue, &EvalPawnIsolated.MG, Min, Max, EvalPawnIsolated.MG);
-  UCIOptionNewSpin("PawnIsolatedEG", &EvalSetValue, &EvalPawnIsolated.EG, Min, Max, EvalPawnIsolated.EG);
-  UCIOptionNewSpin("PawnBlockedMG", &EvalSetValue, &EvalPawnBlocked.MG, Min, Max, EvalPawnBlocked.MG);
-  UCIOptionNewSpin("PawnBlockedEG", &EvalSetValue, &EvalPawnBlocked.EG, Min, Max, EvalPawnBlocked.EG);
-  UCIOptionNewSpin("PawnPassedQuadAMG", &EvalSetValue, &EvalPawnPassedQuadA.MG, Min, Max, EvalPawnPassedQuadA.MG);
-  UCIOptionNewSpin("PawnPassedQuadAEG", &EvalSetValue, &EvalPawnPassedQuadA.EG, Min, Max, EvalPawnPassedQuadA.EG);
-  UCIOptionNewSpin("PawnPassedQuadBMG", &EvalSetValue, &EvalPawnPassedQuadB.MG, Min, Max, EvalPawnPassedQuadB.MG);
-  UCIOptionNewSpin("PawnPassedQuadBEG", &EvalSetValue, &EvalPawnPassedQuadB.EG, Min, Max, EvalPawnPassedQuadB.EG);
-  UCIOptionNewSpin("PawnPassedQuadCMG", &EvalSetValue, &EvalPawnPassedQuadC.MG, Min, Max, EvalPawnPassedQuadC.MG);
-  UCIOptionNewSpin("PawnPassedQuadCEG", &EvalSetValue, &EvalPawnPassedQuadC.EG, Min, Max, EvalPawnPassedQuadC.EG);
-  UCIOptionNewSpin("KnightPawnAffinityMG", &EvalSetValue, &EvalKnightPawnAffinity.MG, Min, Max, EvalKnightPawnAffinity.MG);
-  UCIOptionNewSpin("KnightPawnAffinityEG", &EvalSetValue, &EvalKnightPawnAffinity.EG, Min, Max, EvalKnightPawnAffinity.EG);
-  UCIOptionNewSpin("BishopPairMG", &EvalSetValue, &EvalBishopPair.MG, Min, Max, EvalBishopPair.MG);
-  UCIOptionNewSpin("BishopPairEG", &EvalSetValue, &EvalBishopPair.EG, Min, Max, EvalBishopPair.EG);
-  UCIOptionNewSpin("BishopMobilityMG", &EvalSetValue, &EvalBishopMob.MG, Min, Max, EvalBishopMob.MG);
-  UCIOptionNewSpin("BishopMobilityEG", &EvalSetValue, &EvalBishopMob.EG, Min, Max, EvalBishopMob.EG);
-  UCIOptionNewSpin("RookPawnAffinityMG", &EvalSetValue, &EvalRookPawnAffinity.MG, Min, Max, EvalRookPawnAffinity.MG);
-  UCIOptionNewSpin("RookPawnAffinityEG", &EvalSetValue, &EvalRookPawnAffinity.EG, Min, Max, EvalRookPawnAffinity.EG);
-  UCIOptionNewSpin("RookMobilityFileMG", &EvalSetValue, &EvalRookMobFile.MG, Min, Max, EvalRookMobFile.MG);
-  UCIOptionNewSpin("RookMobilityFileEG", &EvalSetValue, &EvalRookMobFile.EG, Min, Max, EvalRookMobFile.EG);
-  UCIOptionNewSpin("RookMobilityRankMG", &EvalSetValue, &EvalRookMobRank.MG, Min, Max, EvalRookMobRank.MG);
-  UCIOptionNewSpin("RookMobilityRankEG", &EvalSetValue, &EvalRookMobRank.EG, Min, Max, EvalRookMobRank.EG);
-  UCIOptionNewSpin("RookOpenFileMG", &EvalSetValue, &EvalRookOpenFile.MG, Min, Max, EvalRookOpenFile.MG);
-  UCIOptionNewSpin("RookOpenFileEG", &EvalSetValue, &EvalRookOpenFile.EG, Min, Max, EvalRookOpenFile.EG);
-  UCIOptionNewSpin("RookSemiOpenFileMG", &EvalSetValue, &EvalRookSemiOpenFile.MG, Min, Max, EvalRookSemiOpenFile.MG);
-  UCIOptionNewSpin("RookSemiOpenFileEG", &EvalSetValue, &EvalRookSemiOpenFile.EG, Min, Max, EvalRookSemiOpenFile.EG);
-  UCIOptionNewSpin("RookOn7thMG", &EvalSetValue, &EvalRookOn7th.MG, Min, Max, EvalRookOn7th.MG);
-  UCIOptionNewSpin("RookOn7thEG", &EvalSetValue, &EvalRookOn7th.EG, Min, Max, EvalRookOn7th.EG);
-  UCIOptionNewSpin("RookTrappedMG", &EvalSetValue, &EvalRookTrapped.MG, Min, Max, EvalRookTrapped.MG);
-  UCIOptionNewSpin("RookTrappedEG", &EvalSetValue, &EvalRookTrapped.EG, Min, Max, EvalRookTrapped.EG);
-  UCIOptionNewSpin("KingShieldCloseMG", &EvalSetValue, &EvalKingShieldClose.MG, Min, Max, EvalKingShieldClose.MG);
-  UCIOptionNewSpin("KingShieldCloseEG", &EvalSetValue, &EvalKingShieldClose.EG, Min, Max, EvalKingShieldClose.EG);
-  UCIOptionNewSpin("KingShieldFarMG", &EvalSetValue, &EvalKingShieldFar.MG, Min, Max, EvalKingShieldFar.MG);
-  UCIOptionNewSpin("KingShieldFarEG", &EvalSetValue, &EvalKingShieldFar.EG, Min, Max, EvalKingShieldFar.EG);
-  UCIOptionNewSpin("TempoMG", &EvalSetValue, &EvalTempoDefault.MG, Min, Max, EvalTempoDefault.MG);
-  UCIOptionNewSpin("TempoEG", &EvalSetValue, &EvalTempoDefault.EG, Min, Max, EvalTempoDefault.EG);
-  UCIOptionNewSpin("WeightFactor", &EvalSetValue, &EvalWeightFactor, 1, 1024, EvalWeightFactor);
+  evalOptionNewVPair("Pawn", &evalMaterial[PieceTypePawn]);
+  evalOptionNewVPair("Knight", &evalMaterial[PieceTypeKnight]);
+  evalOptionNewVPair("Bishop", &evalMaterial[PieceTypeBishopL]);
+  evalOptionNewVPair("Rook", &evalMaterial[PieceTypeRook]);
+  evalOptionNewVPair("Queen", &evalMaterial[PieceTypeQueen]);
+  evalOptionNewVPair("PawnDoubled", &evalPawnDoubled);
+  evalOptionNewVPair("PawnIsolated", &evalPawnIsolated);
+  evalOptionNewVPair("PawnBlocked", &evalPawnBlocked);
+  evalOptionNewVPair("PawnPassedQuadA", &evalPawnPassedQuadA);
+  evalOptionNewVPair("PawnPassedQuadB", &evalPawnPassedQuadB);
+  evalOptionNewVPair("PawnPassedQuadC", &evalPawnPassedQuadC);
+  evalOptionNewVPair("KnightPawnAffinity", &evalKnightPawnAffinity);
+  evalOptionNewVPair("BishopPair", &evalBishopPair);
+  evalOptionNewVPair("BishopMobility", &evalBishopMob);
+  evalOptionNewVPair("RookPawnAffinity", &evalRookPawnAffinity);
+  evalOptionNewVPair("RookMobilityFile", &evalRookMobFile);
+  evalOptionNewVPair("RookMobilityRank", &evalRookMobRank);
+  evalOptionNewVPair("RookOpenFile", &evalRookOpenFile);
+  evalOptionNewVPair("RookSemiOpenFile", &evalRookSemiOpenFile);
+  evalOptionNewVPair("RookOn7th", &evalRookOn7th);
+  evalOptionNewVPair("RookTrapped", &evalRookTrapped);
+  evalOptionNewVPair("KingShieldClose", &evalKingShieldClose);
+  evalOptionNewVPair("KingShieldFar", &evalKingShieldFar);
+  evalOptionNewVPair("Tempo", &evalTempoDefault);
+  uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 1024, evalWeightFactor);
 # endif
 }
 
-void EvalQuit()
+void evalQuit(void)
 {
-  HTableFree(EvalPawnTable);
-  EvalPawnTable=NULL;
-  HTableFree(EvalMatTable);
-  EvalMatTable=NULL;
+  htableFree(evalPawnTable);
+  evalPawnTable=NULL;
+  htableFree(evalMatTable);
+  evalMatTable=NULL;
 }
 
-score_t Evaluate(const pos_t *Pos)
+Score evaluate(const Pos *pos)
 {
-  // Init evaldata struct
-  evaldata_t Data;
-  Data.Pos=Pos;
+  // Init data struct.
+  EvalData data={.pos=pos};
   
-  // Evaluation function depends on material combination
-  EvalGetMatData(Pos, &Data.MatData);
+  // Evaluation function depends on material combination.
+  evalGetMatData(pos, &data.matData);
   
-  // Evaluate
-  vpair_t Score=Data.MatData.Function(&Data);
+  // Evaluate.
+  VPair score=data.matData.function(&data);
   
-  // Material combination offset
-  EvalVPairAdd(&Score, Data.MatData.Offset);
+  // Material combination offset.
+  evalVPairAdd(&score, &data.matData.offset);
   
-  // Tempo bonus
-  if (PosGetSTM(Pos)==white)
-    EvalVPairAdd(&Score, Data.MatData.Tempo);
+  // Tempo bonus.
+  if (posGetSTM(pos)==ColourWhite)
+    evalVPairAdd(&score, &data.matData.tempo);
   else
-    EvalVPairSub(&Score, Data.MatData.Tempo);
+    evalVPairSub(&score, &data.matData.tempo);
   
-  // Interpolate score based on phase of the game and special material combination considerations
-  score_t ScalarScore=EvalInterpolate(&Data, &Score);
+  // Interpolate score based on phase of the game and special material combination considerations.
+  Score scalarScore=evalInterpolate(&data, &score);
   
   // Drag score towards 0 as we approach 50-move rule
-  int HMoves=PosGetHalfMoveClock(Data.Pos);
-  ScalarScore*=exp2(-(HMoves*HMoves)/(32*32));
+  unsigned int halfMoves=posGetHalfMoveNumber(data.pos);
+  scalarScore*=exp2f(-((halfMoves*halfMoves)/(32.0*32.0)));
   
   // Add score offset
-  ScalarScore+=Data.MatData.ScoreOffset;
+  scalarScore+=data.matData.scoreOffset;
   
   // Adjust for side to move
-  if (PosGetSTM(Data.Pos)==black)
-    ScalarScore=-ScalarScore;
+  if (posGetSTM(data.pos)==ColourBlack)
+    scalarScore=-scalarScore;
   
-  return ScalarScore;
+  return scalarScore;
 }
 
-void EvalClear()
+void evalClear(void)
 {
-  HTableClear(EvalPawnTable);
-  HTableClear(EvalMatTable);
+  htableClear(evalPawnTable);
+  htableClear(evalMatTable);
 }
 
-evalmattype_t EvalGetMatType(const pos_t *Pos)
+EvalMatType evalGetMatType(const Pos *pos)
 {
   // Grab hash entry for this position key
-  uint64_t Key=(uint64_t)PosGetMatKey(Pos);
-  evalmatdata_t *Entry=HTableGrab(EvalMatTable, Key);
+  uint64_t key=(uint64_t)posGetMatKey(pos);
+  EvalMatData *entry=htableGrab(evalMatTable, key);
   
   // If not a match clear entry
-  uint64_t Mat=PosGetMat(Pos);
-  if (Entry->Mat!=Mat)
+  MatInfo mat=posGetMatInfo(pos);
+  if (entry->mat!=mat)
   {
-    Entry->Mat=Mat;
-    Entry->Type=evalmattype_invalid;
-    Entry->Function=NULL;
+    entry->mat=mat;
+    entry->type=EvalMatTypeInvalid;
+    entry->function=NULL;
   }
   
   // If no data already, compute
-  if (Entry->Type==evalmattype_invalid)
-    Entry->Type=EvalComputeMatType(Pos);
+  if (entry->type==EvalMatTypeInvalid)
+    entry->type=evalComputeMatType(pos);
   
   // Copy data to return it
-  evalmattype_t Type=Entry->Type;
+  EvalMatType type=entry->type;
   
   // We are finished with Entry, release lock
-  HTableRelease(EvalMatTable, Key);
+  htableRelease(evalMatTable, key);
   
-  return Type;
+  return type;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-vpair_t EvaluateDefault(evaldata_t *Data)
+VPair evaluateDefault(EvalData *data)
 {
   // Init
-  vpair_t Score={0,0};
-  const pos_t *Pos=Data->Pos;
+  VPair score=VPairZero;
+  const Pos *pos=data->pos;
   
   // Pawns (special case)
-  EvalGetPawnData(Pos, &Data->PawnData);
-  EvalVPairAdd(&Score, Data->PawnData.Score);
+  evalGetPawnData(pos, &data->pawnData);
+  evalVPairAdd(&score, &data->pawnData.score);
   
   // Non-pawn pieces
-  const sq_t *Sq, *SqEnd;
-  piece_t PieceType, Piece;
-  for(PieceType=knight;PieceType<=king;++PieceType)
+  const Sq *sq, *sqEnd;
+  PieceType type;
+  Piece piece;
+  for(type=PieceTypeKnight;type<=PieceTypeKing;++type)
   {
     // White pieces
-    Piece=PIECE_MAKE(PieceType, white);
-    Sq=PosGetPieceListStart(Pos, Piece);
-    SqEnd=PosGetPieceListEnd(Pos, Piece);
-    for(;Sq<SqEnd;++Sq)
-      EvalVPairAdd(&Score, EvalPiece(Data, PieceType, *Sq, white));
+    piece=pieceMake(type, ColourWhite);
+    sq=posGetPieceListStart(pos, piece);
+    sqEnd=posGetPieceListEnd(pos, piece);
+    for(;sq<sqEnd;++sq)
+    {
+      VPair pieceScore=evalPiece(data, type, *sq, ColourWhite);
+      evalVPairAdd(&score, &pieceScore);
+    }
     
     // Black pieces
-    Piece=PIECE_MAKE(PieceType, black);
-    Sq=PosGetPieceListStart(Pos, Piece);
-    SqEnd=PosGetPieceListEnd(Pos, Piece);
-    for(;Sq<SqEnd;++Sq)
-      EvalVPairSub(&Score, EvalPiece(Data, PieceType, *Sq, black));
+    piece=pieceMake(type, ColourBlack);
+    sq=posGetPieceListStart(pos, piece);
+    sqEnd=posGetPieceListEnd(pos, piece);
+    for(;sq<sqEnd;++sq)
+    {
+      VPair pieceScore=evalPiece(data, type, *sq, ColourBlack);
+      evalVPairSub(&score, &pieceScore);
+    }
   }
   
-  return Score;
+  return score;
 }
 
-void EvalGetMatData(const pos_t *Pos, evalmatdata_t *MatData)
+void evalGetMatData(const Pos *pos, EvalMatData *matData)
 {
-  // Grab hash entry for this position key
-  uint64_t Key=(uint64_t)PosGetMatKey(Pos);
-  evalmatdata_t *Entry=HTableGrab(EvalMatTable, Key);
+  // Grab hash entry for this position key.
+  uint64_t key=(uint64_t)posGetMatKey(pos);
+  EvalMatData *entry=htableGrab(evalMatTable, key);
   
   // If not a match clear entry
-  uint64_t Mat=PosGetMat(Pos);
-  if (Entry->Mat!=Mat)
+  MatInfo mat=posGetMatInfo(pos);
+  if (entry->mat!=mat)
   {
-    Entry->Mat=Mat;
-    Entry->Type=evalmattype_invalid;
-    Entry->Function=NULL;
+    entry->mat=mat;
+    entry->type=EvalMatTypeInvalid;
+    entry->function=NULL;
   }
   
-  // If no data already, compute
-  if (Entry->Function==NULL)
-    EvalComputeMatData(Pos, Entry);
+  // If no data already, compute.
+  if (entry->function==NULL)
+    evalComputeMatData(pos, entry);
   
-  // Copy data to return it
-  *MatData=*Entry;
+  // Copy data to return it.
+  *matData=*entry;
   
-  // We are finished with Entry, release lock
-  HTableRelease(EvalMatTable, Key);
+  // We are finished with entry, release lock.
+  htableRelease(evalMatTable, key);
 }
 
-void EvalComputeMatData(const pos_t *Pos, evalmatdata_t *MatData)
+void evalComputeMatData(const Pos *pos, EvalMatData *matData)
 {
-  #define M(P,N) (POSMAT_MAKE((P),(N)))
+# define M(P,N) (matInfoMake((P),(N)))
+# define G(P) (matInfoGetPieceCount(mat,(P))) // Hard-coded 'mat'.
   
-  // Init data
-  assert(MatData->Mat==PosGetMat(Pos));
-  MatData->Function=&EvaluateDefault;
-  MatData->Offset.MG=MatData->Offset.EG=0;
-  MatData->Tempo=EvalTempoDefault;
-  MatData->ScoreOffset=0;
-  uint64_t Mat=(MatData->Mat & ~(POSMAT_MASK(wking) | POSMAT_MASK(bking)));
-  bool WBishopL=((Mat & POSMAT_MASK(wbishopl))!=0);
-  bool WBishopD=((Mat & POSMAT_MASK(wbishopd))!=0);
-  bool BBishopL=((Mat & POSMAT_MASK(bbishopl))!=0);
-  bool BBishopD=((Mat & POSMAT_MASK(bbishopd))!=0);
+  // Init data.
+  assert(matData->mat==posGetMatInfo(pos));
+  matData->function=&evaluateDefault;
+  matData->offset=VPairZero;
+  matData->tempo=evalTempoDefault;
+  matData->scoreOffset=0;
+  MatInfo mat=(matData->mat & ~matInfoMakeMaskPieceType(PieceTypeKing)); // Remove kings as these as always present.
+  bool wBishopL=((mat & matInfoMakeMaskPiece(PieceWBishopL))!=0);
+  bool bBishopL=((mat & matInfoMakeMaskPiece(PieceBBishopL))!=0);
+  bool wBishopD=((mat & matInfoMakeMaskPiece(PieceWBishopD))!=0);
+  bool bBishopD=((mat & matInfoMakeMaskPiece(PieceBBishopD))!=0);
   
-  // Find weights for middlegame and endgame
-  unsigned int MinCount=POSMAT_GET(Mat, wknight)+POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd)+
-               POSMAT_GET(Mat, bknight)+POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd);
-  unsigned int RCount=POSMAT_GET(Mat, wrook)+POSMAT_GET(Mat, brook);
-  unsigned int QCount=POSMAT_GET(Mat, wqueen)+POSMAT_GET(Mat, bqueen);
-  unsigned int Weight=MinCount+2*RCount+4*QCount;
-  assert(Weight<128);
-  MatData->WeightEG=EvalWeightEGFactor[Weight];
-  MatData->WeightMG=256-MatData->WeightEG;
+  // Find weights for middlegame and endgame.
+  unsigned int whiteBishopCount=G(PieceWBishopL)+G(PieceWBishopD);
+  unsigned int blackBishopCount=G(PieceBBishopL)+G(PieceBBishopD);
+  unsigned int minorCount=G(PieceWKnight)+G(PieceBKnight)+whiteBishopCount+blackBishopCount;
+  unsigned int rookCount=G(PieceWRook)+G(PieceBRook);
+  unsigned int queenCount=G(PieceWQueen)+G(PieceBQueen);
+  unsigned int pieceWeight=minorCount+2*rookCount+4*queenCount;
+  assert(pieceWeight<128);
+  matData->weightEG=evalWeightEGFactor[pieceWeight];
+  matData->weightMG=256-matData->weightEG;
   
-  // Specific material combinations
+  // Specific material combinations.
   /* (currently unused)
-  unsigned int Factor=1024;
+  unsigned int factor=1024;
   [combination logic here]
-  MatData->WeightMG=(MatData->WeightMG*Factor)/1024;
-  MatData->WeightEG=(MatData->WeightEG*Factor)/1024;
+  matData->weightMG=(matData->weightMG*factor)/1024;
+  matData->weightEG=(matData->weightEG*factor)/1024;
   */
   
-  // Material
-  EvalVPairAddMul(&MatData->Offset, EvalMaterial[pawn], POSMAT_GET(Mat, wpawn)-POSMAT_GET(Mat, bpawn));
-  EvalVPairAddMul(&MatData->Offset, EvalMaterial[knight], POSMAT_GET(Mat, wknight)-POSMAT_GET(Mat, bknight));
-  EvalVPairAddMul(&MatData->Offset, EvalMaterial[bishopl], (POSMAT_GET(Mat, wbishopl)+POSMAT_GET(Mat, wbishopd))-(POSMAT_GET(Mat, bbishopl)+POSMAT_GET(Mat, bbishopd)));
-  EvalVPairAddMul(&MatData->Offset, EvalMaterial[rook], POSMAT_GET(Mat, wrook)-POSMAT_GET(Mat, brook));
-  EvalVPairAddMul(&MatData->Offset, EvalMaterial[queen], POSMAT_GET(Mat, wqueen)-POSMAT_GET(Mat, bqueen));
+  // Material.
+  evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypePawn], G(PieceWPawn)-G(PieceBPawn));
+  evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeKnight], G(PieceWKnight)-G(PieceBKnight));
+  evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeBishopL], whiteBishopCount-blackBishopCount);
+  evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeRook], G(PieceWRook)-G(PieceBRook));
+  evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeQueen], G(PieceWQueen)-G(PieceBQueen));
   
-  // Knight pawn affinity
-  int KnightAffW=POSMAT_GET(Mat, wknight)*POSMAT_GET(Mat, wpawn);
-  int KnightAffB=POSMAT_GET(Mat, bknight)*POSMAT_GET(Mat, bpawn);
-  EvalVPairAddMul(&MatData->Offset, EvalKnightPawnAffinity, KnightAffW-KnightAffB);
+  // Knight pawn affinity.
+  unsigned int knightAffW=G(PieceWKnight)*G(PieceWPawn);
+  unsigned int knightAffB=G(PieceBKnight)*G(PieceBPawn);
+  evalVPairAddMul(&matData->offset, &evalKnightPawnAffinity, knightAffW-knightAffB);
   
-  // Rook pawn affinity
-  int RookAffW=POSMAT_GET(Mat, wrook)*POSMAT_GET(Mat, wpawn);
-  int RookAffB=POSMAT_GET(Mat, brook)*POSMAT_GET(Mat, bpawn);
-  EvalVPairAddMul(&MatData->Offset, EvalRookPawnAffinity, RookAffW-RookAffB);
+  // Rook pawn affinity.
+  unsigned int rookAffW=G(PieceWRook)*G(PieceWPawn);
+  unsigned int rookAffB=G(PieceBRook)*G(PieceBPawn);
+  evalVPairAddMul(&matData->offset, &evalRookPawnAffinity, rookAffW-rookAffB);
   
   // Bishop pair bonus
-  if (WBishopL && WBishopD)
-    EvalVPairAdd(&MatData->Offset, EvalBishopPair);
-  if (BBishopL && BBishopD)
-    EvalVPairSub(&MatData->Offset, EvalBishopPair);
+  if (wBishopL && wBishopD)
+    evalVPairAdd(&matData->offset, &evalBishopPair);
+  if (bBishopL && bBishopD)
+    evalVPairSub(&matData->offset, &evalBishopPair);
   
-  #undef M
+# undef G
+# undef M
 }
 
-void EvalGetPawnData(const pos_t *Pos, evalpawndata_t *PawnData)
+void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData)
 {
-  // Grab hash entry for this position key
-  uint64_t Key=(uint64_t)PosGetPawnKey(Pos);
-  evalpawndata_t *Entry=HTableGrab(EvalPawnTable, Key);
+  // Grab hash entry for this position key.
+  uint64_t key=(uint64_t)posGetPawnKey(pos);
+  EvalPawnData *entry=htableGrab(evalPawnTable, key);
   
-  // If not a match recompute data
-  if (Entry->Pawns[white]!=PosGetBBPiece(Pos, wpawn) || Entry->Pawns[black]!=PosGetBBPiece(Pos, bpawn))
-    EvalComputePawnData(Pos, Entry);
+  // If not a match recompute data.
+  if (entry->pawns[ColourWhite]!=posGetBBPiece(pos, PieceWPawn) ||
+      entry->pawns[ColourBlack]!=posGetBBPiece(pos, PieceBPawn))
+    evalComputePawnData(pos, entry);
   
-  // Copy data to return it
-  *PawnData=*Entry;
+  // Copy data to return it.
+  *pawnData=*entry;
   
-  // We are finished with Entry, release lock
-  HTableRelease(EvalPawnTable, Key);
+  // We are finished with Entry, release lock.
+  htableRelease(evalPawnTable, key);
 }
 
-void EvalComputePawnData(const pos_t *Pos, evalpawndata_t *Data)
+void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData)
 {
-  // Init
-  bb_t WP=Data->Pawns[white]=PosGetBBPiece(Pos, wpawn);
-  bb_t BP=Data->Pawns[black]=PosGetBBPiece(Pos, bpawn);
-  bb_t Occ=PosGetBBAll(Pos);
-  Data->Score.MG=Data->Score.EG=0;
-  const sq_t *Sq, *SqEnd;
-  bb_t FrontSpanW=BBNorthOne(BBNorthFill(WP));
-  bb_t FrontSpanB=BBSouthOne(BBSouthFill(BP));
-  bb_t RearSpanW=BBSouthOne(BBSouthFill(WP));
-  bb_t RearSpanB=BBNorthOne(BBNorthFill(BP));
-  bb_t AttacksW=BBNorthOne(BBWingify(WP));
-  bb_t AttacksB=BBSouthOne(BBWingify(BP));
-  bb_t AttacksWFill=BBFileFill(AttacksW);
-  bb_t AttacksBFill=BBFileFill(AttacksB);
-  bb_t PotPassedW=~(BBWingify(FrontSpanB) | FrontSpanB);
-  bb_t PotPassedB=~(BBWingify(FrontSpanW) | FrontSpanW);
-  bb_t FillW=BBFileFill(WP), FillB=BBFileFill(BP);
-  Data->SemiOpenFiles[white]=(FillB & ~FillW);
-  Data->SemiOpenFiles[black]=(FillW & ~FillB);
-  Data->OpenFiles=~(FillW | FillB);
-  Data->Passed[white]=Data->Passed[black]=BBNone;
+  // Init.
+  BB wp=pawnData->pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn);
+  BB bp=pawnData->pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
+  BB occ=posGetBBAll(pos);
+  pawnData->score=VPairZero;
+  const Sq *sq, *sqEnd;
+  BB frontSpanW=bbNorthOne(bbNorthFill(wp));
+  BB frontSpanB=bbSouthOne(bbSouthFill(bp));
+  BB rearSpanW=bbSouthOne(bbSouthFill(wp));
+  BB rearSpanB=bbNorthOne(bbNorthFill(bp));
+  BB attacksW=bbNorthOne(bbWingify(wp));
+  BB attacksB=bbSouthOne(bbWingify(bp));
+  BB attacksWFill=bbFileFill(attacksW);
+  BB attacksBFill=bbFileFill(attacksB);
+  BB potPassedW=~(bbWingify(frontSpanB) | frontSpanB);
+  BB potPassedB=~(bbWingify(frontSpanW) | frontSpanW);
+  BB fillW=bbFileFill(wp), fillB=bbFileFill(bp);
+  pawnData->semiOpenFiles[ColourWhite]=(fillB & ~fillW);
+  pawnData->semiOpenFiles[ColourBlack]=(fillW & ~fillB);
+  pawnData->openFiles=~(fillW | fillB);
+  pawnData->passed[ColourWhite]=pawnData->passed[ColourBlack]=BBNone;
   
-  // Loop over every pawn
-  Sq=PosGetPieceListStart(Pos, wpawn);
-  SqEnd=PosGetPieceListEnd(Pos, wpawn);
-  for(;Sq<SqEnd;++Sq)
+  // Loop over every pawn.
+  sq=posGetPieceListStart(pos, PieceWPawn);
+  sqEnd=posGetPieceListEnd(pos, PieceWPawn);
+  for(;sq<sqEnd;++sq)
   {
-    // Calculate properties
-    bb_t BB=SQTOBB(*Sq);
-    bool Doubled=((BB & RearSpanW)!=BBNone);
-    bool Isolated=((BB & AttacksWFill)==BBNone);
-    bool Blocked=((BB & BBSouthOne(Occ))!=BBNone);
-    bool Passed=((BB & PotPassedW)!=BBNone);
+    // Calculate properties.
+    BB bb=bbSq(*sq);
+    bool doubled=((bb & rearSpanW)!=BBNone);
+    bool isolated=((bb & attacksWFill)==BBNone);
+    bool blocked=((bb & bbSouthOne(occ))!=BBNone);
+    bool passed=((bb & potPassedW)!=BBNone);
     
-    // Calculate score
-    EvalVPairAdd(&Data->Score, EvalPST[pawn][*Sq]);
-    if (Doubled)
-      EvalVPairAdd(&Data->Score, EvalPawnDoubled);
-    else if (Passed)
+    // Calculate score.
+    evalVPairAdd(&pawnData->score, &evalPST[PieceTypePawn][*sq]);
+    if (doubled)
+      evalVPairAdd(&pawnData->score, &evalPawnDoubled);
+    else if (passed)
     {
-      EvalVPairAdd(&Data->Score, EvalPawnPassed[SQ_Y(*Sq)]);
-      Data->Passed[white]|=BB;
+      evalVPairAdd(&pawnData->score, &evalPawnPassed[sqRank(*sq)]);
+      pawnData->passed[ColourWhite]|=bb;
     }
-    if (Isolated)
-      EvalVPairAdd(&Data->Score, EvalPawnIsolated);
-    if (Blocked)
-      EvalVPairAdd(&Data->Score, EvalPawnBlocked);
+    if (isolated)
+      evalVPairAdd(&pawnData->score, &evalPawnIsolated);
+    if (blocked)
+      evalVPairAdd(&pawnData->score, &evalPawnBlocked);
   }
-  Sq=PosGetPieceListStart(Pos, bpawn);
-  SqEnd=PosGetPieceListEnd(Pos, bpawn);
-  for(;Sq<SqEnd;++Sq)
+  sq=posGetPieceListStart(pos, PieceBPawn);
+  sqEnd=posGetPieceListEnd(pos, PieceBPawn);
+  for(;sq<sqEnd;++sq)
   {
-    // Calculate properties
-    bb_t BB=SQTOBB(*Sq);
-    bool Doubled=((BB & RearSpanB)!=BBNone);
-    bool Isolated=((BB & AttacksBFill)==BBNone);
-    bool Blocked=((BB & BBNorthOne(Occ))!=BBNone);
-    bool Passed=((BB & PotPassedB)!=BBNone);
+    // Calculate properties.
+    BB bb=bbSq(*sq);
+    bool doubled=((bb & rearSpanB)!=BBNone);
+    bool isolated=((bb & attacksBFill)==BBNone);
+    bool blocked=((bb & bbNorthOne(occ))!=BBNone);
+    bool passed=((bb & potPassedB)!=BBNone);
     
-    // Calculate score
-    EvalVPairSub(&Data->Score, EvalPST[pawn][SQ_FLIP(*Sq)]);
-    if (Doubled)
-      EvalVPairSub(&Data->Score, EvalPawnDoubled);
-    else if (Passed)
+    // Calculate score.
+    evalVPairSub(&pawnData->score, &evalPST[PieceTypePawn][sqFlip(*sq)]);
+    if (doubled)
+      evalVPairSub(&pawnData->score, &evalPawnDoubled);
+    else if (passed)
     {
-      EvalVPairSub(&Data->Score, EvalPawnPassed[SQ_Y(SQ_FLIP(*Sq))]);
-      Data->Passed[black]|=BB;
+      evalVPairSub(&pawnData->score, &evalPawnPassed[sqRank(sqFlip(*sq))]);
+      pawnData->passed[ColourBlack]|=bb;
     }
-    if (Isolated)
-      EvalVPairSub(&Data->Score, EvalPawnIsolated);
-    if (Blocked)
-      EvalVPairSub(&Data->Score, EvalPawnBlocked);
+    if (isolated)
+      evalVPairSub(&pawnData->score, &evalPawnIsolated);
+    if (blocked)
+      evalVPairSub(&pawnData->score, &evalPawnBlocked);
   }
 }
 
-vpair_t EvalPiece(evaldata_t *Data, piece_t Piece, sq_t Sq, col_t Colour)
+VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour)
 {
-  // Init
-  vpair_t Score={0,0};
-  const pos_t *Pos=Data->Pos;
-  sq_t AdjSq=(Colour==white ? Sq : SQ_FLIP(Sq));
-  bb_t BB=SQTOBB(Sq);
+  // Init.
+  VPair score=VPairZero;
+  const Pos *pos=data->pos;
+  Sq adjSq=(colour==ColourWhite ? sq : sqFlip(sq));
+  BB bb=bbSq(sq);
   
-  // PST
-  EvalVPairAdd(&Score, EvalPST[Piece][AdjSq]);
+  // PST.
+  evalVPairAdd(&score, &evalPST[type][adjSq]);
   
-  // Bishop mobility
-  if (Piece==bishopl || Piece==bishopd)
+  // Bishop mobility.
+  if (type==PieceTypeBishopL || type==PieceTypeBishopD)
   {
-    bb_t Attacks=AttacksBishop(Sq, PosGetBBAll(Pos));
-    EvalVPairAddMul(&Score, EvalBishopMob, BBPopCount(Attacks)-6);
+    BB attacks=attacksBishop(sq, posGetBBAll(pos));
+    evalVPairAddMul(&score, &evalBishopMob, bbPopCount(attacks)-6);
   }
   
-  if (Piece==rook)
+  // Rooks.
+  if (type==PieceTypeRook)
   {
-    bb_t RankBB=BBSqToRank(Sq);
+    BB rankBB=bbRank(sqRank(sq));
     
-    // Mobility
-    bb_t Attacks=AttacksRook(Sq, PosGetBBAll(Pos));
-    EvalVPairAddMul(&Score, EvalRookMobFile, BBPopCount(Attacks & BBFileFill(BB)));
-    EvalVPairAddMul(&Score, EvalRookMobRank, BBPopCount(Attacks & RankBB));
+    // Mobility.
+    BB attacks=attacksRook(sq, posGetBBAll(pos));
+    evalVPairAddMul(&score, &evalRookMobFile, bbPopCount(attacks & bbFileFill(bb)));
+    evalVPairAddMul(&score, &evalRookMobRank, bbPopCount(attacks & rankBB));
     
-    // Open and semi-open files
-    if (BB & Data->PawnData.OpenFiles)
-      EvalVPairAdd(&Score, EvalRookOpenFile);
-    else if (BB & Data->PawnData.SemiOpenFiles[Colour])
-      EvalVPairAdd(&Score, EvalRookSemiOpenFile);
+    // Open and semi-open files.
+    if (bb & data->pawnData.openFiles)
+      evalVPairAdd(&score, &evalRookOpenFile);
+    else if (bb & data->pawnData.semiOpenFiles[colour])
+      evalVPairAdd(&score, &evalRookSemiOpenFile);
     
-    // Rook on 7th
-    bb_t OppPawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, COL_SWAP(Colour)));
-    sq_t AdjOppKingSq=(Colour==white ? PosGetKingSq(Pos, black) :
-                                       SQ_FLIP(PosGetKingSq(Pos, white)));
-    if (SQ_Y(AdjSq)==6 && ((RankBB & OppPawns) || SQ_Y(AdjOppKingSq)==7))
-      EvalVPairAdd(&Score, EvalRookOn7th);
+    // Rook on 7th.
+    BB oppPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colourSwap(colour)));
+    Sq adjOppKingSq=(colour==ColourWhite ? posGetKingSq(pos, ColourBlack) : sqFlip(posGetKingSq(pos, ColourWhite)));
+    if (sqRank(adjSq)==Rank7 && ((rankBB & oppPawns) || sqRank(adjOppKingSq)==Rank8))
+      evalVPairAdd(&score, &evalRookOn7th);
     
-    // Trapped
-    bb_t KingBB=PosGetBBPiece(Pos, PIECE_MAKE(king, Colour));
-    if (Colour==white)
+    // Trapped.
+    BB kingBB=posGetBBPiece(pos, pieceMake(PieceTypeKing, colour));
+    if (colour==ColourWhite)
     {
-      if (((BB & (BBG1 | BBH1)) && (KingBB & (BBF1 | BBG1))) ||
-          ((BB & (BBA1 | BBB1)) && (KingBB & (BBB1 | BBC1))))
-        EvalVPairAdd(&Score, EvalRookTrapped);
+      if (((bb & (bbSq(SqG1) | bbSq(SqH1))) && (kingBB & (bbSq(SqF1) | bbSq(SqG1)))) ||
+          ((bb & (bbSq(SqA1) | bbSq(SqB1))) && (kingBB & (bbSq(SqB1) | bbSq(SqC1)))))
+        evalVPairAdd(&score, &evalRookTrapped);
     }
     else
     {
-      if (((BB & (BBG8 | BBH8)) && (KingBB & (BBF8 | BBG8))) ||
-          ((BB & (BBA8 | BBB8)) && (KingBB & (BBB8 | BBC8))))
-        EvalVPairAdd(&Score, EvalRookTrapped);
+      if (((bb & (bbSq(SqG8) | bbSq(SqH8))) && (kingBB & (bbSq(SqF8) | bbSq(SqG8)))) ||
+          ((bb & (bbSq(SqA8) | bbSq(SqB8))) && (kingBB & (bbSq(SqB8) | bbSq(SqC8)))))
+        evalVPairAdd(&score, &evalRookTrapped);
     }
   }
   
-  if (Piece==king)
+  // Kings.
+  if (type==PieceTypeKing)
   {
-    // Pawn shield
-    bb_t Pawns=PosGetBBPiece(Pos, PIECE_MAKE(pawn, Colour));
-    bb_t Set=BBForwardOne(BBWestOne(BB) | BB | BBEastOne(BB), Colour);
-    bb_t ShieldClose=(Pawns & Set);
-    bb_t ShieldFar=(Pawns & BBForwardOne(Set, Colour));
-    EvalVPairAddMul(&Score, EvalKingShieldClose, BBPopCount(ShieldClose));
-    EvalVPairAddMul(&Score, EvalKingShieldFar, BBPopCount(ShieldFar));
+    // Pawn shield.
+    BB pawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colour));
+    BB set=bbForwardOne(bbWestOne(bb) | bb | bbEastOne(bb), colour);
+    BB shieldClose=(pawns & set);
+    BB shieldFar=(pawns & bbForwardOne(set, colour));
+    evalVPairAddMul(&score, &evalKingShieldClose, bbPopCount(shieldClose));
+    evalVPairAddMul(&score, &evalKingShieldFar, bbPopCount(shieldFar));
   }
   
-  return Score;
+  return score;
 }
 
-static inline score_t EvalInterpolate(const evaldata_t *Data, const vpair_t *Score)
+Score evalInterpolate(const EvalData *data, const VPair *score)
 {
   // Interpolate and also scale to centi-pawns
-  return ((Data->MatData.WeightMG*Score->MG+Data->MatData.WeightEG*Score->EG)*100)/(EvalMaterial[pawn].MG*256);
+  return ((data->matData.weightMG*score->mg+data->matData.weightEG*score->eg)*100)/(evalMaterial[PieceTypePawn].mg*256);
 }
 
-static inline void EvalVPairAdd(vpair_t *A, vpair_t B)
+void evalVPairAdd(VPair *a, const VPair *b)
 {
-  A->MG+=B.MG;
-  A->EG+=B.EG;
+  a->mg+=b->mg;
+  a->eg+=b->eg;
 }
 
-static inline void EvalVPairSub(vpair_t *A, vpair_t B)
+void evalVPairSub(VPair *a, const VPair *b)
 {
-  A->MG-=B.MG;
-  A->EG-=B.EG;
+  a->mg-=b->mg;
+  a->eg-=b->eg;
 }
 
-static inline void EvalVPairAddMul(vpair_t *A, vpair_t B, int C)
+void evalVPairAddMul(VPair *a, const VPair *b, int c)
 {
-  A->MG+=B.MG*C;
-  A->EG+=B.EG*C;
+  a->mg+=b->mg*c;
+  a->eg+=b->eg*c;
 }
 
-static inline void EvalVPairSubMul(vpair_t *A, vpair_t B, int C)
+void evalVPairSubMul(VPair *a, const VPair *b, int c)
 {
-  A->MG-=B.MG*C;
-  A->EG-=B.EG*C;
+  a->mg-=b->mg*c;
+  a->eg-=b->eg*c;
 }
 
 #ifdef TUNE
-void EvalSetValue(int Value, void *UserData)
+void evalSetValue(void *varPtr, int value)
 {
-  // Set value
-  *((value_t *)UserData)=Value;
+  // Set value.
+  Value *var=(Value *)varPtr;
+  *var=value;
   
-  // Hack for bishops
-  if (((value_t *)UserData)==&EvalMaterial[bishopl].MG)
-    EvalMaterial[bishopd].MG=Value;
-  else if (((value_t *)UserData)==&EvalMaterial[bishopl].EG)
-    EvalMaterial[bishopd].EG=Value;
+  // Hack for bishops.
+  if (var==&evalMaterial[PieceTypeBishopL].mg)
+    evalMaterial[PieceTypeBishopD].mg=value;
+  else if (var==&evalMaterial[PieceTypeBishopL].eg)
+    evalMaterial[PieceTypeBishopD].eg=value;
   
-  // Recalculate dervied values (such as passed pawn table)
-  EvalRecalc();
+  // Recalculate dervied values (such as passed pawn table).
+  evalRecalc();
   
   // Clear now-invalid material and pawn tables etc.
-  EvalClear();
+  evalClear();
+}
+
+bool evalOptionNewVPair(const char *name, VPair *score)
+{
+  // Allocate string to hold name with 'MG'/'EG' appended
+  size_t nameLen=strlen(name);
+  char *fullName=malloc(nameLen+2+1);
+  if (fullName==NULL)
+    return false;
+  
+  // Add option for each of mg/eg
+  bool success=true;
+  const Value min=-32767, max=32767;
+  sprintf(fullName, "%sMG", name);
+  success&=uciOptionNewSpin(fullName, &evalSetValue, &score->mg, min, max, score->mg);
+  sprintf(fullName, "%sEG", name);
+  success&=uciOptionNewSpin(fullName, &evalSetValue, &score->eg, min, max, score->eg);
+  
+  free(fullName);
+  return success;
 }
 #endif
 
-void EvalRecalc()
+void evalRecalc(void)
 {
-  // Generate passed pawn array from quadratic coefficients
-  int Rank;
-  for(Rank=0;Rank<8;++Rank)
+  // Generate passed pawn array from quadratic coefficients.
+  Rank rank;
+  for(rank=0;rank<RankNB;++rank)
   {
-    EvalPawnPassed[Rank].MG=EvalPawnPassedQuadA.MG*Rank*Rank+EvalPawnPassedQuadB.MG*Rank+EvalPawnPassedQuadC.MG;
-    EvalPawnPassed[Rank].EG=EvalPawnPassedQuadA.EG*Rank*Rank+EvalPawnPassedQuadB.EG*Rank+EvalPawnPassedQuadC.EG;
+    evalPawnPassed[rank]=VPairZero;
+    evalVPairAddMul(&evalPawnPassed[rank], &evalPawnPassedQuadA, rank*rank);
+    evalVPairAddMul(&evalPawnPassed[rank], &evalPawnPassedQuadB, rank);
+    evalVPairAdd(&evalPawnPassed[rank], &evalPawnPassedQuadC);
   }
   
-  // Calculate factor for each material weight
-  int Weight;
-  for(Weight=0;Weight<128;++Weight)
+  // Calculate factor for each material weight.
+  unsigned int weight;
+  for(weight=0;weight<128;++weight)
   {
-    int Factor=(255.0*exp2f(-(Weight*Weight)/((float)EvalWeightFactor)));
-    assert(Factor>=0 && Factor<256);
-    EvalWeightEGFactor[Weight]=Factor;
+    unsigned int factor=(255.0*exp2f(-(float)(weight*weight)/((float)evalWeightFactor)));
+    assert(factor<256);
+    evalWeightEGFactor[weight]=factor;
   }
 }
 
-evalmattype_t EvalComputeMatType(const pos_t *Pos)
+EvalMatType evalComputeMatType(const Pos *pos)
 {
-  #define M(P,N) (POSMAT_MAKE((P),(N)))
+# define M(P,N) (matInfoMake((P),(N)))
+  MatInfo mat=posGetMatInfo(pos);
+  if (mat==(M(PieceWKnight,2)|M(PieceWKing,1)|M(PieceBKing,1)) ||
+      mat==(M(PieceBKnight,2)|M(PieceWKing,1)|M(PieceBKing,1)))
+    return EvalMatTypeKNNvK;
   
-  uint64_t Mat=PosGetMat(Pos);
-  if (Mat==(M(wknight,2)|M(wking,1)|M(bking,1)) || Mat==(M(bknight,2)|M(wking,1)|M(bking,1)))
-    return evalmattype_KNNvK;
-  
-  return evalmattype_other;
-  #undef M
+  return EvalMatTypeOther;
+# undef M
 }

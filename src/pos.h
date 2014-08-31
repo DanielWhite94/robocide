@@ -1,70 +1,88 @@
 #ifndef POS_H
 #define POS_H
 
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+
+typedef struct Pos Pos; // Defined here due to circular reference with Moves in moves.h.
+
 #include "bb.h"
-#include "types.h"
+#include "colour.h"
+#include "piece.h"
+#include "move.h"
+#include "moves.h"
+#include "square.h"
 
-// Macros for use with PosGetMat()
-#define POSMAT_SHIFT(P) (4*(2*PIECE_TYPE(P)+PIECE_COLOUR(P)))
-#define POSMAT_MASK(P) (15llu<<POSMAT_SHIFT(P))
-#define POSMAT_MASKCOL(C) (0x0F0F0F0F0F0F0F0Fllu<<(4*C))
-#define POSMAT_MAKE(P,Num) (((uint64_t)Num)<<POSMAT_SHIFT(P))
-#define POSMAT_GET(MAT, P) ((int)(((MAT)>>POSMAT_SHIFT(P)) & 15))
-
-typedef struct pos_t pos_t;
-
-void PosInit();
-pos_t *PosNew(const char *FEN); // If FEN==NULL uses standard initial position
-void PosFree(pos_t *Pos);
-pos_t *PosCopy(const pos_t *Src);
-bool PosSetToFEN(pos_t *Pos, const char *String); // If fails Pos is unchanged
-void PosDraw(const pos_t *Pos);
-col_t PosGetSTM(const pos_t *Pos);
-piece_t PosGetPieceOnSq(const pos_t *Pos, sq_t Sq);
-bb_t PosGetBBAll(const pos_t *Pos);
-bb_t PosGetBBColour(const pos_t *Pos, col_t Colour);
-bb_t PosGetBBPiece(const pos_t *Pos, piece_t Piece);
-char PosPieceToChar(piece_t Piece);
-int PosPieceCount(const pos_t *Pos, piece_t Piece);
-bool PosMakeMove(pos_t *Pos, move_t Move);
-void PosUndoMove(pos_t *Pos);
-bool PosIsSqAttackedByColour(const pos_t *Pos, sq_t Sq, col_t Colour);
-sq_t PosGetKingSq(const pos_t *Pos, col_t Colour);
-bool PosIsSTMInCheck(const pos_t *Pos);
-bool PosIsXSTMInCheck(const pos_t *Pos);
-void PosGenPseudoMoves(moves_t *Moves);
-void PosGenPseudoCaptures(moves_t *Moves);
-void PosGenPseudoQuiets(moves_t *Moves);
-move_t PosGenLegalMove(pos_t *Pos);
-const sq_t *PosGetPieceListStart(const pos_t *Pos, piece_t Piece);
-const sq_t *PosGetPieceListEnd(const pos_t *Pos, piece_t Piece);
-void PosMoveToStr(move_t Move, char Str[static 6]);
-move_t PosStrToMove(const pos_t *Pos, const char Str[static 6]);
-bool PosIsDraw(const pos_t *Pos, int Ply);
-bool PosIsMate(pos_t *Pos);
-bool PosIsStalemate(pos_t *Pos);
-unsigned int PosGetHalfMoveClock(const pos_t *Pos);
-bool PosLegalMoveExist(pos_t *Pos);
-hkey_t PosGetKey(const pos_t *Pos);
-hkey_t PosGetPawnKey(const pos_t *Pos);
-hkey_t PosGetMatKey(const pos_t *Pos);
-bool PosIsMovePseudoLegal(const pos_t *Pos, move_t Move);
-static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move);
-uint64_t PosGetMat(const pos_t *Pos); // Use macros above to access
-bool PosIsConsistent(pos_t *Pos);
-static inline bool PosHasPieces(const pos_t *Pos, col_t Col); // Non-pawn material?
-
-static inline bool PosIsMoveCapture(const pos_t *Pos, move_t Move)
+typedef enum
 {
-  return (PosGetPieceOnSq(Pos, MOVE_GETTOSQ(Move))!=empty ||
-          MOVE_ISPROMO(Move) || MOVE_ISEP(Move));
-}
+  CastRightsNone=0,
+  CastRightsq=1,
+  CastRightsk=2,
+  CastRightsQ=4,
+  CastRightsK=8,
+  CastRightsKQ=CastRightsK | CastRightsQ,
+  CastRightsKk=CastRightsK | CastRightsk,
+  CastRightsKq=CastRightsK | CastRightsq,
+  CastRightsQk=CastRightsQ | CastRightsk,
+  CastRightsQq=CastRightsQ | CastRightsq,
+  CastRightskq=CastRightsk | CastRightsq,
+  CastRightsKQk=CastRightsKQ | CastRightsk,
+  CastRightsKQq=CastRightsKQ | CastRightsq,
+  CastRightsKkq=CastRightsKk | CastRightsq,
+  CastRightsQkq=CastRightsQk | CastRightsq,
+  CastRightsKQkq=CastRightsKQ | CastRightskq,
+  CastRightsNB=16
+}CastRights;
 
-static inline bool PosHasPieces(const pos_t *Pos, col_t Col)
-{
-  return (PosGetBBColour(Pos, Col)!=(PosGetBBPiece(Pos, PIECE_MAKE(pawn, Col)) | PosGetBBPiece(Pos, PIECE_MAKE(king, Col))));
-}
+typedef uint64_t MatInfo; // Holds info on number of pieces.
+
+typedef uint64_t Key;
+#define PRIxKey PRIx64
+
+void posInit(void);
+Pos *posNew(const char *fen); // If fen is NULL uses standard initial position.
+void posFree(Pos *pos);
+Pos *posCopy(const Pos *src);
+bool posSetToFEN(Pos *pos, const char *string); // If fails pos is unchanged.
+void posDraw(const Pos *pos);
+Colour posGetSTM(const Pos *pos);
+Piece posGetPieceOnSq(const Pos *pos, Sq sq);
+BB posGetBBAll(const Pos *pos);
+BB posGetBBColour(const Pos *pos, Colour colour);
+BB posGetBBPiece(const Pos *pos, Piece piece);
+unsigned int posGetPieceCount(const Pos *pos, Piece piece);
+Sq posGetKingSq(const Pos *pos, Colour colour);
+const Sq *posGetPieceListStart(const Pos *pos, Piece piece); // Used to loop over each piece of a given kind.
+const Sq *posGetPieceListEnd(const Pos *pos, Piece piece);
+unsigned int posGetHalfMoveNumber(const Pos *pos);
+Key posGetKey(const Pos *pos);
+Key posGetPawnKey(const Pos *pos);
+Key posGetMatKey(const Pos *pos);
+MatInfo posGetMatInfo(const Pos *pos);
+bool posMakeMove(Pos *pos, Move move);
+void posUndoMove(Pos *pos);
+void posGenPseudoMoves(Moves *moves);
+void posGenPseudoCaptures(Moves *moves);
+void posGenPseudoQuiets(Moves *moves);
+Move posGenLegalMove(Pos *pos);
+bool posIsSqAttackedByColour(const Pos *pos, Sq sq, Colour colour);
+bool posIsSTMInCheck(const Pos *pos);
+bool posIsXSTMInCheck(const Pos *pos);
+bool posIsDraw(const Pos *pos, unsigned int ply);
+bool posIsMate(Pos *pos);
+bool posIsStalemate(Pos *pos);
+bool posLegalMoveExists(Pos *pos);
+bool posHasPieces(const Pos *pos, Colour colour); // Non-pawn material?
+bool posMoveIsPseudoLegal(const Pos *pos, Move move); // If side-to-move is not in check will also permit MoveNone.
+bool posMoveIsQuiet(const Pos *pos, Move move);
+Move posMoveFromStr(const Pos *pos, const char str[static 6]);
+void posMoveToStr(const Pos *pos, Move move, char str[static 6]);
+unsigned int matInfoGetPieceCount(MatInfo info, Piece piece);
+MatInfo matInfoMake(Piece piece, unsigned int count); // Can be OR'd together to make full MatInfo 'object'.
+MatInfo matInfoMakeMaskPiece(Piece piece); // A mask which one can AND with to test if any pieces of a given kind are present.
+MatInfo matInfoMakeMaskPieceType(PieceType type);
+MatInfo matInfoMakeMaskColour(Colour colour);
 
 #endif

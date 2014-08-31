@@ -1,14 +1,15 @@
 #ifndef UCI_H
 #define UCI_H
 
-#include <stdbool.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
-void UCILoop();
-bool UCIOptionNewCheck(const char *Name, void(*Function)(bool Value, void *UserData), void *UserData, bool Default);
-bool UCIOptionNewSpin(const char *Name, void(*Function)(int Value, void *UserData), void *UserData, int Min, int Max, int Default);
-bool UCIOptionNewCombo(const char *Name, void(*Function)(const char *Value, void *UserData), void *UserData, const char *Default, int OptionCount, ...);
-bool UCIOptionNewButton(const char *Name, void(*Function)(void *UserData), void *UserData);
-bool UCIOptionNewString(const char *Name, void(*Function)(const char *Value, void *UserData), void *UserData, const char *Default);
+void uciLoop(void);
+bool uciWrite(const char *format, ...);
+bool uciOptionNewCheck(const char *name, void(*function)(void *userData, bool value), void *userData, bool initial);
+bool uciOptionNewSpin(const char *name, void(*function)(void *userData, int value), void *userData, int initial, int min, int max);
+bool uciOptionNewCombo(const char *name, void(*function)(void *userData, const char *value), void *userData, const char *initial, size_t optionCount, ...);
+bool uciOptionNewButton(const char *name, void(*function)(void *userData), void *userData);
+bool uciOptionNewString(const char *name, void(*function)(void *userData, const char *value), void *userData, const char *initial);
 
 #endif

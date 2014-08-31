@@ -59,8 +59,8 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
   [PieceTypeNone]={0,0},
   [PieceTypePawn]={900,1300},
   [PieceTypeKnight]={3100,3100},
-  [PieceTypeBishopL]={3250,3250},
-  [PieceTypeBishopD]={3250,3250},
+  [PieceTypeBishopL]={3010,3070},
+  [PieceTypeBishopD]={3010,3070},
   [PieceTypeRook]={5350,5350},
   [PieceTypeQueen]={10000,10000},
   [PieceTypeKing]={0,0}};
@@ -567,7 +567,7 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour)
   if (type==PieceTypeBishopL || type==PieceTypeBishopD)
   {
     BB attacks=attacksBishop(sq, posGetBBAll(pos));
-    evalVPairAddMul(&score, &evalBishopMob, bbPopCount(attacks)-6);
+    evalVPairAddMul(&score, &evalBishopMob, bbPopCount(attacks));
   }
   
   // Rooks.

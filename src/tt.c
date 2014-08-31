@@ -9,20 +9,19 @@
 #include "uci.h"
 #include "util.h"
 
-// Transposition table entry - 128 bits.
+// Transposition table entry - 64 bits.
 STATICASSERT(MoveBit<=16);
 STATICASSERT(ScoreBit<=16);
 STATICASSERT(BoundBit<=2);
 STATICASSERT(DateBit<=6);
 typedef struct
 {
-  uint64_t key;
+  uint16_t key;
   uint16_t move;
   int16_t score;
   uint8_t depth;
   uint8_t bound:2;
   uint8_t date:6; // Search date at the time the entry was last read/written, used to calculate entry age.
-  uint16_t dummy; // Padding.
 }TTEntry;
 
 // Group ttClusterSize number of entries into each 'bin'.
@@ -148,7 +147,7 @@ void ttWrite(const Pos *pos, unsigned int ply, unsigned int depth, Move move, Sc
     if (ttEntryMatch(pos, entry) || ttEntryUnused(entry))
     {
       // Set key (in case entry was previously unused).
-      entry->key=key;
+      entry->key=(key>>48);
       
       // Update entry date (to reset age to 0).
       entry->date=searchGetDate();
@@ -179,7 +178,7 @@ void ttWrite(const Pos *pos, unsigned int ply, unsigned int depth, Move move, Sc
   }
   
   // Replace entry.
-  replace->key=key;
+  replace->key=(key>>48);
   replace->move=move;
   replace->score=ttScoreIn(score, ply);
   replace->depth=depth;
@@ -196,7 +195,7 @@ void ttWrite(const Pos *pos, unsigned int ply, unsigned int depth, Move move, Sc
 bool ttEntryMatch(const Pos *pos, const TTEntry *entry)
 {
   // Key match and move psueudo-legal?
-  return (entry->key==posGetKey(pos) && posMoveIsPseudoLegal(pos, entry->move));
+  return (entry->key==(posGetKey(pos)>>48) && posMoveIsPseudoLegal(pos, entry->move));
 }
 
 bool ttEntryUnused(const TTEntry *entry)

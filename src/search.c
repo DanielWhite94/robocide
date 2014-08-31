@@ -24,7 +24,6 @@ typedef struct
   Score alpha, beta;
   bool inCheck;
   // Search functions should ensure these are set correctly before returning:
-  Move move;
   Score score;
   Bound bound;
 }Node;
@@ -196,18 +195,14 @@ void searchIDLoop(void *posPtr)
   node.inCheck=posIsSTMInCheck(node.pos);
   
   // Loop increasing search depth until we run out of 'time'.
-  Move bestMove=MoveInvalid;
   for(node.depth=1;node.depth<SearchMaxPly;++node.depth)
   {
     // Search
     searchNode(&node);
     
-    // No moves searched? (i.e. out of time/nodes/etc.).
-    if (node.move==MoveInvalid)
+    // No info found? (out of time/nodes/etc.).
+    if (node.bound==BoundNone)
       break;
-    
-    // Update bestmove
-    bestMove=node.move;
     
     // Output info
     searchOutput(&node);
@@ -217,18 +212,12 @@ void searchIDLoop(void *posPtr)
       break;
   }
   
-  // Grab best move (and potentially ponder move)
-  if (!moveIsValid(bestMove))
-  {
-    // Try TT.
-    bestMove=ttReadMove(node.pos);
-    
-    // Otherwise simply use some legal move.
-    if (bestMove==MoveInvalid)
-      bestMove=posGenLegalMove(node.pos);
-  }
+  // Grab best move from TT if available, otherwise choose a legal move.
+  Move bestMove=ttReadMove(node.pos);
+  if (bestMove==MoveInvalid)
+    bestMove=posGenLegalMove(node.pos);
   
-  // If in pondering mode try to extract ponder move
+  // If in pondering mode try to extract ponder move.
   Move ponderMove=MoveInvalid;
   if (searchPonder && moveIsValid(bestMove))
   {
@@ -237,7 +226,7 @@ void searchIDLoop(void *posPtr)
     posUndoMove(node.pos);
   }
   
-  // Send best move (and potentially ponder move) to GUI
+  // Send best move (and potentially ponder move) to GUI.
   char str[8];
   posMoveToStr(node.pos, bestMove, str);
   if (moveIsValid(ponderMove))
@@ -328,7 +317,6 @@ void searchNodeInternal(Node *node)
         (ttBound==BoundUpper && (ttScore<=node->alpha)))
     {
       node->bound=ttBound;
-      node->move=ttMove;
       node->score=ttScore;
       return;
     }
@@ -354,7 +342,6 @@ void searchNodeInternal(Node *node)
     if (score>=node->beta)
     {
       node->bound=BoundLower;
-      node->move=MoveNone;
       node->score=node->beta;
       return;
     }
@@ -375,6 +362,7 @@ void searchNodeInternal(Node *node)
   Moves moves;
   movesInit(&moves, node->pos, true);
   movesRewind(&moves, ttMove);
+  Move bestMove;
   do
   {
     assert(depth>=0 && depth<=node->depth);
@@ -383,7 +371,7 @@ void searchNodeInternal(Node *node)
     Score alpha=node->alpha;
     node->score=ScoreInvalid;
     node->bound=BoundUpper;
-    node->move=MoveInvalid;
+    bestMove=MoveInvalid;
     child.alpha=-node->beta;
     child.beta=-alpha;
     Move move;
@@ -428,22 +416,21 @@ void searchNodeInternal(Node *node)
         if (depth<node->depth)
         {
           node->bound=BoundNone;
-          node->move=MoveInvalid;
           node->score=ScoreInvalid;
           return;
         }
         
-        // Node type is tricky as we haven't yet searched all moves.
+        // Bound type is tricky as we haven't yet searched all moves.
         node->bound&=~BoundUpper;
         if (node->bound==BoundNone)
         {
-          node->move=MoveInvalid;
           node->score=ScoreInvalid;
           return;
         }
         
         // We may have useful info, update TT.
-        ttWrite(node->pos, node->ply, node->depth, node->move, node->score, node->bound);
+        assert(moveIsValid(bestMove));
+        ttWrite(node->pos, node->ply, node->depth, bestMove, node->score, node->bound);
           
         return;
       }
@@ -453,7 +440,7 @@ void searchNodeInternal(Node *node)
       {
         // Update best score and move.
         node->score=score;
-        node->move=move;
+        bestMove=move;
         
         // Cutoff?
         if (score>=node->beta)
@@ -477,7 +464,6 @@ void searchNodeInternal(Node *node)
     if (node->score==ScoreInvalid)
     {
       node->bound=BoundExact;
-      node->move=MoveNone;
       if (node->inCheck)
       {
         assert(posIsMate(node->pos));
@@ -492,27 +478,27 @@ void searchNodeInternal(Node *node)
     }
     
     cutoff:
-    movesRewind(&moves, node->move);
+    movesRewind(&moves, bestMove);
     
     // Continue onto next depth or done.
   }while((depth+=searchIIDReduction)<=node->depth);
   
   // We now know the best move.
-  assert(node->move!=MoveInvalid);
+  assert(moveIsValid(bestMove));
   assert(scoreIsValid(node->score));
   assert(node->bound!=BoundNone);
   
   // Update history table.
-  if (posMoveIsQuiet(node->pos, node->move))
+  if (posMoveIsQuiet(node->pos, bestMove))
   {
-    Piece fromPiece=moveGetToPiece(node->move);
-    assert(fromPiece==posGetPieceOnSq(node->pos, moveGetFromSq(node->move))); // Could only disagree if move is promotion, but these are classed as captures.
-    Sq toSq=moveGetToSq(node->move);
+    Piece fromPiece=moveGetToPiece(bestMove);
+    assert(fromPiece==posGetPieceOnSq(node->pos, moveGetFromSq(bestMove))); // Could only disagree if move is promotion, but these are classed as captures.
+    Sq toSq=moveGetToSq(bestMove);
     historyInc(fromPiece, toSq, node->depth);
   }
   
   // Update transposition table.
-  ttWrite(node->pos, node->ply, node->depth, node->move, node->score, node->bound);
+  ttWrite(node->pos, node->ply, node->depth, bestMove, node->score, node->bound);
   
   return;
 }
@@ -534,7 +520,6 @@ void searchQNodeInternal(Node *node)
     if (eval>=node->beta)
     {
       node->bound=BoundLower;
-      node->move=MoveNone;
       node->score=node->beta;
       return;
     }
@@ -545,7 +530,6 @@ void searchQNodeInternal(Node *node)
   // Search moves.
   Node child;
   node->bound=BoundUpper;
-  node->move=MoveNone;
   node->score=ScoreInvalid;
   child.pos=node->pos;
   child.depth=node->depth;
@@ -569,12 +553,8 @@ void searchQNodeInternal(Node *node)
     // Out of time? (previous search result is invalid).
     if (searchIsTimeUp())
     {
-      // Node type is tricky as we haven't yet searched all moves.
+      // Bound type is tricky as we haven't yet searched all moves.
       node->bound&=~BoundUpper;
-      
-      // HACK.
-      if (node->move==MoveNone)
-        node->move=MoveInvalid;
       
       return;
     }
@@ -589,7 +569,6 @@ void searchQNodeInternal(Node *node)
       alpha=score;
       child.beta=-alpha;
       node->bound=BoundExact;
-      node->move=move;
       
       // Cutoff?
       if (score>=node->beta)
@@ -647,7 +626,6 @@ bool searchIsTimeUp(void)
 void searchOutput(Node *node)
 {
   assert(scoreIsValid(node->score));
-  assert(node->move!=MoveInvalid);
   assert(node->bound!=BoundNone);
   
   // Various bits of data
@@ -661,12 +639,16 @@ void searchOutput(Node *node)
   uciWrite(" rawscore %i", (int)node->score);
 # endif
   
-  // PV (extracted from TT, mostly)
+  // PV (extracted from TT)
   uciWrite(" pv");
   unsigned int ply=0;
-  Move move=node->move;
-  while(move!=MoveInvalid)
+  while(1)
   {
+    // Read move from TT.
+    Move move=ttReadMove(node->pos);
+    if (move==MoveInvalid)
+      break;
+    
     // Compute move string before we make the move.
     posMoveToStr(node->pos, move, str);
     
@@ -681,9 +663,6 @@ void searchOutput(Node *node)
     // Draw? (don't want infinite PVs in case of repetition).
     if (posIsDraw(node->pos, ply))
       break;
-    
-    // Read next move from TT.
-    move=ttReadMove(node->pos);
   }
   
   // Return position to initial state.
@@ -708,7 +687,6 @@ void searchNodePreCheck(Node *node)
   
   // Set other values to invalid to detect errors in post-checks.
   node->bound=BoundNone;
-  node->move=MoveInvalid;
   node->score=ScoreInvalid;
 }
 
@@ -724,13 +702,11 @@ void searchNodePostCheck(const Node *preNode, const Node *postNode)
   if (scoreIsValid(postNode->score))
   {
     assert(postNode->bound==BoundLower || postNode->bound==BoundUpper || postNode->bound==BoundExact);
-    assert(postNode->move!=MoveInvalid);
   }
   else
   {
     assert(searchIsTimeUp());
     assert(postNode->bound==BoundNone);
-    assert(postNode->move==MoveInvalid);
   }
 }
 
@@ -743,7 +719,6 @@ bool searchInteriorRecog(Node *node)
   // Test for draws by rule (and rare checkmates)
   if (posIsDraw(node->pos, node->ply))
   {
-    node->move=MoveNone;
     node->bound=BoundExact;
     
     // In rare cases checkmate can be given on 100th half move
@@ -777,7 +752,6 @@ bool searchInteriorRecogKNNvK(Node *node)
   if (posGetSTM(node->pos)==defender && (!node->inCheck || posLegalMoveExists(node->pos)))
   {
     assert(!posIsMate(node->pos));
-    node->move=MoveNone;
     node->score=ScoreDraw;
     node->bound=BoundExact;
     return true;

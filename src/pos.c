@@ -670,23 +670,28 @@ bool posMoveIsPseudoLegal(const Pos *pos, Move move)
   Sq toSq=moveGetToSq(move);
   Piece fromPiece=posGetPieceOnSq(pos, fromSq);
   BB occ=posGetBBAll(pos);
-  int dX=abs(sqFile(fromSq)-sqFile(toSq));
+  unsigned int dX=abs(sqFile(fromSq)-sqFile(toSq));
   int dY=abs(sqRank(fromSq)-sqRank(toSq));
   switch(pieceGetType(fromPiece))
   {
     case PieceTypePawn:
     {
       Piece capPiece=posGetPieceOnSq(pos, toSq);
-      if ((dX==0 && capPiece!=PieceNone) ||
-          (dX==1 && capPiece==PieceNone && toSq!=pos->data->epSq))
+      
+      // The next line was derived from the following equivalent expression:
+      // (!(dX==0 && capPiece==PieceNone) && !(dX==1 && (capPiece!=PieceNone || toSq==pos->data->epSq)));
+      bool invalidMovement=((dX!=0 || capPiece!=PieceNone) && (dX!=1 || (capPiece==PieceNone && toSq!=pos->data->epSq)));
+      PieceType toPieceType=pieceGetType(toPiece);
+      if (invalidMovement || toPieceType==PieceTypeKing)
         return false;
-      return (pieceGetType(toPiece)==PieceTypePawn || sqRank(toSq)==Rank1 || sqRank(toSq)==Rank8);
+      else if (sqRank(toSq)==Rank1 || sqRank(toSq)==Rank8)
+        return (toPieceType>=PieceTypeKnight && toPieceType<=PieceTypeQueen);
+      else
+        return (toPieceType==PieceTypePawn);
     }
     break;
     case PieceTypeKnight:
-      if ((dX!=2 || dY!=1) && (dX!=1 || dY!=2))
-        return false;
-      return (fromPiece==toPiece && (bbBetween(fromSq, toSq) & occ)==BBNone);
+      return (((dX==2 && dY==1) || (dX==1 && dY==2)) && fromPiece==toPiece && (bbBetween(fromSq, toSq) & occ)==BBNone);
     break;
     case PieceTypeBishopL:
     case PieceTypeBishopD:
@@ -764,6 +769,9 @@ void posMoveToStr(const Pos *pos, Move move, char str[static 6])
     strcpy(str, "0000");
     return;
   }
+  
+  // Sanity checks.
+  assert(posGetSTM(pos)==moveGetColour(move));
   
   // From/to squares.
   Sq fromSq=moveGetFromSq(move);

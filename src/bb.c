@@ -63,7 +63,7 @@ void bbInit(void)
 
 void bbDraw(BB bb)
 {
-  unsigned int x, y;
+  int x, y;
   for(y=7;y>=0;--y)
   {
     for(x=0;x<8;++x)

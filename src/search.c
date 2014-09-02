@@ -316,12 +316,18 @@ void searchNodeInternal(Node *node)
   unsigned int ttDepth;
   Score ttScore;
   Bound ttBound;
-  if (ttRead(node->pos, node->ply, &ttMove, &ttDepth, &ttScore, &ttBound) && ttDepth>=node->depth)
+  if (ttRead(node->pos, node->ply, &ttMove, &ttDepth, &ttScore, &ttBound))
   {
+    // Sanity checks.
+    assert(moveIsValid(ttMove));
+    assert(scoreIsValid(ttScore));
+    assert(ttBound!=BoundNone);
+    
     // Check for cutoff.
-    if (ttBound==BoundExact ||
-        (ttBound==BoundLower && (ttScore>=node->beta)) ||
-        (ttBound==BoundUpper && (ttScore<=node->alpha)))
+    if (ttDepth>=node->depth &&
+        (ttBound==BoundExact ||
+         (ttBound==BoundLower && (ttScore>=node->beta)) ||
+         (ttBound==BoundUpper && (ttScore<=node->alpha))))
     {
       node->bound=ttBound;
       node->score=ttScore;
@@ -377,7 +383,7 @@ void searchNodeInternal(Node *node)
     // Prepare to search current depth.
     Score alpha=node->alpha;
     node->score=ScoreInvalid;
-    node->bound=BoundUpper;
+    node->bound=BoundNone;
     bestMove=MoveInvalid;
     child.alpha=-node->beta;
     child.beta=-alpha;
@@ -419,26 +425,19 @@ void searchNodeInternal(Node *node)
       // Out of time? (previous search result is invalid).
       if (searchIsTimeUp())
       {
-        // Not yet started node->depth search?
-        if (depth<node->depth)
+        // Not yet started node->depth search or no moves searched?
+        if (depth<node->depth || node->bound==BoundNone)
         {
           node->bound=BoundNone;
           node->score=ScoreInvalid;
           return;
         }
-        
-        // Bound type is tricky as we haven't yet searched all moves.
-        node->bound&=~BoundUpper;
-        if (node->bound==BoundNone)
-        {
-          node->score=ScoreInvalid;
-          return;
-        }
+        assert(scoreIsValid(node->score));
+        assert(moveIsValid(bestMove));
         
         // We may have useful info, update TT.
-        assert(moveIsValid(bestMove));
         ttWrite(node->pos, node->ply, node->depth, bestMove, node->score, node->bound);
-          
+        
         return;
       }
       
@@ -449,20 +448,20 @@ void searchNodeInternal(Node *node)
         node->score=score;
         bestMove=move;
         
-        // Cutoff?
-        if (score>=node->beta)
-        {
-          node->bound=BoundLower;
-          goto cutoff;
-        }
-        
-        // Update alpha.
+        // Alpha improvement?
         if (score>alpha)
         {
+          // We can trust the score as a lowerbound.
+          node->bound|=BoundLower;
+          
+          // Cutoff?
+          if (score>=node->beta)
+            goto cutoff;
+          
+          // Update values.
           alpha=score;
           child.alpha=-alpha-1;
           child.beta=-alpha;
-          node->bound=BoundExact;
         }
       }
     }
@@ -483,6 +482,8 @@ void searchNodeInternal(Node *node)
       }
       return;
     }
+    
+    node->bound|=BoundUpper; // We have searched all moves.
     
     cutoff:
     movesRewind(&moves, bestMove);
@@ -536,7 +537,7 @@ void searchQNodeInternal(Node *node)
   
   // Search moves.
   Node child;
-  node->bound=BoundUpper;
+  node->bound=BoundNone;
   node->score=ScoreInvalid;
   child.pos=node->pos;
   child.depth=node->depth;
@@ -560,8 +561,9 @@ void searchQNodeInternal(Node *node)
     // Out of time? (previous search result is invalid).
     if (searchIsTimeUp())
     {
-      // Bound type is tricky as we haven't yet searched all moves.
-      node->bound&=~BoundUpper;
+      // Update score if valid.
+      if (node->bound!=BoundNone)
+        node->score=alpha;
       
       return;
     }
@@ -572,17 +574,16 @@ void searchQNodeInternal(Node *node)
     // Better move?
     if (score>alpha)
     {
+      // We can now trust score as a lowerbound.
+      node->bound|=BoundLower;
+      
       // Update alpha.
       alpha=score;
       child.beta=-alpha;
-      node->bound=BoundExact;
       
       // Cutoff?
       if (score>=node->beta)
-      {
-        node->bound=BoundLower;
         goto cutoff;
-      }
     }
   }
   
@@ -608,6 +609,8 @@ void searchQNodeInternal(Node *node)
       // Else there are quiet moves available, assume one is at least as good as standing pat.
       node->bound=BoundLower;
   }
+  
+  node->bound|=BoundUpper; // We have searched all moves.
   
   // We now know the best move.
   cutoff:

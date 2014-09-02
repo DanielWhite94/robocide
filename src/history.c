@@ -15,17 +15,19 @@ void historyInc(Piece fromPiece, Sq toSq, unsigned int depth)
   
   // Increment count in table
   History *counter=&history[fromPiece][toSq];
-  *counter+=(((History)1)<<depth);
+  *counter+=(((History)1)<<utilMin(depth, HistoryBit-1));
   
   // Overflow? (not a literal overflow, but beyond desired range)
   if (*counter>=HistoryMax)
     historyAge();
+  assert(*counter<HistoryMax);
 }
 
 History historyGet(Piece fromPiece, Sq toSq)
 {
   assert(pieceIsValid(fromPiece));
   assert(sqIsValid(toSq));
+  assert(history[fromPiece][toSq]<HistoryMax);
   return history[fromPiece][toSq];
 }
 

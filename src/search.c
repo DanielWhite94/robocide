@@ -163,7 +163,6 @@ MoveScore searchScoreMove(const Pos *pos, Move move)
   score<<=HistoryBit;
   
   // Further sort using history tables
-  assert(historyGet(fromPiece, toSq)<HistoryMax);
   score+=historyGet(fromPiece, toSq);
   
   assert(score<MoveScoreMax);

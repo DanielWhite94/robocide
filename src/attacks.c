@@ -76,3 +76,20 @@ BB attacksPiece(Piece piece, Sq sq, BB occ)
     default: assert(false); return BBNone; break;
   }
 }
+
+BB attacksPieceType(PieceType type, Sq sq, BB occ)
+{
+  assert(type>=PieceTypeKnight && type<=PieceTypeKing);
+  assert(sqIsValid(sq));
+  
+  switch(type)
+  {
+    case PieceTypeKnight: return attacksKnight(sq); break;
+    case PieceTypeBishopL: return attacksBishop(sq, occ); break;
+    case PieceTypeBishopD: return attacksBishop(sq, occ); break;
+    case PieceTypeRook: return attacksRook(sq, occ); break;
+    case PieceTypeQueen: return attacksQueen(sq, occ); break;
+    case PieceTypeKing: return attacksKing(sq); break;
+    default: assert(false); return BBNone; break;
+  }
+}

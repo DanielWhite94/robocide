@@ -1,5 +1,6 @@
 #include <assert.h>
 
+#include "attacks.h"
 #include "eval.h"
 #include "history.h"
 #include "main.h"
@@ -54,7 +55,9 @@ bool searchIsZugzwang(const Node *node);
 void searchNodePreCheck(Node *node);
 void searchNodePostCheck(const Node *preNode, const Node *postNode);
 bool searchInteriorRecog(Node *node);
+bool searchInteriorRecogBlocked(Node *node);
 bool searchInteriorRecogKNNvK(Node *node);
+BB searchFill(PieceType type, BB init, BB occ, BB target);
 bool searchNodeIsPV(const Node *node);
 bool searchNodeIsQ(const Node *node);
 void searchInterfacePonder(void *dummy, bool ponder);
@@ -722,16 +725,16 @@ void searchNodePostCheck(const Node *preNode, const Node *postNode)
 
 bool searchInteriorRecog(Node *node)
 {
-  // Sanity checks
+  // Sanity checks.
   assert(node->alpha>=-ScoreInf && node->alpha<node->beta && node->beta<=ScoreInf);
   assert(node->ply>0);
   
-  // Test for draws by rule (and rare checkmates)
+  // Test for draws by rule (and rare checkmates).
   if (posIsDraw(node->pos, node->ply))
   {
     node->bound=BoundExact;
     
-    // In rare cases checkmate can be given on 100th half move
+    // In rare cases checkmate can be given on 100th half move.
     if (node->inCheck && posGetHalfMoveNumber(node->pos)==100 && !posLegalMoveExists(node->pos))
     {
       assert(posIsMate(node->pos));
@@ -743,21 +746,121 @@ bool searchInteriorRecog(Node *node)
     return true;
   }
   
-  // Special recognizers
+  // Blocked positions.
+  if (node->beta<=ScoreDraw && searchInteriorRecogBlocked(node))
+  {
+    node->score=ScoreDraw;
+    node->bound=BoundLower;
+    return true;
+  }
+  
+  // Special material combination recognizers.
   switch(evalGetMatType(node->pos))
   {
     case EvalMatTypeKNNvK: if (searchInteriorRecogKNNvK(node)) return true; break;
     default:
-      // No handler for this combination
+      // No handler for this combination.
     break;
   }
   
   return false;
 }
 
+bool searchInteriorRecogBlocked(Node *node)
+{
+  // Attempt to detect if the side to move (the defender) can maintain the
+  // current pawn structure and simply shuffle a piece, hence giving at least a
+  // draw.
+  const Pos *pos=node->pos;
+  Colour def=posGetSTM(pos);
+  Colour atk=colourSwap(def);
+  BB occ=posGetBBAll(pos);
+  BB atkPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, atk));
+  BB atkPawnStops=bbForwardOne(atkPawns, atk);
+  BB atkPawnAtks=bbWingify(atkPawnStops);
+  BB defOcc=posGetBBColour(pos, def);
+  BB defPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, def));
+  BB defKing=posGetBBPiece(pos, pieceMake(PieceTypeKing, def));
+  
+  // Can any of attacker's pawns potentially move, either by:
+  // * Moving forward if they are not blocked by a same-coloured pawn or one of the defender's pieces.
+  // * Capturing if the defender has any pieces on target squares.
+  if (((atkPawnStops&~(defOcc|atkPawns)) | (atkPawnAtks&defOcc))!=BBNone)
+    return false;
+  
+  // Now test if any of the attacker's pieces can reach any of the defender's
+  // blockers (or king).
+  // Note: We overestimate the power of the attacker. It is assumed that he
+  // can always manoeuvre his own non-pawn pieces out of the way when making
+  // moves.
+  // The following position is an example of where this logic fails:
+  //   7k/8/6p1/5pPp/2p1pP1P/1pPpP2R/1P1P4/2B1K3 b - - 0 1
+  // While it is obvious the bishop on c1 is as blocked as the pawns are, the
+  // code below will still think that the rook can make it to a4 and attack the
+  // defender's pawns.
+  BB atkInfluence=atkPawnAtks; // Set of squares attacker can reach in any number of steps.
+  BB blockers=(atkPawnStops & defOcc); // A blocker is a defender piece that is necessary and cannot move - it is holding back the attacker's pawns.
+  BB target=(blockers|defKing); // If the attacker can reach one of these (i.e. attack it), the fortress may be breached.
+  BB fillOcc=(blockers | atkPawns); // We don't mind if some of defender's pieces are captured - just the blockers and king are important.
+  PieceType type;
+  for(type=PieceTypeKnight;type<=PieceTypeQueen;++type)
+  {
+    // Find 'attack fill' for all pieces of the current type.
+    // This is a bitboard with 1s for all squares the pieces can move to with
+    // any number of steps, but without moving from an 'occupied' square.
+    BB attackers=posGetBBPiece(pos, pieceMake(type, atk));
+    BB fill=searchFill(type, attackers, fillOcc, target);
+    if ((fill & target)!=BBNone)
+      return false;
+    atkInfluence|=fill;
+  }
+  
+  // Calculate squares defender attacks (and hence where attacker king can not
+  // walk).
+  // Note: We underestimate the power of the defender. We do not consider
+  // attacks from non-blocker pieces which could put further restrictions on the
+  // attacker's king. However we do not yet know if said king could attack any
+  // of said pieces (and hence we do not know if we can trust their attacks to
+  // exist).
+  assert((blockers & atkInfluence)==BBNone); // Check blockers are not attackable.
+  BB defAttacks=BBNone;
+  BB set=blockers;
+  while(set)
+  {
+    Sq sq=bbScanReset(&set);
+    defAttacks|=attacksPiece(posGetPieceOnSq(pos, sq), sq, occ);
+  }
+  
+  // King fill.
+  BB atkKing=posGetBBPiece(pos, pieceMake(PieceTypeKing, atk));
+  BB fill=searchFill(PieceTypeKing, atkKing, (defAttacks | atkPawns), target);
+  if ((fill & target)!=BBNone)
+    return false;
+  atkInfluence|=fill;
+  
+  // Finally ensure the defender has a legal move which does not disturb the fortress.
+  // As we know the current piece placement holds the fortress, we just need to
+  // test that one of the defender's pieces has a reversible move available
+  // (i.e. a non-pawn,  not a capture, not castling). This implies the piece can
+  // shuffle between the two squares in question.
+  BB mobile=(defOcc & ~(defPawns | blockers | atkInfluence)); // Pieces which the defender can potentially shuffle.
+  BB safe=~(occ | atkInfluence);
+  while(mobile)
+  {
+    Sq sq=bbScanReset(&mobile);
+    BB attacks=attacksPiece(posGetPieceOnSq(pos, sq), sq, occ);
+    if ((attacks & safe)!=BBNone)
+      return true;
+  }
+  
+  // Defender may have to move a blocker or make a capture, potentially
+  // distrupting the fortress. Let search deal with this.
+  return false;
+}
+
 bool searchInteriorRecogKNNvK(Node *node)
 {
-  // The defender simply has to avoid mate-in-1 (and can always do so trivially)
+  // The defender simply has to avoid mate-in-1 (and can always do so trivially).
   Colour defender=(posGetPieceCount(node->pos, PieceWKnight)>0 ? ColourBlack : ColourWhite);
   if (posGetSTM(node->pos)==defender && (!node->inCheck || posLegalMoveExists(node->pos)))
   {
@@ -768,6 +871,36 @@ bool searchInteriorRecogKNNvK(Node *node)
   }
   
   return false;
+}
+
+BB searchFill(PieceType type, BB init, BB occ, BB target)
+{
+  assert(type>=PieceTypeKnight && type<=PieceTypeKing);
+  
+  BB fill=init;
+  BB done=occ;
+  BB todo=init;
+  while(todo!=BBNone)
+  {
+    assert((done & todo)==BBNone);
+    
+    // Choose a new square to generate the moves for.
+    Sq sq=bbScanReset(&todo);
+    
+    // Mark this square as done.
+    done|=bbSq(sq);
+    
+    // Hit target?
+    BB attacks=attacksPieceType(type, sq, occ);
+    if ((attacks & target)!=BBNone)
+      return attacks;
+    
+    // Add attacks from this square to 'todo' list (if not already done).
+    todo|=(attacks & ~done);
+    fill|=attacks;
+  }
+  
+  return fill;
 }
 
 bool searchNodeIsPV(const Node *node)
@@ -788,10 +921,10 @@ void searchInterfacePonder(void *dummy, bool ponder)
 #ifdef TUNE
 void searchInterfaceValue(void *ptr, int value)
 {
-  // Set value
+  // Set value.
   *((int *)ptr)=value;
   
-  // Clear now-invalid tt and history etc.
+  // Clear now-invalid TT and history etc.
   searchClear();
 }
 #endif

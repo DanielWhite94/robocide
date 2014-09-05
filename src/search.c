@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 
 #include "attacks.h"
 #include "eval.h"
@@ -57,6 +58,7 @@ void searchNodePostCheck(const Node *preNode, const Node *postNode);
 bool searchInteriorRecog(Node *node);
 bool searchInteriorRecogBlocked(Node *node);
 bool searchInteriorRecogKNNvK(Node *node);
+bool searchInteriorRecogKPvK(Node *node);
 BB searchFill(PieceType type, BB init, BB occ, BB target);
 bool searchNodeIsPV(const Node *node);
 bool searchNodeIsQ(const Node *node);
@@ -758,6 +760,7 @@ bool searchInteriorRecog(Node *node)
   switch(evalGetMatType(node->pos))
   {
     case EvalMatTypeKNNvK: if (searchInteriorRecogKNNvK(node)) return true; break;
+    case EvalMatTypeKPvK: if (searchInteriorRecogKPvK(node)) return true; break;
     default:
       // No handler for this combination.
     break;
@@ -871,6 +874,72 @@ bool searchInteriorRecogKNNvK(Node *node)
   }
   
   return false;
+}
+
+bool searchInteriorRecogKPvK(Node *node)
+{
+  // Adjust so as if attacker is white (pawn moving north).
+  Colour attacker=(posGetBBPiece(node->pos, PieceWPawn)!=BBNone ? ColourWhite : ColourBlack);
+  Sq pawnSq, atkKingSq, defKingSq;
+  if (attacker==ColourWhite)
+  {
+    pawnSq=*posGetPieceListStart(node->pos, PieceWPawn);
+    atkKingSq=*posGetPieceListStart(node->pos, PieceWKing);
+    defKingSq=*posGetPieceListStart(node->pos, PieceBKing);
+  }
+  else
+  {
+    pawnSq=sqFlip(*posGetPieceListStart(node->pos, PieceBPawn));
+    atkKingSq=sqFlip(*posGetPieceListStart(node->pos, PieceBKing));
+    defKingSq=sqFlip(*posGetPieceListStart(node->pos, PieceWKing));
+  }
+  
+  // Pawn attacked but undefended (and defender to move) - draw.
+  bool atkOnMove=(posGetSTM(node->pos)==attacker);
+  BB pawnBB=bbSq(pawnSq);
+  BB atkKingAttacks=attacksKing(atkKingSq);
+  BB defKingAttacks=attacksKing(defKingSq);
+  bool pawnAttacked=((defKingAttacks & pawnBB)!=BBNone);
+  bool pawnDefended=((atkKingAttacks & pawnBB)!=BBNone);
+  if (!atkOnMove && pawnAttacked && !pawnDefended)
+    goto draw;
+  
+  // Defender in stalemate - draw.
+  BB pawnAttacks=bbNorthOne(bbWingify(pawnBB));
+  if (!atkOnMove && (defKingAttacks & ~(atkKingAttacks | pawnAttacks))==BBNone)
+    goto draw;
+  
+  // Defending king not on the move and outside the square of the pawn - easy promotion.
+  BB defKingBB=bbSq(defKingSq);
+  if (atkOnMove && (bbPawnSq(pawnSq) & defKingBB)==BBNone)
+    goto win;
+  
+  // Stronger side defends all squares ahead of the pawn - easy promotion.
+  BB frontSpan=bbNorthOne(bbNorthFill(pawnBB));
+  if ((atkKingAttacks & frontSpan)==frontSpan)
+    goto win;
+  
+  // More complex draws.
+  if (sqRank(defKingSq)!=Rank8 &&
+      ((defKingSq==sqNorthOne(pawnSq) && sqRank(pawnSq)==sqRank(atkKingSq)+1 &&
+        ((sqFile(pawnSq)==sqFile(atkKingSq) && !atkOnMove) ||
+         (abs(sqFile(pawnSq)-sqFile(atkKingSq))==1 && atkOnMove))) ||
+       (abs(sqFile(pawnSq)-sqFile(atkKingSq))==1 && sqRank(pawnSq)==sqRank(atkKingSq) &&
+        defKingSq==sqNorthOne(sqNorthOne(atkKingSq)) && atkOnMove)))
+    goto draw;
+  
+  // Unhandled case.
+  return false;
+  
+  win:
+  node->score=(atkOnMove ? ScoreEasyWin : -ScoreEasyWin)+evaluate(node->pos); // Plus eval to encourage progress.
+  node->bound=BoundExact;
+  return true;
+  
+  draw:
+  node->score=ScoreDraw;
+  node->bound=BoundExact;
+  return true;
 }
 
 BB searchFill(PieceType type, BB init, BB occ, BB target)

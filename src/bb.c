@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "bb.h"
@@ -9,6 +10,8 @@ const BB BBNone=0x0000000000000000llu, BBAll=0xFFFFFFFFFFFFFFFFllu;
 const BB BBLight=0x55AA55AA55AA55AAllu, BBDark=0xAA55AA55AA55AA55llu;
 
 const BB BBFileA=0x0101010101010101llu, BBRank1=0x00000000000000FFllu;
+
+BB BBPawnSq[64];
 
 const unsigned int BBScanForwardTable[64]={
    0, 47,  1, 56, 48, 27,  2, 60,
@@ -25,7 +28,8 @@ BB BBBetween[SqNB][SqNB], BBBeyond[SqNB][SqNB];
 
 void bbInit(void)
 {
-  // Note: The code below uses 0x88 coordinates
+  // BBBetween and BBBeyond arrays.
+  // Note: The code below uses 0x88 coordinates.
 # define TOSQ(s) (sqMake(((s)&0xF0)>>4 , ((s)&0x07)))
   memset(BBBetween, 0, sizeof(BB)*SqNB*SqNB);
   memset(BBBeyond, 0, sizeof(BB)*SqNB*SqNB);
@@ -33,7 +37,7 @@ void bbInit(void)
   const int dirs[8]={-17,-16,-15,-1,+1,+15,+16,+17};
   int dirI, dir;
   // Loop over every square, then every direction, then every square in that
-  // direction
+  // direction.
   for(sqA=0;sqA<128;sqA=((sqA+9)&~8))
     for(dirI=0;dirI<8;++dirI)
     {
@@ -46,19 +50,33 @@ void bbInit(void)
         if (sqB & 0x88)
           break;
         
-        // Set BBBetween array
+        // Set BBBetween array.
         Sq sqB64=TOSQ(sqB);
         BBBetween[sqA64][sqB64]=set;
         
-        // Set BBBeyond array
+        // Set BBBeyond array.
         for(sqC=sqB+dir;!(sqC & 0x88);sqC+=dir)
           BBBeyond[sqA64][sqB64]|=bbSq(TOSQ(sqC));
         
-        // Add current square to set
+        // Add current square to set.
         set|=bbSq(sqB64);
       }
     }
 # undef TOSQ
+  
+  // BBPawnSq array.
+  File f1, f2;
+  Rank r1, r2;
+  for(r1=Rank1;r1<=Rank8;++r1)
+  for(f1=FileA;f1<=FileH;++f1)
+  {
+    sqA=sqMake(f1,r1);
+    BBPawnSq[sqA]=BBNone;
+    for(r2=Rank1;r2<=Rank8;++r2)
+    for(f2=FileA;f2<=FileH;++f2)
+      if (abs(f1-f2)<=7-r1 && r2>=r1)
+        BBPawnSq[sqA]|=bbSq(sqMake(f2,r2));
+  }
 }
 
 void bbDraw(BB bb)
@@ -186,4 +204,10 @@ BB bbBeyond(BB sq1, BB sq2)
   assert(sqIsValid(sq1));
   assert(sqIsValid(sq2));
   return BBBeyond[sq1][sq2];
+}
+
+BB bbPawnSq(Sq sq)
+{
+  assert(sqIsValid(sq));
+  return BBPawnSq[sq];
 }

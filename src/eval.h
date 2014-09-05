@@ -9,6 +9,7 @@ typedef enum
   EvalMatTypeInvalid,
   EvalMatTypeOther,
   EvalMatTypeKNNvK,
+  EvalMatTypeKPvK,
 }EvalMatType;
 
 void evalInit(void);

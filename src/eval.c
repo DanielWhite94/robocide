@@ -163,6 +163,7 @@ TUNECONST VPair evalPST[PieceTypeNB][SqNB]={
 // Derived values
 ////////////////////////////////////////////////////////////////////////////////
 
+VPair evalPawnValue[ColourNB][2][2][2][SqNB]; // [colour][isDoubled][isIsolated][isBlocked][square]
 VPair evalPawnPassed[RankNB];
 uint8_t evalWeightEGFactor[128];
 
@@ -330,21 +331,21 @@ EvalMatType evalGetMatType(const Pos *pos)
 
 VPair evaluateDefault(EvalData *data)
 {
-  // Init
+  // Init.
   VPair score=VPairZero;
   const Pos *pos=data->pos;
   
-  // Pawns (special case)
+  // Pawn base (special case).
   evalGetPawnData(pos, &data->pawnData);
   evalVPairAdd(&score, &data->pawnData.score);
   
-  // Non-pawn pieces
+  // All pieces.
   const Sq *sq, *sqEnd;
   PieceType type;
   Piece piece;
-  for(type=PieceTypeKnight;type<=PieceTypeKing;++type)
+  for(type=PieceTypePawn;type<=PieceTypeKing;++type)
   {
-    // White pieces
+    // White pieces.
     piece=pieceMake(type, ColourWhite);
     sq=posGetPieceListStart(pos, piece);
     sqEnd=posGetPieceListEnd(pos, piece);
@@ -354,7 +355,7 @@ VPair evaluateDefault(EvalData *data)
       evalVPairAdd(&score, &pieceScore);
     }
     
-    // Black pieces
+    // Black pieces.
     piece=pieceMake(type, ColourBlack);
     sq=posGetPieceListStart(pos, piece);
     sqEnd=posGetPieceListEnd(pos, piece);
@@ -478,77 +479,52 @@ void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData)
 void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData)
 {
   // Init.
-  BB wp=pawnData->pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn);
-  BB bp=pawnData->pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
-  BB occ=posGetBBAll(pos);
   pawnData->score=VPairZero;
-  const Sq *sq, *sqEnd;
-  BB frontSpanW=bbNorthOne(bbNorthFill(wp));
-  BB frontSpanB=bbSouthOne(bbSouthFill(bp));
-  BB rearSpanW=bbSouthOne(bbSouthFill(wp));
-  BB rearSpanB=bbNorthOne(bbNorthFill(bp));
-  BB attacksW=bbNorthOne(bbWingify(wp));
-  BB attacksB=bbSouthOne(bbWingify(bp));
-  BB attacksWFill=bbFileFill(attacksW);
-  BB attacksBFill=bbFileFill(attacksB);
-  BB potPassedW=~(bbWingify(frontSpanB) | frontSpanB);
-  BB potPassedB=~(bbWingify(frontSpanW) | frontSpanW);
-  BB fillW=bbFileFill(wp), fillB=bbFileFill(bp);
-  pawnData->semiOpenFiles[ColourWhite]=(fillB & ~fillW);
-  pawnData->semiOpenFiles[ColourBlack]=(fillW & ~fillB);
-  pawnData->openFiles=~(fillW | fillB);
-  pawnData->passed[ColourWhite]=pawnData->passed[ColourBlack]=BBNone;
+  BB occ=posGetBBAll(pos);
+  BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], attacks[ColourNB];
+  BB attacksFill[ColourNB], doubled[ColourNB], isolated[ColourNB];
+  BB blocked[ColourNB], influence[ColourNB], fill[ColourNB];
+  pawns[ColourWhite]=pawnData->pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn);
+  pawns[ColourBlack]=pawnData->pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
+  frontSpan[ColourWhite]=bbNorthOne(bbNorthFill(pawns[ColourWhite])); // All squares infront of pawns of given colour.
+  frontSpan[ColourBlack]=bbSouthOne(bbSouthFill(pawns[ColourBlack]));
+  rearSpan[ColourWhite]=bbSouthOne(bbSouthFill(pawns[ColourWhite])); // All squares behind pawns of given colour.
+  rearSpan[ColourBlack]=bbNorthOne(bbNorthFill(pawns[ColourBlack]));
+  attacks[ColourWhite]=bbNorthOne(bbWingify(pawns[ColourWhite]));
+  attacks[ColourBlack]=bbSouthOne(bbWingify(pawns[ColourBlack]));
+  attacksFill[ColourWhite]=bbFileFill(attacks[ColourWhite]);
+  attacksFill[ColourBlack]=bbFileFill(attacks[ColourBlack]);
+  doubled[ColourWhite]=(pawns[ColourWhite] & rearSpan[ColourWhite]);
+  doubled[ColourBlack]=(pawns[ColourBlack] & rearSpan[ColourBlack]);
+  isolated[ColourWhite]=(pawns[ColourWhite] & ~attacksFill[ColourWhite]);
+  isolated[ColourBlack]=(pawns[ColourBlack] & ~attacksFill[ColourBlack]);
+  blocked[ColourWhite]=(pawns[ColourWhite] & bbSouthOne(occ));
+  blocked[ColourBlack]=(pawns[ColourBlack] & bbNorthOne(occ));
+  influence[ColourWhite]=(frontSpan[ColourWhite] | bbWingify(frontSpan[ColourWhite])); // Squares which colour in question may attack or move to, now or in the future.
+  influence[ColourBlack]=(frontSpan[ColourBlack] | bbWingify(frontSpan[ColourBlack]));
+  pawnData->passed[ColourWhite]=(pawns[ColourWhite] & ~(doubled[ColourWhite] | influence[ColourBlack]));
+  pawnData->passed[ColourBlack]=(pawns[ColourBlack] & ~(doubled[ColourBlack] | influence[ColourWhite]));
+  fill[ColourWhite]=bbFileFill(pawns[ColourWhite]);
+  fill[ColourBlack]=bbFileFill(pawns[ColourBlack]);
+  pawnData->semiOpenFiles[ColourWhite]=(fill[ColourBlack] & ~fill[ColourWhite]);
+  pawnData->semiOpenFiles[ColourBlack]=(fill[ColourWhite] & ~fill[ColourBlack]);
+  pawnData->openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
   
-  // Loop over every pawn.
-  sq=posGetPieceListStart(pos, PieceWPawn);
-  sqEnd=posGetPieceListEnd(pos, PieceWPawn);
-  for(;sq<sqEnd;++sq)
+  // Loop over each pawn.
+  Colour colour;
+  const Sq *sq, *sqEnd;
+  for(colour=ColourWhite;colour<=ColourBlack;++colour)
   {
-    // Calculate properties.
-    BB bb=bbSq(*sq);
-    bool doubled=((bb & rearSpanW)!=BBNone);
-    bool isolated=((bb & attacksWFill)==BBNone);
-    bool blocked=((bb & bbSouthOne(occ))!=BBNone);
-    bool passed=((bb & potPassedW)!=BBNone);
-    
-    // Calculate score.
-    evalVPairAdd(&pawnData->score, &evalPST[PieceTypePawn][*sq]);
-    if (doubled)
-      evalVPairAdd(&pawnData->score, &evalPawnDoubled);
-    else if (passed)
+    sq=posGetPieceListStart(pos, pieceMake(PieceTypePawn, colour));
+    sqEnd=posGetPieceListEnd(pos, pieceMake(PieceTypePawn, colour));
+    for(;sq<sqEnd;++sq)
     {
-      evalVPairAdd(&pawnData->score, &evalPawnPassed[sqRank(*sq)]);
-      pawnData->passed[ColourWhite]|=bb;
+      BB bb=bbSq(*sq);
+      bool isDoubled=((bb & doubled[colour])!=BBNone);
+      bool isIsolated=((bb & isolated[colour])!=BBNone);
+      bool isBlocked=((bb & blocked[colour])!=BBNone);
+      evalVPairAdd(&pawnData->score, &evalPawnValue[colour][isDoubled][isIsolated][isBlocked][*sq]);
     }
-    if (isolated)
-      evalVPairAdd(&pawnData->score, &evalPawnIsolated);
-    if (blocked)
-      evalVPairAdd(&pawnData->score, &evalPawnBlocked);
-  }
-  sq=posGetPieceListStart(pos, PieceBPawn);
-  sqEnd=posGetPieceListEnd(pos, PieceBPawn);
-  for(;sq<sqEnd;++sq)
-  {
-    // Calculate properties.
-    BB bb=bbSq(*sq);
-    bool doubled=((bb & rearSpanB)!=BBNone);
-    bool isolated=((bb & attacksBFill)==BBNone);
-    bool blocked=((bb & bbNorthOne(occ))!=BBNone);
-    bool passed=((bb & potPassedB)!=BBNone);
-    
-    // Calculate score.
-    evalVPairSub(&pawnData->score, &evalPST[PieceTypePawn][sqFlip(*sq)]);
-    if (doubled)
-      evalVPairSub(&pawnData->score, &evalPawnDoubled);
-    else if (passed)
-    {
-      evalVPairSub(&pawnData->score, &evalPawnPassed[sqRank(sqFlip(*sq))]);
-      pawnData->passed[ColourBlack]|=bb;
-    }
-    if (isolated)
-      evalVPairSub(&pawnData->score, &evalPawnIsolated);
-    if (blocked)
-      evalVPairSub(&pawnData->score, &evalPawnBlocked);
   }
 }
 
@@ -562,6 +538,10 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour)
   
   // PST.
   evalVPairAdd(&score, &evalPST[type][adjSq]);
+  
+  // Passed pawns.
+  if (bb & data->pawnData.passed[colour])
+    evalVPairAdd(&score, &evalPawnPassed[sqRank(adjSq)]);
   
   // Bishop mobility.
   if (type==PieceTypeBishopL || type==PieceTypeBishopD)
@@ -696,6 +676,29 @@ bool evalOptionNewVPair(const char *name, VPair *score)
 
 void evalRecalc(void)
 {
+  // Pawn table.
+  unsigned int isDoubled, isIsolated, isBlocked;
+  Sq sq;
+  for(isDoubled=0;isDoubled<2;++isDoubled)
+  for(isIsolated=0;isIsolated<2;++isIsolated)
+  for(isBlocked=0;isBlocked<2;++isBlocked)
+  for(sq=0;sq<SqNB;++sq)
+  {
+    // Calculate score for white.
+    VPair *score=&evalPawnValue[ColourWhite][isDoubled][isIsolated][isBlocked][sq];
+    *score=VPairZero;
+    if (isDoubled)
+      evalVPairAdd(score, &evalPawnDoubled);
+    if (isIsolated)
+      evalVPairAdd(score, &evalPawnIsolated);
+    if (isBlocked)
+      evalVPairAdd(score, &evalPawnBlocked);
+    
+    // Flip square and negate score for black.
+    evalPawnValue[ColourBlack][isDoubled][isIsolated][isBlocked][sqFlip(sq)]=VPairZero;
+    evalVPairSub(&evalPawnValue[ColourBlack][isDoubled][isIsolated][isBlocked][sqFlip(sq)], score);
+  }
+  
   // Generate passed pawn array from quadratic coefficients.
   Rank rank;
   for(rank=0;rank<RankNB;++rank)

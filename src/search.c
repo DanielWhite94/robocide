@@ -59,6 +59,7 @@ bool searchInteriorRecog(Node *node);
 bool searchInteriorRecogBlocked(Node *node);
 bool searchInteriorRecogKNNvK(Node *node);
 bool searchInteriorRecogKPvK(Node *node);
+bool searchInteriorRecogKBPvK(Node *node);
 BB searchFill(PieceType type, BB init, BB occ, BB target);
 bool searchNodeIsPV(const Node *node);
 bool searchNodeIsQ(const Node *node);
@@ -761,6 +762,7 @@ bool searchInteriorRecog(Node *node)
   {
     case EvalMatTypeKNNvK: if (searchInteriorRecogKNNvK(node)) return true; break;
     case EvalMatTypeKPvK: if (searchInteriorRecogKPvK(node)) return true; break;
+    case EvalMatTypeKBPvK: if (searchInteriorRecogKBPvK(node)) return true; break;
     default:
       // No handler for this combination.
     break;
@@ -940,6 +942,36 @@ bool searchInteriorRecogKPvK(Node *node)
   node->score=ScoreDraw;
   node->bound=BoundExact;
   return true;
+}
+
+bool searchInteriorRecogKBPvK(Node *node)
+{
+  // KBPvK (wrong rook pawn).
+  // Triggered when pawn is on a- or h-file, the bishop does not control the
+  // queening square, and the defending king is on the queening square.
+# define M(P,N) (matInfoMake((P),(N)))
+  MatInfo mat=posGetMatInfo(node->pos);
+  const MatInfo kings=(M(PieceWKing,1)|M(PieceBKing,1));
+  if ((mat==(M(PieceWBishopL,1)|M(PieceWPawn,1)|kings) &&
+       (posGetBBPiece(node->pos, PieceWPawn) & bbFile(FileH))!=BBNone &&
+       posGetKingSq(node->pos, ColourBlack)==SqH8) ||
+      (mat==(M(PieceWBishopD,1)|M(PieceWPawn,1)|kings) &&
+       (posGetBBPiece(node->pos, PieceWPawn) & bbFile(FileA))!=BBNone &&
+       posGetKingSq(node->pos, ColourBlack)==SqA8) ||
+      (mat==(M(PieceBBishopL,1)|M(PieceBPawn,1)|kings) &&
+       (posGetBBPiece(node->pos, PieceBPawn) & bbFile(FileA))!=BBNone &&
+       posGetKingSq(node->pos, ColourWhite)==SqA1) ||
+      (mat==(M(PieceBBishopD,1)|M(PieceBPawn,1)|kings) &&
+       (posGetBBPiece(node->pos, PieceBPawn) & bbFile(FileH))!=BBNone &&
+       posGetKingSq(node->pos, ColourWhite)==SqH1))
+  {
+    node->score=ScoreDraw;
+    node->bound=BoundExact;
+    return true;
+  }
+  
+  return false;
+# undef M
 }
 
 BB searchFill(PieceType type, BB init, BB occ, BB target)

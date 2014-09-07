@@ -729,6 +729,11 @@ EvalMatType evalComputeMatType(const Pos *pos)
   else if (mat==(M(PieceWPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)) ||
            mat==(M(PieceBPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)))
     return EvalMatTypeKPvK;
+  else if (mat==(M(PieceWBishopL,1)|M(PieceWPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)) ||
+           mat==(M(PieceWBishopD,1)|M(PieceWPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)) ||
+           mat==(M(PieceBBishopL,1)|M(PieceBPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)) ||
+           mat==(M(PieceBBishopD,1)|M(PieceBPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)))
+    return EvalMatTypeKBPvK;
   
   return EvalMatTypeOther;
 # undef M

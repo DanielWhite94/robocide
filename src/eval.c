@@ -82,7 +82,7 @@ TUNECONST VPair evalRookOn7th={50,100};
 TUNECONST VPair evalRookTrapped={-400,0};
 TUNECONST VPair evalKingShieldClose={150,0};
 TUNECONST VPair evalKingShieldFar={50,0};
-TUNECONST VPair evalTempoDefault={0,0};
+TUNECONST VPair evalTempoDefault={35,0};
 TUNECONST Value evalWeightFactor=144;
 
 TUNECONST VPair evalPST[PieceTypeNB][SqNB]={

@@ -35,6 +35,8 @@ Rank rankFromChar(char c);
 Sq sqMake(File file, Rank rank);
 File sqFile(Sq sq);
 Rank sqRank(Sq sq);
+File fileMirror(File file);
+Rank rankFlip(Rank rank);
 Sq sqMirror(Sq sq);
 Sq sqFlip(Sq sq);
 Sq sqNorthOne(Sq sq); // The following routines all assume sq will not fall off

@@ -56,6 +56,16 @@ Rank sqRank(Sq sq)
   return (sq>>3);
 }
 
+File fileMirror(File file)
+{
+  return file^7;
+}
+
+Rank rankFlip(Rank rank)
+{
+  return rank^7;
+}
+
 Sq sqMirror(Sq sq)
 {
   assert(sqIsValid(sq));

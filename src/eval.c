@@ -64,6 +64,10 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
   [PieceTypeRook]={5350,5350},
   [PieceTypeQueen]={10000,10000},
   [PieceTypeKing]={0,0}};
+TUNECONST VPair evalPawnFiles[FileNB]={{-100,-50},{-50,0},{0,0},{50,50},{50,50},{0,0},{-50,0},{-100,-50}};
+TUNECONST VPair evalPawnRanks[RankNB]={{0,0},{0,0},{10,10},{20,35},{30,80},{40,110},{50,150},{0,0}};
+TUNECONST VPair evalPawnCentre={200,0};
+TUNECONST VPair evalPawnOuterCentre={50,0};
 TUNECONST VPair evalPawnDoubled={-100,-200};
 TUNECONST VPair evalPawnIsolated={-300,-200};
 TUNECONST VPair evalPawnBlocked={-100,-100};
@@ -85,7 +89,7 @@ TUNECONST VPair evalKingShieldFar={50,0};
 TUNECONST VPair evalTempoDefault={35,0};
 TUNECONST Value evalWeightFactor=144;
 
-TUNECONST VPair evalPST[PieceTypeNB][SqNB]={
+VPair evalPST[PieceTypeNB][SqNB]={
 [PieceTypeNone]={
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
@@ -96,14 +100,14 @@ TUNECONST VPair evalPST[PieceTypeNB][SqNB]={
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
   {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
 [PieceTypePawn]={
-  {  -30, -410},{ -150, -400},{ -230, -380},{ -270, -370},{ -270, -370},{ -230, -380},{ -150, -400},{  -30, -410},
-  { -150, -380},{    0, -350},{  -60, -340},{  -90, -320},{  -90, -320},{  -60, -340},{    0, -350},{ -150, -380},
-  { -210, -300},{  -40, -270},{   70, -250},{   40, -220},{   40, -220},{   70, -250},{  -40, -270},{ -210, -300},
-  { -220, -190},{  -50, -160},{   70, -120},{  210,  -30},{  210,  -30},{   70, -120},{  -50, -160},{ -220, -190},
-  { -190,  -50},{  -20,  -20},{  110,   10},{  240,  100},{  240,  100},{  110,   10},{  -20,  -20},{ -190,  -50},
-  { -100,  120},{   50,  140},{  170,  170},{  150,  200},{  150,  200},{  170,  170},{   50,  140},{ -100,  120},
-  {   20,  330},{  180,  350},{  110,  370},{   80,  380},{   80,  380},{  110,  370},{  180,  350},{   20,  330},
-  {  210,  580},{   90,  590},{   10,  610},{  -20,  620},{  -20,  620},{   10,  610},{   90,  590},{  210,   58}},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
+  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
 [PieceTypeKnight]={
   { -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
   { -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
@@ -223,6 +227,18 @@ void evalInit(void)
   evalOptionNewVPair("Bishop", &evalMaterial[PieceTypeBishopL]);
   evalOptionNewVPair("Rook", &evalMaterial[PieceTypeRook]);
   evalOptionNewVPair("Queen", &evalMaterial[PieceTypeQueen]);
+  evalOptionNewVPair("PawnCentre", &evalPawnCentre);
+  evalOptionNewVPair("PawnOuterCentre", &evalPawnOuterCentre);
+  evalOptionNewVPair("PawnFilesAH", &evalPawnFiles[FileA]);
+  evalOptionNewVPair("PawnFilesBG", &evalPawnFiles[FileB]);
+  evalOptionNewVPair("PawnFilesCF", &evalPawnFiles[FileC]);
+  evalOptionNewVPair("PawnFilesDE", &evalPawnFiles[FileD]);
+  evalOptionNewVPair("PawnRank2", &evalPawnRanks[Rank2]);
+  evalOptionNewVPair("PawnRank3", &evalPawnRanks[Rank3]);
+  evalOptionNewVPair("PawnRank4", &evalPawnRanks[Rank4]);
+  evalOptionNewVPair("PawnRank5", &evalPawnRanks[Rank5]);
+  evalOptionNewVPair("PawnRank6", &evalPawnRanks[Rank6]);
+  evalOptionNewVPair("PawnRank7", &evalPawnRanks[Rank7]);
   evalOptionNewVPair("PawnDoubled", &evalPawnDoubled);
   evalOptionNewVPair("PawnIsolated", &evalPawnIsolated);
   evalOptionNewVPair("PawnBlocked", &evalPawnBlocked);
@@ -646,6 +662,16 @@ void evalSetValue(void *varPtr, int value)
   else if (var==&evalMaterial[PieceTypeBishopL].eg)
     evalMaterial[PieceTypeBishopD].eg=value;
   
+  // Hack to reflect pawn files.
+  File file;
+  for(file=FileA;file<=FileD;++file)
+  {
+    if (var==&evalPawnFiles[file].mg)
+      evalPawnFiles[fileMirror(file)].mg=value;
+    else if (var==&evalPawnFiles[file].eg)
+      evalPawnFiles[fileMirror(file)].eg=value;
+  }
+  
   // Recalculate dervied values (such as passed pawn table).
   evalRecalc();
   
@@ -676,9 +702,30 @@ bool evalOptionNewVPair(const char *name, VPair *score)
 
 void evalRecalc(void)
 {
+  // Pawn PST.
+  Sq sq;
+  const BB centre=(bbSq(SqD4)|bbSq(SqE4)|
+                   bbSq(SqD5)|bbSq(SqE5));
+  const BB outerCentre=(bbSq(SqC3)|bbSq(SqD3)|bbSq(SqE3)|bbSq(SqF3)|
+                        bbSq(SqC4)|                      bbSq(SqF4)|
+                        bbSq(SqC5)|                      bbSq(SqF5)|
+                        bbSq(SqC6)|bbSq(SqD6)|bbSq(SqE6)|bbSq(SqF6));
+  for(sq=0;sq<SqNB;++sq)
+  {
+    assert(evalPST[PieceTypePawn][sq]==VPairZero);
+    if (sqRank(sq)==Rank1 || sqRank(sq)==Rank8)
+      continue;
+    BB bb=bbSq(sq);
+    evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnFiles[sqFile(sq)]);
+    evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnRanks[sqRank(sq)]);
+    if (bb & centre)
+      evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnCentre);
+    else if (bb & outerCentre)
+      evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnOuterCentre);
+  }
+  
   // Pawn table.
   unsigned int isDoubled, isIsolated, isBlocked;
-  Sq sq;
   for(isDoubled=0;isDoubled<2;++isDoubled)
   for(isIsolated=0;isIsolated<2;++isIsolated)
   for(isBlocked=0;isBlocked<2;++isBlocked)

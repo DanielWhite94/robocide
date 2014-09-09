@@ -1329,9 +1329,14 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move)
   if (pieceGetColour(toPiece)!=stm)
     return false;
   
+  // Friendly capture?
+  Sq toSq=moveGetToSq(move);
+  Piece capPiece=posGetPieceOnSq(pos, toSq);
+  if (capPiece!=PieceNone && pieceGetColour(capPiece)==stm)
+    return false;
+  
   // Piece-specific logic.
   Sq fromSq=moveGetFromSq(move);
-  Sq toSq=moveGetToSq(move);
   Piece fromPiece=posGetPieceOnSq(pos, fromSq);
   BB occ=posGetBBAll(pos);
   unsigned int dX=abs(sqFile(fromSq)-sqFile(toSq));
@@ -1340,15 +1345,27 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move)
   {
     case PieceTypePawn:
     {
-      Piece capPiece=posGetPieceOnSq(pos, toSq);
+      // Moving pawn of correct colour?
+      if (pieceGetColour(fromPiece)!=stm)
+        return false;
       
+      // Valid rank movement?
+      int colourDelta=(stm==ColourWhite ? 1 : -1);
+      int rankDelta=sqRank(toSq)-sqRank(fromSq);
+      if (rankDelta!=colourDelta &&
+          (rankDelta!=2*colourDelta || (sqRank(fromSq)!=Rank2 && sqRank(fromSq)!=Rank7) ||
+           posGetPieceOnSq(pos, (fromSq+toSq)/2)!=PieceNone))
+        return false;
+      
+      // Valid file movement?
       // The next line was derived from the following equivalent expression:
       // (!(dX==0 && capPiece==PieceNone) && !(dX==1 && (capPiece!=PieceNone || toSq==pos->data->epSq)));
-      bool invalidMovement=((dX!=0 || capPiece!=PieceNone) && (dX!=1 || (capPiece==PieceNone && toSq!=pos->data->epSq)));
-      PieceType toPieceType=pieceGetType(toPiece);
-      if (invalidMovement || toPieceType==PieceTypeKing)
+      if ((dX!=0 || capPiece!=PieceNone) && (dX!=1 || (capPiece==PieceNone && toSq!=pos->data->epSq)))
         return false;
-      else if (sqRank(toSq)==Rank1 || sqRank(toSq)==Rank8)
+      
+      // Valid to-piece?
+      PieceType toPieceType=pieceGetType(toPiece);
+      if (sqRank(toSq)==Rank1 || sqRank(toSq)==Rank8)
         return (toPieceType>=PieceTypeKnight && toPieceType<=PieceTypeQueen);
       else
         return (toPieceType==PieceTypePawn);

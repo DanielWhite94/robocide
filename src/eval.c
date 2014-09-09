@@ -712,7 +712,6 @@ void evalRecalc(void)
                         bbSq(SqC6)|bbSq(SqD6)|bbSq(SqE6)|bbSq(SqF6));
   for(sq=0;sq<SqNB;++sq)
   {
-    assert(evalPST[PieceTypePawn][sq]==VPairZero);
     if (sqRank(sq)==Rank1 || sqRank(sq)==Rank8)
       continue;
     BB bb=bbSq(sq);

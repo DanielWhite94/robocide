@@ -87,6 +87,7 @@ TUNECONST VPair evalRookTrapped={-400,0};
 TUNECONST VPair evalKingShieldClose={150,0};
 TUNECONST VPair evalKingShieldFar={50,0};
 TUNECONST VPair evalTempoDefault={35,0};
+TUNECONST Value evalHalfMoveFactor=2048;
 TUNECONST Value evalWeightFactor=144;
 
 VPair evalPST[PieceTypeNB][SqNB]={
@@ -169,7 +170,8 @@ VPair evalPST[PieceTypeNB][SqNB]={
 
 VPair evalPawnValue[ColourNB][2][2][2][SqNB]; // [colour][isDoubled][isIsolated][isBlocked][square]
 VPair evalPawnPassed[RankNB];
-uint8_t evalWeightEGFactor[128];
+int evalHalfMoveFactors[128];
+uint8_t evalWeightEGFactors[128];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
@@ -258,6 +260,7 @@ void evalInit(void)
   evalOptionNewVPair("KingShieldClose", &evalKingShieldClose);
   evalOptionNewVPair("KingShieldFar", &evalKingShieldFar);
   evalOptionNewVPair("Tempo", &evalTempoDefault);
+  uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 32768, evalHalfMoveFactor);
   uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 1024, evalWeightFactor);
 # endif
 }
@@ -295,7 +298,8 @@ Score evaluate(const Pos *pos)
   
   // Drag score towards 0 as we approach 50-move rule
   unsigned int halfMoves=posGetHalfMoveNumber(data.pos);
-  scalarScore*=exp2f(-((halfMoves*halfMoves)/(32.0*32.0)));
+  assert(halfMoves<128);
+  scalarScore=(scalarScore*evalHalfMoveFactors[halfMoves])/256;
   
   // Add score offset
   scalarScore+=data.matData.scoreOffset;
@@ -436,7 +440,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData)
   unsigned int queenCount=G(PieceWQueen)+G(PieceBQueen);
   unsigned int pieceWeight=minorCount+2*rookCount+4*queenCount;
   assert(pieceWeight<128);
-  matData->weightEG=evalWeightEGFactor[pieceWeight];
+  matData->weightEG=evalWeightEGFactors[pieceWeight];
   matData->weightMG=256-matData->weightEG;
   
   // Specific material combinations.
@@ -755,13 +759,21 @@ void evalRecalc(void)
     evalVPairAdd(&evalPawnPassed[rank], &evalPawnPassedQuadC);
   }
   
-  // Calculate factor for each material weight.
-  unsigned int weight;
-  for(weight=0;weight<128;++weight)
+  // Calculate factor for number of half moves since capture/pawn move.
+  unsigned int i;
+  for(i=0;i<128;++i)
   {
-    unsigned int factor=(255.0*exp2f(-(float)(weight*weight)/((float)evalWeightFactor)));
-    assert(factor<256);
-    evalWeightEGFactor[weight]=factor;
+    float factor=exp2f(-((float)(i*i)/((float)evalHalfMoveFactor)));
+    assert(factor>=0.0 && factor<=1.0);
+    evalHalfMoveFactors[i]=floorf(255.0*factor);
+  }
+  
+  // Calculate factor for each material weight.
+  for(i=0;i<128;++i)
+  {
+    float factor=exp2f(-(float)(i*i)/((float)evalWeightFactor));
+    assert(factor>=0.0 && factor<=1.0);
+    evalWeightEGFactors[i]=floorf(255.0*factor);
   }
 }
 

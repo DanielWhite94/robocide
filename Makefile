@@ -5,7 +5,7 @@ OBJS = src/attacks.o src/bb.o src/colour.o src/eval.o src/fen.o src/history.o \
        src/htable.o src/magicmoves.o src/move.o src/moves.o src/perft.o \
        src/piece.o src/pos.o src/score.o src/scoredmove.o src/search.o \
        src/see.o src/square.o src/thread.o src/time.o src/tt.o src/uci.o \
-       src/util.o src/WELL512a.o
+       src/util.o
 
 MAIN = src/main.c
 

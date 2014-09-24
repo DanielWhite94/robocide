@@ -6,7 +6,7 @@
 #include "fen.h"
 #include "pos.h"
 #include "uci.h"
-#include "WELL512a.h"
+#include "util.h"
 
 typedef struct
 {
@@ -79,11 +79,7 @@ void posInit(void)
   posCastlingUpdate[SqH8]=~CastRightsk;
   
   // Hash keys
-  unsigned int randInit[16]={1804289383,846930886,1681692777,1714636915,
-                             1957747793,424238335,719885386,1649760492,
-                             596516649,1189641421,1025202362,1350490027,
-                             783368690,1102520059,2044897763,1967513926};
-  InitWELLRNG512a(randInit);
+  utilRandSeed(1804289383);
   posKeySTM=posRandKey();
   memset(posKeyPiece, 0, PieceNB*SqNB*sizeof(Key));
   memset(posPawnKeyPiece, 0, PieceNB*SqNB*sizeof(Key));
@@ -1082,11 +1078,7 @@ Key posComputeMatKey(const Pos *pos)
 
 Key posRandKey(void)
 {
-  Key a=((Key)(WELLRNG512a()*65536)) & 0xFFFF;
-  Key b=((Key)(WELLRNG512a()*65536)) & 0xFFFF;
-  Key c=((Key)(WELLRNG512a()*65536)) & 0xFFFF;
-  Key d=((Key)(WELLRNG512a()*65536)) & 0xFFFF;
-  return ((a<<48) | (b<<32) | (c<<16) | d);
+  return utilRand64();
 }
 
 bool posIsEPCap(Pos *pos, Sq sq)

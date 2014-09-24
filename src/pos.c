@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "attacks.h"
+#include "eval.h"
 #include "fen.h"
 #include "pos.h"
 #include "uci.h"
@@ -601,23 +602,9 @@ bool posIsDraw(const Pos *pos, unsigned int ply)
   if (posGetHalfMoveNumber(pos)>=100)
     return true;
   
-  // Insufficient material - KNvK and bishops of a single colour are draws
-  // (includes KvK, with 0 bishops, and KBvK with a single bishop).
-# define MAKE(p,n) matInfoMake((p),(n))
-# define MASK(t) matInfoMakeMaskPieceType(t)
-  MatInfo mat=posGetMatInfo(pos);
-  const MatInfo matKings=(MAKE(PieceWKing,1)|MAKE(PieceBKing,1));
-
-  const MatInfo matPRQ=(MASK(PieceTypePawn)|MASK(PieceTypeRook)|MASK(PieceTypeQueen));
-  const MatInfo matKNvKWhite=(MAKE(PieceWKnight,1)|matKings);
-  const MatInfo matKNvKBlack=(MAKE(PieceBKnight,1)|matKings);
-  const MatInfo matLBishops=(MASK(PieceTypeBishopL)|matKings);
-  const MatInfo matDBishops=(MASK(PieceTypeBishopD)|matKings);
-  if ((mat & matPRQ)==0 && // This is redundant but provides quick escape for most positions.
-      (mat==matKNvKWhite || mat==matKNvKBlack || (mat & ~matLBishops)==0 || (mat & ~matDBishops)==0))
+  // Insufficient material.
+  if (evalGetMatType(pos)==EvalMatTypeDraw)
     return true;
-# undef MASK
-# undef MAKE
   
   return false;
 }

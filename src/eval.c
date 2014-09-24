@@ -779,20 +779,52 @@ void evalRecalc(void)
 
 EvalMatType evalComputeMatType(const Pos *pos)
 {
-# define M(P,N) (matInfoMake((P),(N)))
-  MatInfo mat=posGetMatInfo(pos);
-  if (mat==(M(PieceWKnight,2)|M(PieceWKing,1)|M(PieceBKing,1)) ||
-      mat==(M(PieceBKnight,2)|M(PieceWKing,1)|M(PieceBKing,1)))
-    return EvalMatTypeKNNvK;
-  else if (mat==(M(PieceWPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)) ||
-           mat==(M(PieceBPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)))
-    return EvalMatTypeKPvK;
-  else if (mat==(M(PieceWBishopL,1)|M(PieceWPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)) ||
-           mat==(M(PieceWBishopD,1)|M(PieceWPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)) ||
-           mat==(M(PieceBBishopL,1)|M(PieceBPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)) ||
-           mat==(M(PieceBBishopD,1)|M(PieceBPawn,1)|M(PieceWKing,1)|M(PieceBKing,1)))
-    return EvalMatTypeKBPvK;
+# define MAKE(p,n) matInfoMake((p),(n))
+# define MASK(t) matInfoMakeMaskPieceType(t)
   
+  // Grab material info.
+  MatInfo mat=posGetMatInfo(pos);
+  
+  // Compute material infos (done at compile time, hopefully).
+  const MatInfo matKings=(MAKE(PieceWKing,1)|MAKE(PieceBKing,1));
+  const MatInfo matKNvK=(MAKE(PieceWKnight,1)|matKings);
+  const MatInfo matKvKN=(MAKE(PieceBKnight,1)|matKings);
+  const MatInfo matBishopsL=(MASK(PieceTypeBishopL)|matKings);
+  const MatInfo matBishopsD=(MASK(PieceTypeBishopD)|matKings);
+  
+  // If only pieces are bishops and all share same colour squares, draw.
+  if ((mat & ~matBishopsL)==0 || (mat & ~matBishopsD)==0)
+    return EvalMatTypeDraw;
+  
+  // Check for known combinations.
+  unsigned int pieceCount=bbPopCount(posGetBBAll(pos));
+  assert(pieceCount>=2 && pieceCount<=32);
+  switch(pieceCount)
+  {
+    case 2:
+      // This should be handled by same-bishop code above.
+      assert(false);
+    break;
+    case 3:
+      if (mat==matKNvK || mat==matKvKN)
+        return EvalMatTypeDraw;
+      else if (mat==(MAKE(PieceWPawn,1)|matKings) || mat==(MAKE(PieceBPawn,1)|matKings))
+        return EvalMatTypeKPvK;
+    break;
+    case 4:
+      if (mat==(MAKE(PieceWKnight,2)|matKings) || mat==(MAKE(PieceBKnight,2)|matKings))
+        return EvalMatTypeKNNvK;
+      else if (mat==(MAKE(PieceWBishopL,1)|MAKE(PieceWPawn,1)|matKings) ||
+               mat==(MAKE(PieceWBishopD,1)|MAKE(PieceWPawn,1)|matKings) ||
+               mat==(MAKE(PieceBBishopL,1)|MAKE(PieceBPawn,1)|matKings) ||
+               mat==(MAKE(PieceBBishopD,1)|MAKE(PieceBPawn,1)|matKings))
+        return EvalMatTypeKBPvK;
+    break;
+  }
+  
+  // Other combination.
   return EvalMatTypeOther;
-# undef M
+  
+# undef MASK
+# undef MAKE
 }

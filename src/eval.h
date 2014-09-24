@@ -8,6 +8,7 @@ typedef enum
 {
   EvalMatTypeInvalid,
   EvalMatTypeOther,
+  EvalMatTypeDraw, // Insufficient material draw (KvK, KNvK, and bishops of single colour).
   EvalMatTypeKNNvK,
   EvalMatTypeKPvK,
   EvalMatTypeKBPvK,

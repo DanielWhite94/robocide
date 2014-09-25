@@ -168,8 +168,20 @@ VPair evalPST[PieceTypeNB][SqNB]={
 // Derived values
 ////////////////////////////////////////////////////////////////////////////////
 
-VPair evalPawnValue[ColourNB][2][2][2][SqNB]; // [colour][isDoubled][isIsolated][isBlocked][square]
-VPair evalPawnPassed[RankNB];
+typedef enum
+{
+  PawnTypeStandard=0,
+  PawnTypeShiftDoubled=0,
+  PawnTypeShiftIsolated=1,
+  PawnTypeShiftBlocked=2,
+  PawnTypeShiftPassed=3,
+  PawnTypeDoubled=(1u<<PawnTypeShiftDoubled),
+  PawnTypeIsolated=(1u<<PawnTypeShiftIsolated),
+  PawnTypeBlocked=(1u<<PawnTypeShiftBlocked),
+  PawnTypePassed=(1u<<PawnTypeShiftPassed),
+  PawnTypeNB=16,
+}PawnType;
+VPair evalPawnValue[ColourNB][PawnTypeNB][SqNB];
 int evalHalfMoveFactors[128];
 uint8_t evalWeightEGFactors[128];
 
@@ -355,7 +367,7 @@ VPair evaluateDefault(EvalData *data)
   VPair score=VPairZero;
   const Pos *pos=data->pos;
   
-  // Pawn base (special case).
+  // Pawns (special case).
   evalGetPawnData(pos, &data->pawnData);
   evalVPairAdd(&score, &data->pawnData.score);
   
@@ -363,7 +375,7 @@ VPair evaluateDefault(EvalData *data)
   const Sq *sq, *sqEnd;
   PieceType type;
   Piece piece;
-  for(type=PieceTypePawn;type<=PieceTypeKing;++type)
+  for(type=PieceTypeKnight;type<=PieceTypeKing;++type)
   {
     // White pieces.
     piece=pieceMake(type, ColourWhite);
@@ -539,11 +551,12 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData)
     sqEnd=posGetPieceListEnd(pos, pieceMake(PieceTypePawn, colour));
     for(;sq<sqEnd;++sq)
     {
-      BB bb=bbSq(*sq);
-      bool isDoubled=((bb & doubled[colour])!=BBNone);
-      bool isIsolated=((bb & isolated[colour])!=BBNone);
-      bool isBlocked=((bb & blocked[colour])!=BBNone);
-      evalVPairAdd(&pawnData->score, &evalPawnValue[colour][isDoubled][isIsolated][isBlocked][*sq]);
+      PawnType type=((((doubled[colour]>>*sq)&1)<<PawnTypeShiftDoubled) |
+                     (((isolated[colour]>>*sq)&1)<<PawnTypeShiftIsolated) |
+                     (((blocked[colour]>>*sq)&1)<<PawnTypeShiftBlocked) |
+                     (((pawnData->passed[colour]>>*sq)&1)<<PawnTypeShiftPassed));
+      assert(type>=0 && type<PawnTypeNB);
+      evalVPairAdd(&pawnData->score, &evalPawnValue[colour][type][*sq]);
     }
   }
 }
@@ -558,10 +571,6 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour)
   
   // PST.
   evalVPairAdd(&score, &evalPST[type][adjSq]);
-  
-  // Passed pawns.
-  if (bb & data->pawnData.passed[colour])
-    evalVPairAdd(&score, &evalPawnPassed[sqRank(adjSq)]);
   
   // Bishop mobility.
   if (type==PieceTypeBishopL || type==PieceTypeBishopD)
@@ -728,35 +737,38 @@ void evalRecalc(void)
   }
   
   // Pawn table.
-  unsigned int isDoubled, isIsolated, isBlocked;
-  for(isDoubled=0;isDoubled<2;++isDoubled)
-  for(isIsolated=0;isIsolated<2;++isIsolated)
-  for(isBlocked=0;isBlocked<2;++isBlocked)
-  for(sq=0;sq<SqNB;++sq)
+  PawnType type;
+  for(type=0;type<PawnTypeNB;++type)
   {
-    // Calculate score for white.
-    VPair *score=&evalPawnValue[ColourWhite][isDoubled][isIsolated][isBlocked][sq];
-    *score=VPairZero;
-    if (isDoubled)
-      evalVPairAdd(score, &evalPawnDoubled);
-    if (isIsolated)
-      evalVPairAdd(score, &evalPawnIsolated);
-    if (isBlocked)
-      evalVPairAdd(score, &evalPawnBlocked);
-    
-    // Flip square and negate score for black.
-    evalPawnValue[ColourBlack][isDoubled][isIsolated][isBlocked][sqFlip(sq)]=VPairZero;
-    evalVPairSub(&evalPawnValue[ColourBlack][isDoubled][isIsolated][isBlocked][sqFlip(sq)], score);
-  }
-  
-  // Generate passed pawn array from quadratic coefficients.
-  Rank rank;
-  for(rank=0;rank<RankNB;++rank)
-  {
-    evalPawnPassed[rank]=VPairZero;
-    evalVPairAddMul(&evalPawnPassed[rank], &evalPawnPassedQuadA, rank*rank);
-    evalVPairAddMul(&evalPawnPassed[rank], &evalPawnPassedQuadB, rank);
-    evalVPairAdd(&evalPawnPassed[rank], &evalPawnPassedQuadC);
+    bool isDoubled=((type & PawnTypeDoubled)!=0);
+    bool isIsolated=((type & PawnTypeIsolated)!=0);
+    bool isBlocked=((type & PawnTypeBlocked)!=0);
+    bool isPassed=((type & PawnTypePassed)!=0);
+    for(sq=0;sq<SqNB;++sq)
+    {
+      // Calculate score for white.
+      VPair *score=&evalPawnValue[ColourWhite][type][sq];
+      *score=VPairZero;
+      evalVPairAdd(score, &evalPST[PieceTypePawn][sq]);
+      if (isDoubled)
+        evalVPairAdd(score, &evalPawnDoubled);
+      if (isIsolated)
+        evalVPairAdd(score, &evalPawnIsolated);
+      if (isBlocked)
+        evalVPairAdd(score, &evalPawnBlocked);
+      if (isPassed)
+      {
+        // Generate passed pawn score from quadratic coefficients.
+        Rank rank=sqRank(sq);
+        evalVPairAddMul(score, &evalPawnPassedQuadA, rank*rank);
+        evalVPairAddMul(score, &evalPawnPassedQuadB, rank);
+        evalVPairAdd(score, &evalPawnPassedQuadC);
+      }
+      
+      // Flip square and negate score for black.
+      evalPawnValue[ColourBlack][type][sqFlip(sq)]=VPairZero;
+      evalVPairSub(&evalPawnValue[ColourBlack][type][sqFlip(sq)], score);
+    }
   }
   
   // Calculate factor for number of half moves since capture/pawn move.

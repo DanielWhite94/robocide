@@ -7,6 +7,7 @@
 
 #include "attacks.h"
 #include "bb.h"
+#include "bitbase.h"
 #include "colour.h"
 #include "eval.h"
 #include "htable.h"
@@ -190,6 +191,7 @@ uint8_t evalWeightEGFactors[128];
 ////////////////////////////////////////////////////////////////////////////////
 
 VPair evaluateDefault(EvalData *data);
+VPair evaluateKPvK(EvalData *data);
 void evalGetMatData(const Pos *pos, EvalMatData *matData);
 void evalComputeMatData(const Pos *pos, EvalMatData *matData);
 void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData);
@@ -401,6 +403,31 @@ VPair evaluateDefault(EvalData *data)
   return score;
 }
 
+VPair evaluateKPvK(EvalData *data)
+{
+  // Use tablebase to find exact result.
+  BitBaseResult result=bitbaseProbe(data->pos);
+  switch(result)
+  {
+    case BitBaseResultDraw:
+      data->matData.offset=VPairZero;
+      data->matData.tempo=VPairZero;
+      data->matData.scoreOffset=0;
+      return VPairZero;
+    break;
+    case BitBaseResultWin:
+    {
+      Colour attacker=(posGetBBPiece(data->pos, PieceWPawn)!=BBNone ? ColourWhite : ColourBlack);
+      data->matData.scoreOffset+=(attacker==ColourWhite ? ScoreHardWin : -ScoreHardWin);
+      return evaluateDefault(data);
+    }
+    break;
+  }
+  
+  assert(false);
+  return VPairZero;
+}
+
 void evalGetMatData(const Pos *pos, EvalMatData *matData)
 {
   // Grab hash entry for this position key.
@@ -456,12 +483,35 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData)
   matData->weightMG=256-matData->weightEG;
   
   // Specific material combinations.
-  /* (currently unused)
   unsigned int factor=1024;
-  [combination logic here]
+  if (mat)
+  {
+    const MatInfo matPawns=matInfoMakeMaskPieceType(PieceTypePawn);
+    const MatInfo matMajors=(matInfoMakeMaskPieceType(PieceTypeRook)|matInfoMakeMaskPieceType(PieceTypeQueen));
+    const MatInfo matWhite=matInfoMakeMaskColour(ColourWhite);
+    const MatInfo matBlack=matInfoMakeMaskColour(ColourBlack);
+    
+    if ((mat & matPawns)==mat)
+    {
+      // Pawns only.
+      
+      // KPvK special evaluation function.
+      if (mat==M(PieceWPawn,1) || mat==M(PieceBPawn,1))
+        matData->function=&evaluateKPvK;
+    }
+    else if ((mat & matMajors)==mat)
+    {
+      // Majors only.
+      
+      // Single side with material should be easy win (at least a rook ahead).
+      if ((mat & matWhite)==mat)
+        matData->scoreOffset+=ScoreEasyWin;
+      else if ((mat & matBlack)==mat)
+        matData->scoreOffset-=ScoreEasyWin;
+    }
+  }
   matData->weightMG=(matData->weightMG*factor)/1024;
   matData->weightEG=(matData->weightEG*factor)/1024;
-  */
   
   // Material.
   evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypePawn], G(PieceWPawn)-G(PieceBPawn));

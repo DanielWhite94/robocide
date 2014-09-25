@@ -78,18 +78,18 @@ Sq sqFlip(Sq sq)
   return (sq^56);
 }
 
-Sq sqNorthOne(Sq sq)
+Sq sqNorth(Sq sq, unsigned int n)
 {
   assert(sqIsValid(sq));
-  assert(sqRank(sq)!=Rank8);
-  return sq+8;
+  assert(sqRank(sq)<8-n);
+  return sq+(8*n);
 }
 
-Sq sqSouthOne(Sq sq)
+Sq sqSouth(Sq sq, unsigned int n)
 {
   assert(sqIsValid(sq));
-  assert(sqRank(sq)!=Rank1);
-  return sq-8;
+  assert(sqRank(sq)>=n);
+  return sq-(8*n);
 }
 
 Sq sqWestOne(Sq sq)
@@ -108,12 +108,12 @@ Sq sqEastOne(Sq sq)
 
 Sq sqForwardOne(Sq sq, Colour colour)
 {
-  return (colour==ColourWhite ? sqNorthOne(sq) : sqSouthOne(sq));
+  return (colour==ColourWhite ? sqNorth(sq,1) : sqSouth(sq,1));
 }
 
 Sq sqBackwardOne(Sq sq, Colour colour)
 {
-  return (colour==ColourWhite ? sqSouthOne(sq) : sqNorthOne(sq));
+  return (colour==ColourWhite ? sqSouth(sq,1) : sqNorth(sq,1));
 }
 
 bool sqIsLight(Sq sq)

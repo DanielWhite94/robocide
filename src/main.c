@@ -3,6 +3,7 @@
 
 #include "attacks.h"
 #include "bb.h"
+#include "bitbase.h"
 #include "eval.h"
 #include "main.h"
 #include "pos.h"
@@ -14,6 +15,7 @@ int main()
 {
   bbInit();
   attacksInit();
+  bitbaseInit();
   posInit();
   evalInit();
   ttInit();
@@ -24,6 +26,7 @@ int main()
   searchQuit();
   ttQuit();
   evalQuit();
+  bitbaseQuit();
   
   return EXIT_SUCCESS;
 }

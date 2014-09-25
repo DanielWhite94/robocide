@@ -29,6 +29,12 @@ void attacksInit(void)
   initmagicmoves();
 }
 
+
+BB attacksPawn(Sq sq, Colour colour)
+{
+  return bbForwardOne(bbWingify(bbSq(sq)), colour);
+}
+
 BB attacksKnight(Sq sq)
 {
   assert(sqIsValid(sq));
@@ -66,7 +72,7 @@ BB attacksPiece(Piece piece, Sq sq, BB occ)
   
   switch(pieceGetType(piece))
   {
-    case PieceTypePawn: return bbForwardOne(bbWingify(bbSq(sq)), pieceGetColour(piece)); break;
+    case PieceTypePawn: return attacksPawn(sq, pieceGetColour(piece)); break;
     case PieceTypeKnight: return attacksKnight(sq); break;
     case PieceTypeBishopL: return attacksBishop(sq, occ); break;
     case PieceTypeBishopD: return attacksBishop(sq, occ); break;

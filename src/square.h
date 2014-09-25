@@ -39,8 +39,8 @@ File fileMirror(File file);
 Rank rankFlip(Rank rank);
 Sq sqMirror(Sq sq);
 Sq sqFlip(Sq sq);
-Sq sqNorthOne(Sq sq); // The following routines all assume sq will not fall off
-Sq sqSouthOne(Sq sq); // the end of the board as a result of the operation.
+Sq sqNorth(Sq sq, unsigned int n); // The following routines all assume sq will not fall off
+Sq sqSouth(Sq sq, unsigned int n); // the end of the board as a result of the operation.
 Sq sqWestOne(Sq sq);
 Sq sqEastOne(Sq sq);
 Sq sqForwardOne(Sq sq, Colour colour);

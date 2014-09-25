@@ -6,6 +6,7 @@
 #include "square.h"
 
 void attacksInit(void);
+BB attacksPawn(Sq sq, Colour colour);
 BB attacksKnight(Sq sq);
 BB attacksBishop(Sq sq, BB occ);
 BB attacksRook(Sq sq, BB occ);

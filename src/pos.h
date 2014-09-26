@@ -8,6 +8,14 @@
 
 typedef struct Pos Pos; // Defined here due to circular reference with Moves in moves.h.
 
+typedef enum
+{
+  MoveTypeNone=0,
+  MoveTypeQuiet=1, // Includes castling.
+  MoveTypeCapture=2, // Includes promotions.
+  MoveTypeAny=(MoveTypeQuiet|MoveTypeCapture),
+}MoveType;
+
 #include "bb.h"
 #include "colour.h"
 #include "piece.h"
@@ -63,20 +71,18 @@ Key posGetMatKey(const Pos *pos);
 MatInfo posGetMatInfo(const Pos *pos);
 bool posMakeMove(Pos *pos, Move move);
 void posUndoMove(Pos *pos);
-void posGenPseudoMoves(Moves *moves);
-void posGenPseudoCaptures(Moves *moves);
-void posGenPseudoQuiets(Moves *moves);
-Move posGenLegalMove(Pos *pos);
+void posGenPseudoMoves(Moves *moves, MoveType type);
+Move posGenLegalMove(Pos *pos, MoveType type);
 bool posIsSqAttackedByColour(const Pos *pos, Sq sq, Colour colour);
 bool posIsSTMInCheck(const Pos *pos);
 bool posIsXSTMInCheck(const Pos *pos);
 bool posIsDraw(const Pos *pos, unsigned int ply);
 bool posIsMate(Pos *pos);
 bool posIsStalemate(Pos *pos);
-bool posLegalMoveExists(Pos *pos);
+bool posLegalMoveExists(Pos *pos, MoveType type);
 bool posHasPieces(const Pos *pos, Colour colour); // Non-pawn material?
 bool posMoveIsPseudoLegal(const Pos *pos, Move move); // If side-to-move is not in check will also permit MoveNone.
-bool posMoveIsQuiet(const Pos *pos, Move move);
+MoveType posMoveGetType(const Pos *pos, Move move); // Assumes move is pseudo-legal in the current position.
 Move posMoveFromStr(const Pos *pos, const char str[static 6]);
 void posMoveToStr(const Pos *pos, Move move, char str[static 6]);
 unsigned int matInfoGetPieceCount(MatInfo info, Piece piece);

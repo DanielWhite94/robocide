@@ -221,7 +221,7 @@ void searchIDLoop(void *posPtr)
   // Grab best move from TT if available, otherwise choose a legal move.
   Move bestMove=ttReadMove(node.pos);
   if (!moveIsValid(bestMove) || !posMakeMove(node.pos, bestMove))
-    bestMove=posGenLegalMove(node.pos);
+    bestMove=posGenLegalMove(node.pos, MoveTypeAny);
   else
     posUndoMove(node.pos);
   
@@ -232,7 +232,7 @@ void searchIDLoop(void *posPtr)
     posMakeMove(node.pos, bestMove);
     ponderMove=ttReadMove(node.pos);
     if (!moveIsValid(ponderMove) || !posMakeMove(node.pos, ponderMove))
-      ponderMove=posGenLegalMove(node.pos);
+      ponderMove=posGenLegalMove(node.pos, MoveTypeAny);
     else
       posUndoMove(node.pos);
     posUndoMove(node.pos);
@@ -380,7 +380,7 @@ void searchNodeInternal(Node *node)
   
   // Begin IID loop.
   Moves moves;
-  movesInit(&moves, node->pos, true);
+  movesInit(&moves, node->pos, MoveTypeAny);
   movesRewind(&moves, ttMove);
   Move bestMove;
   do
@@ -504,7 +504,7 @@ void searchNodeInternal(Node *node)
   assert(node->bound!=BoundNone);
   
   // Update history table.
-  if (posMoveIsQuiet(node->pos, bestMove))
+  if (posMoveGetType(node->pos, bestMove)==MoveTypeQuiet)
   {
     Piece fromPiece=moveGetToPiece(bestMove);
     assert(fromPiece==posGetPieceOnSq(node->pos, moveGetFromSq(bestMove))); // Could only disagree if move is promotion, but these are classed as captures.
@@ -552,8 +552,7 @@ void searchQNodeInternal(Node *node)
   child.alpha=-node->beta;
   child.beta=-alpha;
   Moves moves;
-  movesInit(&moves, node->pos, node->inCheck);
-  movesRewind(&moves, MoveInvalid);
+  movesInit(&moves, node->pos, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
   Move move;
   bool noLegalMove=true;
   while((move=movesNext(&moves))!=MoveInvalid)
@@ -605,8 +604,9 @@ void searchQNodeInternal(Node *node)
       node->score=scoreMatedIn(node->ply);
       return;
     }
-    else if (!posLegalMoveExists(node->pos))
+    else if (!posLegalMoveExists(node->pos, MoveTypeQuiet))
     {
+      assert(!posLegalMoveExists(node->pos, MoveTypeAny));
       assert(posIsStalemate(node->pos));
       node->bound=BoundExact;
       node->score=ScoreDraw;
@@ -739,7 +739,7 @@ bool searchInteriorRecog(Node *node)
     node->bound=BoundExact;
     
     // In rare cases checkmate can be given on 100th half move.
-    if (node->inCheck && posGetHalfMoveNumber(node->pos)==100 && !posLegalMoveExists(node->pos))
+    if (node->inCheck && posGetHalfMoveNumber(node->pos)==100 && !posLegalMoveExists(node->pos, MoveTypeAny))
     {
       assert(posIsMate(node->pos));
       node->score=scoreMatedIn(node->ply);
@@ -868,7 +868,7 @@ bool searchInteriorRecogKNNvK(Node *node)
 {
   // The defender simply has to avoid mate-in-1 (and can always do so trivially).
   Colour defender=(posGetPieceCount(node->pos, PieceWKnight)>0 ? ColourBlack : ColourWhite);
-  if (posGetSTM(node->pos)==defender && (!node->inCheck || posLegalMoveExists(node->pos)))
+  if (posGetSTM(node->pos)==defender && (!node->inCheck || posLegalMoveExists(node->pos, MoveTypeAny)))
   {
     assert(!posIsMate(node->pos));
     node->score=ScoreDraw;

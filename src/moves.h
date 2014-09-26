@@ -9,7 +9,7 @@ typedef struct Moves Moves;
 #include "pos.h"
 #include "scoredmove.h"
 
-typedef enum { MovesStageTT, MovesStageCaptures, MovesStageQuiets } MovesStage;
+typedef enum { MovesStageTT, MovesStageGenCaptures, MovesStageCaptures, MovesStageGenQuiets, MovesStageQuiets } MovesStage;
 
 #define MovesMax 256
 struct Moves
@@ -19,11 +19,11 @@ struct Moves
   MovesStage stage;
   Move ttMove;
   const Pos *pos;
-  bool genCaptures, genQuiets; // true => still need to generate.
+  MoveType allowed, needed;
 };
 
-void movesInit(Moves *moves, const Pos *pos, bool quiets); // quiets - should quiet moves be generated.
-void movesRewind(Moves *moves, Move ttMove); // Should be called before movesNext() to rewind to first move (and potentially set/update TT move).
+void movesInit(Moves *moves, const Pos *pos, MoveType type);
+void movesRewind(Moves *moves, Move ttMove);
 Move movesNext(Moves *moves); // Returns distinct moves until none remain (then returning MoveInvalid).
 const Pos *movesGetPos(Moves *moves);
 void movesPush(Moves *moves, Move move); // Used by generators to add moves.

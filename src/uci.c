@@ -248,8 +248,7 @@ void uciLoop(void)
     else if (utilStrEqual(part, "see"))
     {
       Moves moves;
-      movesInit(&moves, pos, true);
-      movesRewind(&moves, MoveInvalid);
+      movesInit(&moves, pos, MoveTypeAny);
       Move move;
       while((move=movesNext(&moves))!=MoveInvalid)
       {

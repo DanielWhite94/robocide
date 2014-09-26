@@ -51,8 +51,7 @@ void posPieceRemove(Pos *pos, Sq sq);
 void posPieceMove(Pos *pos, Sq fromSq, Sq toSq);
 void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece);
 void posGenPseudoNormal(Moves *moves, BB allowed);
-void posGenPseudoPawnCaptures(Moves *moves);
-void posGenPseudoPawnQuiets(Moves *moves);
+void posGenPseudoPawnMoves(Moves *moves, MoveType type);
 void posGenPseudoCast(Moves *moves);
 Key posComputeKey(const Pos *pos);
 Key posComputePawnKey(const Pos *pos);
@@ -484,55 +483,38 @@ void posUndoMove(Pos *pos)
   assert(posIsConsistent(pos));
 }
 
-void posGenPseudoMoves(Moves *moves)
+void posGenPseudoMoves(Moves *moves, MoveType type)
 {
-  // Standard moves (no pawns or castling).
-  posGenPseudoNormal(moves, BBAll);
+  assert(type==MoveTypeQuiet || type==MoveTypeCapture || type==MoveTypeAny);
   
-  // Pawns.
-  posGenPseudoPawnCaptures(moves);
-  posGenPseudoPawnQuiets(moves);
-  
-  // Castling.
-  posGenPseudoCast(moves);
-}
-
-void posGenPseudoCaptures(Moves *moves)
-{
   // Standard moves (no pawns or castling).
   BB occ=posGetBBAll(movesGetPos(moves));
-  posGenPseudoNormal(moves, occ);
+  BB allowed=BBNone;
+  if (type & MoveTypeQuiet) allowed|=~occ;
+  if (type & MoveTypeCapture) allowed|=occ;
+  posGenPseudoNormal(moves, allowed);
   
   // Pawns.
-  posGenPseudoPawnCaptures(moves);
-}
-
-void posGenPseudoQuiets(Moves *moves)
-{
-  // Standard moves (no pawns or castling).
-  BB occ=posGetBBAll(movesGetPos(moves));
-  BB empty=~occ;
-  posGenPseudoNormal(moves, empty);
-  
-  // Pawns.
-  posGenPseudoPawnQuiets(moves);
+  posGenPseudoPawnMoves(moves, type);
   
   // Castling.
-  posGenPseudoCast(moves);
+  if (type & MoveTypeQuiet)
+    posGenPseudoCast(moves);
 }
 
-Move posGenLegalMove(Pos *pos)
+Move posGenLegalMove(Pos *pos, MoveType type)
 {
   Moves moves;
-  movesInit(&moves, pos, true);
-  movesRewind(&moves, MoveInvalid);
+  movesInit(&moves, pos, type);
   Move move;
   while((move=movesNext(&moves))!=MoveInvalid)
+  {
     if (posMakeMove(pos, move))
     {
       posUndoMove(pos);
       return move;
     }
+  }
   return MoveInvalid;
 }
 
@@ -611,17 +593,17 @@ bool posIsDraw(const Pos *pos, unsigned int ply)
 
 bool posIsMate(Pos *pos)
 {
-  return (posIsSTMInCheck(pos) && !posLegalMoveExists(pos));
+  return (posIsSTMInCheck(pos) && !posLegalMoveExists(pos, MoveTypeAny));
 }
 
 bool posIsStalemate(Pos *pos)
 {
-  return (!posIsSTMInCheck(pos) && !posLegalMoveExists(pos));
+  return (!posIsSTMInCheck(pos) && !posLegalMoveExists(pos, MoveTypeAny));
 }
 
-bool posLegalMoveExists(Pos *pos)
+bool posLegalMoveExists(Pos *pos, MoveType type)
 {
-  return (posGenLegalMove(pos)!=MoveInvalid);
+  return (posGenLegalMove(pos, type)!=MoveInvalid);
 }
 
 bool posHasPieces(const Pos *pos, Colour colour)
@@ -635,8 +617,7 @@ bool posMoveIsPseudoLegal(const Pos *pos, Move move)
   bool result=posMoveIsPseudoLegalInternal(pos, move);
 # ifndef NDEBUG
   Moves moves;
-  movesInit(&moves, pos, true);
-  movesRewind(&moves, MoveInvalid);
+  movesInit(&moves, pos, MoveTypeAny);
   Move move2;
   bool trueResult=false;
   while((move2=movesNext(&moves))!=MoveInvalid)
@@ -650,35 +631,34 @@ bool posMoveIsPseudoLegal(const Pos *pos, Move move)
   return result;
 }
 
-bool posMoveIsQuiet(const Pos *pos, Move move)
+MoveType posMoveGetType(const Pos *pos, Move move)
 {
   // Standard capture?
   Sq toSq=moveGetToSq(move);
   Piece capPiece=posGetPieceOnSq(pos, toSq);
   if (capPiece!=PieceNone)
-    return false;
+    return MoveTypeCapture;
   
   // Promotion?
   Sq fromSq=moveGetFromSq(move);
   Piece fromPiece=posGetPieceOnSq(pos, fromSq);
   Piece toPiece=moveGetToPiece(move);
   if (fromPiece!=toPiece)
-    return false;
+    return MoveTypeCapture;
   
   // En-passent capture?
   assert(capPiece==PieceNone);
   if (pieceGetType(fromPiece)==PieceTypePawn && sqFile(fromSq)!=sqFile(toSq))
-    return false;
+    return MoveTypeCapture;
   
   // Otherwise must be quiet.
-  return true;
+  return MoveTypeQuiet;
 }
 
 Move posMoveFromStr(const Pos *pos, const char str[static 6])
 {
   Moves moves;
-  movesInit(&moves, pos, true);
-  movesRewind(&moves, MoveInvalid);
+  movesInit(&moves, pos, MoveTypeAny);
   Move move;
   while((move=movesNext(&moves))!=MoveInvalid)
   {
@@ -894,7 +874,7 @@ void posGenPseudoNormal(Moves *moves, BB allowed)
 # undef PUSH
 }
 
-void posGenPseudoPawnCaptures(Moves *moves)
+void posGenPseudoPawnMoves(Moves *moves, MoveType type)
 {
 # define PUSH(m) movesPush(moves, (m))
   const Pos *pos=movesGetPos(moves);
@@ -902,103 +882,101 @@ void posGenPseudoPawnCaptures(Moves *moves)
   BB opp=posGetBBColour(pos, colourSwap(stm));
   BB empty=~posGetBBAll(pos);
   Piece piece=pieceMake(PieceTypePawn, stm);
-  BB forwardPawns=bbForwardOne(posGetBBPiece(pos, piece), stm);
-  BB backRanks=(bbRank(Rank1) | bbRank(Rank8));
-  BB set, set2;
-  
-  // Promotions.
-  set=(forwardPawns & empty & backRanks);
-  while(set)
-  {
-    Sq toSq=bbScanReset(&set);
-    Sq fromSq=sqBackwardOne(toSq, stm);
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
-  }
-  
-  // Capture left.
-  set=bbWestOne(forwardPawns) & opp;
-  set2=(set & backRanks);
-  set&=~backRanks;
-  while(set)
-  {
-    Sq toSq=bbScanReset(&set);
-    Sq fromSq=sqEastOne(sqBackwardOne(toSq, stm));
-    PUSH(moveMake(fromSq, toSq, piece));
-  }
-  while(set2)
-  {
-    Sq toSq=bbScanReset(&set2);
-    Sq fromSq=sqEastOne(sqBackwardOne(toSq, stm));
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
-  }
-  
-  // Capture right.
-  set=bbEastOne(forwardPawns) & opp;
-  set2=(set & backRanks);
-  set&=~backRanks;
-  while(set)
-  {
-    Sq toSq=bbScanReset(&set);
-    Sq fromSq=sqWestOne(sqBackwardOne(toSq, stm));
-    PUSH(moveMake(fromSq, toSq, piece));
-  }
-  while(set2)
-  {
-    Sq toSq=bbScanReset(&set2);
-    Sq fromSq=sqWestOne(sqBackwardOne(toSq, stm));
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
-    PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
-  }
-  
-  // En-passent captures.
-  if (pos->data->epSq!=SqInvalid)
-  {
-    Sq toSq=pos->data->epSq, fromSq;
-    
-    // Left capture.
-    if (sqFile(pos->data->epSq)!=FileH && posGetPieceOnSq(pos, fromSq=sqEastOne(sqBackwardOne(toSq, stm)))==piece)
-      PUSH(moveMake(fromSq, toSq, piece));
-    
-    // Right capture.
-    if (sqFile(pos->data->epSq)!=FileA && posGetPieceOnSq(pos, fromSq=sqWestOne(sqBackwardOne(toSq, stm)))==piece)
-      PUSH(moveMake(fromSq, toSq, piece));
-  }
-# undef PUSH
-}
-
-void posGenPseudoPawnQuiets(Moves *moves)
-{
-# define PUSH(m) movesPush(moves, (m))
-  const Pos *pos=movesGetPos(moves);
-  Colour stm=posGetSTM(pos);
-  BB allowed=~(bbRank(Rank1) | bbRank(Rank8) | posGetBBAll(pos));
-  
-  int delta=(stm==ColourWhite ? 8 : -8);
-  Piece piece=pieceMake(PieceTypePawn, stm);
   BB pawns=posGetBBPiece(pos, piece);
-  BB one=bbForwardOne(pawns, stm) & allowed;
-  BB two=bbForwardOne(one, stm) & allowed & (stm==ColourWhite ? bbRank(Rank4) : bbRank(Rank5));
+  BB forwardPawns=bbForwardOne(pawns, stm);
+  BB backRanks=(bbRank(Rank1) | bbRank(Rank8));
   
-  // Standard move forward.
-  while(one)
+  if (type & MoveTypeCapture)
   {
-    Sq toSq=bbScanReset(&one);
-    PUSH(moveMake(toSq-delta, toSq, piece));
+    BB set, set2;
+    
+    // Forward promotions.
+    set=(forwardPawns & empty & backRanks);
+    while(set)
+    {
+      Sq toSq=bbScanReset(&set);
+      Sq fromSq=sqBackwardOne(toSq, stm);
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
+    }
+    
+    // Capture left.
+    set=bbWestOne(forwardPawns) & opp;
+    set2=(set & backRanks);
+    set&=~backRanks;
+    while(set2)
+    {
+      Sq toSq=bbScanReset(&set2);
+      Sq fromSq=sqEastOne(sqBackwardOne(toSq, stm));
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
+    }
+    while(set)
+    {
+      Sq toSq=bbScanReset(&set);
+      Sq fromSq=sqEastOne(sqBackwardOne(toSq, stm));
+      PUSH(moveMake(fromSq, toSq, piece));
+    }
+    
+    // Capture right.
+    set=bbEastOne(forwardPawns) & opp;
+    set2=(set & backRanks);
+    set&=~backRanks;
+    while(set2)
+    {
+      Sq toSq=bbScanReset(&set2);
+      Sq fromSq=sqWestOne(sqBackwardOne(toSq, stm));
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
+      PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
+    }
+    while(set)
+    {
+      Sq toSq=bbScanReset(&set);
+      Sq fromSq=sqWestOne(sqBackwardOne(toSq, stm));
+      PUSH(moveMake(fromSq, toSq, piece));
+    }
+    
+    // En-passent captures.
+    if (pos->data->epSq!=SqInvalid)
+    {
+      Sq toSq=pos->data->epSq, fromSq;
+      
+      // Left capture.
+      if (sqFile(pos->data->epSq)!=FileH && posGetPieceOnSq(pos, fromSq=sqEastOne(sqBackwardOne(toSq, stm)))==piece)
+        PUSH(moveMake(fromSq, toSq, piece));
+      
+      // Right capture.
+      if (sqFile(pos->data->epSq)!=FileA && posGetPieceOnSq(pos, fromSq=sqWestOne(sqBackwardOne(toSq, stm)))==piece)
+        PUSH(moveMake(fromSq, toSq, piece));
+    }
   }
   
-  // Double first move.
-  while(two)
+  if (type & MoveTypeQuiet)
   {
-    Sq toSq=bbScanReset(&two);
-    PUSH(moveMake(toSq-delta-delta, toSq, piece));
+    int delta=(stm==ColourWhite ? 8 : -8);
+    BB allowed=(empty & ~backRanks);
+    BB one=(forwardPawns & allowed);
+    BB two=(bbForwardOne(one, stm) & allowed & (stm==ColourWhite ? bbRank(Rank4) : bbRank(Rank5)));
+    
+    // Standard move forward.
+    while(one)
+    {
+      Sq toSq=bbScanReset(&one);
+      PUSH(moveMake(toSq-delta, toSq, piece));
+    }
+    
+    // Double first move.
+    while(two)
+    {
+      Sq toSq=bbScanReset(&two);
+      PUSH(moveMake(toSq-delta-delta, toSq, piece));
+    }
   }
 # undef PUSH
 }

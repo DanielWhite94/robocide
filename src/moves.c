@@ -13,17 +13,21 @@ void movesSort(ScoredMove *start, ScoredMove *end); // descending order (best mo
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void movesInit(Moves *moves, const Pos *pos, bool quiets)
+void movesInit(Moves *moves, const Pos *pos, MoveType type)
 {
+  assert(type==MoveTypeQuiet || type==MoveTypeCapture || type==MoveTypeAny);
+  moves->end=moves->next=moves->list;
+  moves->stage=MovesStageTT;
+  moves->ttMove=MoveInvalid;
   moves->pos=pos;
-  moves->genCaptures=true;
-  moves->genQuiets=quiets;
+  moves->allowed=moves->needed=type;
 }
 
 void movesRewind(Moves *moves, Move ttMove)
 {
   moves->stage=MovesStageTT;
-  moves->ttMove=ttMove;
+  moves->next=moves->list;
+  moves->ttMove=((moveIsValid(ttMove) && (posMoveGetType(moves->pos, ttMove)&moves->allowed)) ? ttMove : MoveInvalid);
 }
 
 Move movesNext(Moves *moves)
@@ -31,52 +35,55 @@ Move movesNext(Moves *moves)
   switch(moves->stage)
   {
     case MovesStageTT:
-      // Update stage and Next ptr ready for next call (at most one TT move)
-      moves->stage=MovesStageCaptures;
-      moves->next=moves->list;
+      // Update stage and next ptr ready for next call (at most one TT move).
+      moves->stage=MovesStageGenCaptures;
       
       // Do we have a TT move?
-      if (moveIsValid(moves->ttMove))
+      if (moves->ttMove!=MoveInvalid)
         return moves->ttMove;
       
-      // Fall through
-    case MovesStageCaptures:
-      // Do we need to generate any moves?
-      if (moves->genCaptures)
+      // Fall through.
+    case MovesStageGenCaptures:
+      // Do we need to generate any captures?
+      if (moves->needed & MoveTypeCapture)
       {
         assert(moves->next==moves->list);
-        moves->end=moves->list;
-        posGenPseudoCaptures(moves);
+        assert(moves->next==moves->end);
+        posGenPseudoMoves(moves, MoveTypeCapture);
         movesSort(moves->next, moves->end);
-        moves->genCaptures=false;
+        moves->needed&=~MoveTypeCapture;
       }
       
-      // Return moves one at a time
+      // Fall through.
+      moves->stage=MovesStageCaptures;
+    case MovesStageCaptures:
+      // Return moves one at a time.
       while (moves->next<moves->end)
       {
         Move move=scoredMoveGetMove(*moves->next++);
-        if (move!=moves->ttMove) // exclude TT move as this is searched earlier
+        if (move!=moves->ttMove) // Exclude TT move as this is searched earlier.
           return move;
       }
       
-      // No captures left, fall through
-      moves->stage=MovesStageQuiets;
-      assert(moves->next==moves->end);
-    case MovesStageQuiets:
-      // Do we need to generate any moves?
-      if (moves->genQuiets)
+      // Fall through.
+    case MovesStageGenQuiets:
+      // No captures left, do we need to generate any quiets?
+      if (moves->needed & MoveTypeQuiet)
       {
         assert(moves->next==moves->end);
-        posGenPseudoQuiets(moves);
+        posGenPseudoMoves(moves, MoveTypeQuiet);
         movesSort(moves->next, moves->end);
-        moves->genQuiets=false;
+        moves->needed&=~MoveTypeQuiet;
       }
       
-      // Return moves one at a time
+      // Fall through.
+      moves->stage=MovesStageQuiets;
+    case MovesStageQuiets:
+      // Return moves one at a time.
       while (moves->next<moves->end)
       {
         Move move=scoredMoveGetMove(*moves->next++);
-        if (move!=moves->ttMove) // exclude TT move as this is searched earlier
+        if (move!=moves->ttMove) // Exclude TT move as this is searched earlier.
           return move;
       }
       

@@ -70,16 +70,17 @@ Key posGetPawnKey(const Pos *pos);
 Key posGetMatKey(const Pos *pos);
 MatInfo posGetMatInfo(const Pos *pos);
 bool posMakeMove(Pos *pos, Move move);
+bool posCanMakeMove(const Pos *pos, Move move); // Returns the same result as posMakeMove() but does not actually make the move on the board.
 void posUndoMove(Pos *pos);
 void posGenPseudoMoves(Moves *moves, MoveType type);
-Move posGenLegalMove(Pos *pos, MoveType type);
+Move posGenLegalMove(const Pos *pos, MoveType type);
 bool posIsSqAttackedByColour(const Pos *pos, Sq sq, Colour colour);
 bool posIsSTMInCheck(const Pos *pos);
 bool posIsXSTMInCheck(const Pos *pos);
 bool posIsDraw(const Pos *pos, unsigned int ply);
-bool posIsMate(Pos *pos);
-bool posIsStalemate(Pos *pos);
-bool posLegalMoveExists(Pos *pos, MoveType type);
+bool posIsMate(const Pos *pos);
+bool posIsStalemate(const Pos *pos);
+bool posLegalMoveExists(const Pos *pos, MoveType type);
 bool posHasPieces(const Pos *pos, Colour colour); // Non-pawn material?
 bool posMoveIsPseudoLegal(const Pos *pos, Move move); // If side-to-move is not in check will also permit MoveNone.
 MoveType posMoveGetType(const Pos *pos, Move move); // Assumes move is pseudo-legal in the current position.

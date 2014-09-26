@@ -220,10 +220,8 @@ void searchIDLoop(void *posPtr)
   
   // Grab best move from TT if available, otherwise choose a legal move.
   Move bestMove=ttReadMove(node.pos);
-  if (!moveIsValid(bestMove) || !posMakeMove(node.pos, bestMove))
+  if (!moveIsValid(bestMove) || !posCanMakeMove(node.pos, bestMove))
     bestMove=posGenLegalMove(node.pos, MoveTypeAny);
-  else
-    posUndoMove(node.pos);
   
   // If in pondering mode try to extract ponder move.
   Move ponderMove=MoveInvalid;
@@ -231,10 +229,8 @@ void searchIDLoop(void *posPtr)
   {
     posMakeMove(node.pos, bestMove);
     ponderMove=ttReadMove(node.pos);
-    if (!moveIsValid(ponderMove) || !posMakeMove(node.pos, ponderMove))
+    if (!moveIsValid(ponderMove) || !posCanMakeMove(node.pos, ponderMove))
       ponderMove=posGenLegalMove(node.pos, MoveTypeAny);
-    else
-      posUndoMove(node.pos);
     posUndoMove(node.pos);
   }
   

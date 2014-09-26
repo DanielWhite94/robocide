@@ -322,6 +322,9 @@ MatInfo posGetMatInfo(const Pos *pos)
 bool posMakeMove(Pos *pos, Move move)
 {
   assert(moveIsValid(move) || move==MoveNone);
+# ifndef NDEBUG
+  bool canMakeMoveResult=posCanMakeMove(pos, move);
+# endif
   
   // Use next data entry.
   if (pos->data+1>=pos->dataEnd)
@@ -427,6 +430,7 @@ bool posMakeMove(Pos *pos, Move move)
     if (posIsXSTMInCheck(pos))
     {
       posUndoMove(pos);
+      assert(!canMakeMoveResult);
       return false;
     }
     
@@ -435,6 +439,78 @@ bool posMakeMove(Pos *pos, Move move)
   }
   
   assert(posIsConsistent(pos));
+  assert(canMakeMoveResult);
+  
+  return true;
+}
+
+bool posCanMakeMove(const Pos *pos, Move move)
+{
+  // Sanity checks and special case.
+  assert(moveIsValid(move) || move==MoveNone);
+  if (move==MoveNone)
+    return true;
+  
+  // Use local variables to simulate having made the move.
+  Colour stm=moveGetColour(move);
+  assert(stm==posGetSTM(pos));
+  Colour xstm=colourSwap(stm);
+  BB occ=posGetBBAll(pos);
+  BB opp=posGetBBColour(pos, xstm);
+  Sq fromSq=moveGetFromSq(move);
+  Sq toSq=moveGetToSq(move);
+  BB fromBB=bbSq(fromSq);
+  BB toBB=bbSq(toSq);
+  Sq kingSq=posGetKingSq(pos, stm);
+  
+  if (fromSq==kingSq) kingSq=toSq; // King move.
+  occ&=~fromBB; // Move piece.
+  occ|=toBB;
+  opp&=~toBB; // Potentially capture opp piece (so it cannot attack us later).
+  if (moveGetToPieceType(move)==PieceTypePawn && sqFile(fromSq)!=sqFile(toSq) && posGetPieceOnSq(pos, toSq)==PieceNone)
+  {
+    // En-passent capture.
+    assert(pos->data->epSq==toSq);
+    occ^=bbSq(toSq^8);
+    opp^=bbSq(toSq^8);
+  }
+  
+  // Make a list of squares we need to ensure are unattacked.
+  BB checkSquares=bbSq(kingSq);
+  if (moveIsCastling(move))
+    checkSquares|=fromBB|bbSq((toSq+fromSq)/2);
+  
+  // Test for attacks to any of checkSquares.
+  // Pawns are done setwise.
+  BB oppPawns=(posGetBBPiece(pos, pieceMake(PieceTypePawn, xstm)) & opp);
+  if (bbForwardOne(bbWingify(oppPawns), xstm) & checkSquares)
+    return false;
+  // Pieces are checked for each square in checkSquares (which usually only has a single bit set anyway).
+  while(checkSquares)
+  {
+    Sq sq=bbScanReset(&checkSquares);
+    
+    // Knights.
+    if (attacksKnight(sq) & opp & posGetBBPiece(pos, pieceMake(PieceTypeKnight, xstm)))
+      return false;
+    
+    // Bishops and diagonal queen moves.
+    if (attacksBishop(sq, occ) & opp &
+        (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, xstm)) |
+         posGetBBPiece(pos, pieceMake(PieceTypeBishopD, xstm)) |
+         posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))))
+      return false;
+    
+    // Rooks and orthogonal queen moves.
+    if (attacksRook(sq, occ) & opp &
+        (posGetBBPiece(pos, pieceMake(PieceTypeRook, xstm)) |
+         posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))))
+      return false;
+    
+    // King.
+    if (attacksKing(sq) & opp & posGetBBPiece(pos, pieceMake(PieceTypeKing, xstm)))
+      return false;
+  }
   
   return true;
 }
@@ -502,19 +578,14 @@ void posGenPseudoMoves(Moves *moves, MoveType type)
     posGenPseudoCast(moves);
 }
 
-Move posGenLegalMove(Pos *pos, MoveType type)
+Move posGenLegalMove(const Pos *pos, MoveType type)
 {
   Moves moves;
   movesInit(&moves, pos, type);
   Move move;
   while((move=movesNext(&moves))!=MoveInvalid)
-  {
-    if (posMakeMove(pos, move))
-    {
-      posUndoMove(pos);
+    if (posCanMakeMove(pos, move))
       return move;
-    }
-  }
   return MoveInvalid;
 }
 
@@ -591,17 +662,17 @@ bool posIsDraw(const Pos *pos, unsigned int ply)
   return false;
 }
 
-bool posIsMate(Pos *pos)
+bool posIsMate(const Pos *pos)
 {
   return (posIsSTMInCheck(pos) && !posLegalMoveExists(pos, MoveTypeAny));
 }
 
-bool posIsStalemate(Pos *pos)
+bool posIsStalemate(const Pos *pos)
 {
   return (!posIsSTMInCheck(pos) && !posLegalMoveExists(pos, MoveTypeAny));
 }
 
-bool posLegalMoveExists(Pos *pos, MoveType type)
+bool posLegalMoveExists(const Pos *pos, MoveType type)
 {
   return (posGenLegalMove(pos, type)!=MoveInvalid);
 }

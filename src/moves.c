@@ -7,7 +7,7 @@
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-void movesSort(ScoredMove *start, ScoredMove *end); // descending order (best move first)
+void movesSort(ScoredMove *start, ScoredMove *end); // Descending order (best move first).
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -116,7 +116,7 @@ void movesPush(Moves *moves, Move move)
 
 void movesSort(ScoredMove *start, ScoredMove *end)
 {
-  // Insertion sort - best move first
+  // Insertion sort - best move first.
   ScoredMove *ptr;
   for(ptr=start+1;ptr<end;++ptr)
   {

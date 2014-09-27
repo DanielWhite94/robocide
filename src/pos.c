@@ -62,6 +62,7 @@ bool posIsPiecePinned(const Pos *pos, Sq pinnedSq, Sq victimSq);
 bool posIsConsistent(Pos *pos);
 unsigned int matInfoShift(Piece piece);
 bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move);
+bool posLegalMoveExistsPiece(const Pos *pos, PieceType type, BB allowed);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -674,7 +675,116 @@ bool posIsStalemate(const Pos *pos)
 
 bool posLegalMoveExists(const Pos *pos, MoveType type)
 {
-  return (posGenLegalMove(pos, type)!=MoveInvalid);
+  Colour stm=posGetSTM(pos);
+  BB occ=posGetBBAll(pos);
+  BB opp=posGetBBColour(pos, colourSwap(stm));
+  BB allowed=BBNone; // Squares pieces can move to.
+  if (type & MoveTypeQuiet) allowed|=~occ;
+  if (type & MoveTypeCapture) allowed|=opp;
+  
+  // Pieces (ordered for speed).
+  if (posLegalMoveExistsPiece(pos, PieceTypeKing, allowed) ||
+      posLegalMoveExistsPiece(pos, PieceTypeKnight, allowed) ||
+      posLegalMoveExistsPiece(pos, PieceTypeQueen, allowed) ||
+      posLegalMoveExistsPiece(pos, PieceTypeRook, allowed) ||
+      posLegalMoveExistsPiece(pos, PieceTypeBishopL, allowed) ||
+      posLegalMoveExistsPiece(pos, PieceTypeBishopD, allowed))
+    goto success;
+  
+  // Pawns.
+  Piece piece=pieceMake(PieceTypePawn, stm);
+  BB pawns=posGetBBPiece(pos, piece);
+  BB forwardPawns=(bbForwardOne(pawns, stm) & ~occ);
+  int delta;
+  BB set;
+  
+  if (type & MoveTypeQuiet)
+  {
+    // Pawns - standard move forward.
+    delta=(stm==ColourWhite ? 8 : -8);
+    set=(forwardPawns & ~(stm==ColourWhite ? bbRank(Rank8) : bbRank(Rank1)));
+    while(set)
+    {
+      Sq toSq=bbScanReset(&set);
+      Sq fromSq=toSq-delta;
+      Move move=moveMake(fromSq, toSq, piece);
+      if (posCanMakeMove(pos, move))
+        goto success;
+    }
+    
+    // Pawns - double first move.
+    delta=(stm==ColourWhite ? 16 : -16);
+    set=(bbForwardOne(forwardPawns, stm) & ~occ);
+    set&=(stm==ColourWhite ? bbRank(Rank4) : bbRank(Rank5));
+    while(set)
+    {
+      Sq toSq=bbScanReset(&set);
+      Sq fromSq=toSq-delta;
+      Move move=moveMake(fromSq, toSq, piece);
+      if (posCanMakeMove(pos, move))
+        goto success;
+    }
+  }
+  
+  if (type & MoveTypeCapture)
+  {
+    // Pawns - west captures.
+    delta=(stm==ColourWhite ? 7 : -9);
+    set=(bbWestOne(forwardPawns) & opp);
+    while(set)
+    {
+      Sq toSq=bbScanReset(&set);
+      Sq fromSq=toSq-delta;
+      Piece toPiece=((sqRank(toSq)==Rank1 || sqRank(toSq)==Rank8) ? pieceMake(PieceTypeQueen, stm) : piece);
+      Move move=moveMake(fromSq, toSq, toPiece);
+      if (posCanMakeMove(pos, move))
+        goto success;
+    }
+    
+    // Pawns - east captures.
+    delta=(stm==ColourWhite ? 9 : -7);
+    set=(bbEastOne(forwardPawns) & opp);
+    while(set)
+    {
+      Sq toSq=bbScanReset(&set);
+      Sq fromSq=toSq-delta;
+      Piece toPiece=((sqRank(toSq)==Rank1 || sqRank(toSq)==Rank8) ? pieceMake(PieceTypeQueen, stm) : piece);
+      Move move=moveMake(fromSq, toSq, toPiece);
+      if (posCanMakeMove(pos, move))
+        goto success;
+    }
+    
+    // Pawns - en-passent captures.
+    if (pos->data->epSq!=SqInvalid)
+    {
+      Sq toSq=pos->data->epSq, fromSq;
+      
+      // Left capture.
+      if (sqFile(pos->data->epSq)!=FileH && posGetPieceOnSq(pos, fromSq=sqEastOne(sqBackwardOne(toSq, stm)))==piece)
+      {
+        Move move=moveMake(fromSq, toSq, piece);
+        if (posCanMakeMove(pos, move))
+          goto success;
+      }
+      
+      // Right capture.
+      if (sqFile(pos->data->epSq)!=FileA && posGetPieceOnSq(pos, fromSq=sqWestOne(sqBackwardOne(toSq, stm)))==piece)
+      {
+        Move move=moveMake(fromSq, toSq, piece);
+        if (posCanMakeMove(pos, move))
+          goto success;
+      }
+    }
+  }
+  
+  // No moves available.
+  assert(posGenLegalMove(pos, type)==MoveInvalid);
+  return false;
+  
+  // At least one move available.
+  success:
+  assert(posGenLegalMove(pos, type)!=MoveInvalid);
+  return true;
 }
 
 bool posHasPieces(const Pos *pos, Colour colour)
@@ -1426,6 +1536,29 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move)
     default:
       return false;
     break;
+  }
+  return false;
+}
+
+bool posLegalMoveExistsPiece(const Pos *pos, PieceType type, BB allowed)
+{
+  assert(pieceTypeIsValid(type) && type!=PieceTypePawn);
+  
+  Colour stm=posGetSTM(pos);
+  BB occ=posGetBBAll(pos);
+  Piece piece=pieceMake(type, stm);
+  BB set=posGetBBPiece(pos, piece);
+  while(set)
+  {
+    Sq fromSq=bbScanReset(&set);
+    BB attacks=(attacksPieceType(type, fromSq, occ) & allowed);
+    while(attacks)
+    {
+      Sq toSq=bbScanReset(&attacks);
+      Move move=moveMake(fromSq, toSq, piece);
+      if (posCanMakeMove(pos, move))
+        return true;
+    }
   }
   return false;
 }

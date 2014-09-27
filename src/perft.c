@@ -35,11 +35,11 @@ void divide(Pos *pos, unsigned int depth)
   Move move;
   while((move=movesNext(&moves))!=MoveInvalid)
   {
+    char str[8];
+    posMoveToStr(pos, move, str);
     if (!posMakeMove(pos, move))
       continue;
     unsigned long long int nodes=perftRaw(pos, depth-1);
-    char str[8];
-    posMoveToStr(pos, move, str);
     uciWrite("  %6s %12llu\n", str, nodes);
     total+=nodes;
     posUndoMove(pos);

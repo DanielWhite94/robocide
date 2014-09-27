@@ -78,6 +78,7 @@ TUNECONST VPair evalPawnPassedQuadC={155,50};
 TUNECONST VPair evalKnightPawnAffinity={30,30}; // Bonus each knight receives for each friendly pawn on the board.
 TUNECONST VPair evalBishopPair={500,500};
 TUNECONST VPair evalBishopMob={40,30};
+TUNECONST VPair evalOppositeBishopFactor={256,192}; // /256.
 TUNECONST VPair evalRookPawnAffinity={-70,-70}; // Bonus each rook receives for each friendly pawn on the board.
 TUNECONST VPair evalRookMobFile={20,30};
 TUNECONST VPair evalRookMobRank={10,20};
@@ -264,6 +265,8 @@ void evalInit(void)
   evalOptionNewVPair("KnightPawnAffinity", &evalKnightPawnAffinity);
   evalOptionNewVPair("BishopPair", &evalBishopPair);
   evalOptionNewVPair("BishopMobility", &evalBishopMob);
+  uciOptionNewSpin("OppositeBishopFactorMG", &evalSetValue, &evalOppositeBishopFactor.mg, 0, 512, evalOppositeBishopFactor.mg);
+  uciOptionNewSpin("OppositeBishopFactorEG", &evalSetValue, &evalOppositeBishopFactor.eg, 0, 512, evalOppositeBishopFactor.eg);
   evalOptionNewVPair("RookPawnAffinity", &evalRookPawnAffinity);
   evalOptionNewVPair("RookMobilityFile", &evalRookMobFile);
   evalOptionNewVPair("RookMobilityRank", &evalRookMobRank);
@@ -512,6 +515,13 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData)
   }
   matData->weightMG=(matData->weightMG*factor)/1024;
   matData->weightEG=(matData->weightEG*factor)/1024;
+  
+  // Opposite coloured bishop endgames are drawish.
+  if ((wBishopL^wBishopD) && (bBishopL^bBishopD) && (wBishopL^bBishopL))
+  {
+    matData->weightMG=(matData->weightMG*evalOppositeBishopFactor.mg)/256;
+    matData->weightEG=(matData->weightEG*evalOppositeBishopFactor.eg)/256;
+  }
   
   // Material.
   evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypePawn], G(PieceWPawn)-G(PieceBPawn));

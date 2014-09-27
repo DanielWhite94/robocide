@@ -57,9 +57,9 @@ Key posComputeKey(const Pos *pos);
 Key posComputePawnKey(const Pos *pos);
 Key posComputeMatKey(const Pos *pos);
 Key posRandKey(void);
-bool posIsEPCap(Pos *pos, Sq sq); // Is there a legal en-passent capture move to sq available?
-bool posIsPiecePinned(const Pos *pos, Sq pinnedSq, Sq victimSq);
-bool posIsConsistent(Pos *pos);
+bool posIsEPCap(const Pos *pos, Sq sq); // Is there a legal en-passent capture move to sq available?
+bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq victimSq);
+bool posIsConsistent(const Pos *pos);
 unsigned int matInfoShift(Piece piece);
 bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move);
 bool posLegalMoveExistsPiece(const Pos *pos, PieceType type, BB allowed);
@@ -215,9 +215,9 @@ bool posSetToFEN(Pos *pos, const char *string)
   pos->fullMoveNumber=fen.fullMoveNumber;
   pos->data->halfMoveNumber=fen.halfMoveNumber;
   pos->data->cast=fen.castRights;
-  pos->data->key=posComputeKey(pos);
   if (fen.epSq!=SqInvalid && posIsEPCap(pos, fen.epSq))
     pos->data->epSq=fen.epSq;
+  pos->data->key=posComputeKey(pos);
   
   assert(posIsConsistent(pos));
   
@@ -435,7 +435,7 @@ bool posMakeMove(Pos *pos, Move move)
       return false;
     }
     
-    // Update key
+    // Update key.
     pos->data->key^=posKeyCastling[pos->data->cast^(pos->data-1)->cast]^posKeyEP[pos->data->epSq];
   }
   
@@ -873,6 +873,7 @@ void posMoveToStr(const Pos *pos, Move move, char str[static 6])
   
   // Promotion?
   Piece fromPiece=posGetPieceOnSq(pos, fromSq);
+  assert(fromPiece!=PieceNone && pieceGetColour(fromPiece)==posGetSTM(pos));
   Piece toPiece=moveGetToPiece(move);
   bool isPromo=(fromPiece!=toPiece);
   assert(!isPromo || sqRank(toSq)==(posGetSTM(pos)==ColourWhite ? Rank8 : Rank1));
@@ -1227,47 +1228,55 @@ Key posRandKey(void)
   return utilRand64();
 }
 
-bool posIsEPCap(Pos *pos, Sq sq)
+bool posIsEPCap(const Pos *pos, Sq sq)
 {
-  // Need to test that a pawn exists to capture, and that it is not pinned.
-  Colour colour=posGetSTM(pos);
-  Piece attacker=pieceMake(PieceTypePawn, colour);
+  // No pawn to capture? (i.e. bad FEN string)
+  Colour stm=posGetSTM(pos);
+  Colour xstm=colourSwap(stm);
+  Piece victim=pieceMake(PieceTypePawn, xstm);
   Sq victimSq=sq^8;
-  Piece victim=posGetPieceOnSq(pos, victimSq);
-  assert(victim==pieceMake(PieceTypePawn, colourSwap(colour)));
-  Sq kingSq=posGetKingSq(pos, colour);
-  posPieceRemove(pos, victimSq);
-  bool ret=((sqFile(victimSq)!=FileA && posGetPieceOnSq(pos, sqWestOne(victimSq))==attacker && !posIsPiecePinned(pos, sqWestOne(victimSq), kingSq)) ||
-            (sqFile(victimSq)!=FileH && posGetPieceOnSq(pos, sqEastOne(victimSq))==attacker && !posIsPiecePinned(pos, sqEastOne(victimSq), kingSq)));
-  posPieceAdd(pos, victim, victimSq);
-  return ret;
+  if (posGetPieceOnSq(pos, victimSq)!=victim)
+    return false;
+  
+  // Simulate capturing the pawn.
+  BB occ=posGetBBAll(pos);
+  assert(occ&bbSq(victimSq)); // To make XOR trick work.
+  occ^=bbSq(victimSq);
+  
+  // Check if capturing pawn(s) are pinned.
+  Piece attacker=pieceMake(PieceTypePawn, stm);
+  Sq kingSq=posGetKingSq(pos, stm);
+  return ((sqFile(victimSq)!=FileA && posGetPieceOnSq(pos, sqWestOne(victimSq))==attacker && !posIsPiecePinned(pos, occ, xstm, sqWestOne(victimSq), kingSq)) ||
+          (sqFile(victimSq)!=FileH && posGetPieceOnSq(pos, sqEastOne(victimSq))==attacker && !posIsPiecePinned(pos, occ, xstm, sqEastOne(victimSq), kingSq)));
 }
 
-bool posIsPiecePinned(const Pos *pos, Sq pinnedSq, Sq victimSq)
+bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq victimSq)
 {
-  BB all=posGetBBAll(pos);
-  Colour atkColour=colourSwap(pieceGetColour(posGetPieceOnSq(pos, pinnedSq)));
+  // Sanity checks.
+  assert(posGetPieceOnSq(pos, pinnedSq)!=PieceNone);
+  assert(atkColour==colourSwap(pieceGetColour(posGetPieceOnSq(pos, pinnedSq))));
   
   // Anything between victim and 'pinned' piece?
   BB between=bbBetween(pinnedSq, victimSq);
-  if (between & all)
+  if (between & occ)
     return false;
   
   // Test if the victim would be attacked if the 'pinned' piece is removed,
-  BB set=(all & ~bbSq(pinnedSq));
+  assert(occ&bbSq(pinnedSq)); // To make XOR trick work.
+  occ^=bbSq(pinnedSq);
   BB beyond=bbBeyond(victimSq, pinnedSq);
   int x1=sqFile(pinnedSq), y1=sqRank(pinnedSq);
   int x2=sqFile(victimSq), y2=sqRank(victimSq);
   if (x1==x2 || y1==y2) // Horizontal/vertical.
   {
-    BB ray=(attacksRook(victimSq, set) & beyond);
+    BB ray=(attacksRook(victimSq, occ) & beyond);
     if (ray & (posGetBBPiece(pos, pieceMake(PieceTypeRook, atkColour)) |
                posGetBBPiece(pos, pieceMake(PieceTypeQueen, atkColour))))
       return true;
   }
-  else if (x1-y1==x2-y2 || y1-x1==x2-y2) // Major/minor diagonal.
+  else if (x1+y1==x2+y2 || y1-x1==y2-x2) // Major/minor diagonal.
   {
-    BB ray=(attacksBishop(victimSq, set) & beyond);
+    BB ray=(attacksBishop(victimSq, occ) & beyond);
     if (ray & (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, atkColour)) |
                posGetBBPiece(pos, pieceMake(PieceTypeBishopD, atkColour)) |
                posGetBBPiece(pos, pieceMake(PieceTypeQueen, atkColour))))
@@ -1277,7 +1286,7 @@ bool posIsPiecePinned(const Pos *pos, Sq pinnedSq, Sq victimSq)
   return false;
 }
 
-bool posIsConsistent(Pos *pos)
+bool posIsConsistent(const Pos *pos)
 {
   char error[512];
   

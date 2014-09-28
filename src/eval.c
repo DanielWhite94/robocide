@@ -89,6 +89,8 @@ TUNECONST VPair evalRookTrapped={-400,0};
 TUNECONST VPair evalKingShieldClose={150,0};
 TUNECONST VPair evalKingShieldFar={50,0};
 TUNECONST VPair evalTempoDefault={35,0};
+TUNECONST VPair evalTempoKQKQ={200,200};
+TUNECONST VPair evalTempoKQQKQQ={500,500};
 TUNECONST Value evalHalfMoveFactor=2048;
 TUNECONST Value evalWeightFactor=144;
 
@@ -277,6 +279,8 @@ void evalInit(void)
   evalOptionNewVPair("KingShieldClose", &evalKingShieldClose);
   evalOptionNewVPair("KingShieldFar", &evalKingShieldFar);
   evalOptionNewVPair("Tempo", &evalTempoDefault);
+  evalOptionNewVPair("TempoKQKQ", &evalTempoKQKQ);
+  evalOptionNewVPair("TempoKQQKQQ", &evalTempoKQQKQQ);
   uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 32768, evalHalfMoveFactor);
   uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 1024, evalWeightFactor);
 # endif
@@ -447,6 +451,8 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData)
   }
   
   // If no data already, compute.
+  if (entry->type==EvalMatTypeInvalid)
+    entry->type=evalGetMatType(pos);
   if (entry->function==NULL)
     evalComputeMatData(pos, entry);
   
@@ -487,31 +493,179 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData)
   
   // Specific material combinations.
   unsigned int factor=1024;
-  if (mat)
+  switch(matData->type)
   {
-    const MatInfo matPawns=matInfoMakeMaskPieceType(PieceTypePawn);
-    const MatInfo matMajors=(matInfoMakeMaskPieceType(PieceTypeRook)|matInfoMakeMaskPieceType(PieceTypeQueen));
-    const MatInfo matWhite=matInfoMakeMaskColour(ColourWhite);
-    const MatInfo matBlack=matInfoMakeMaskColour(ColourBlack);
-    
-    if ((mat & matPawns)==mat)
-    {
-      // Pawns only.
+    case EvalMatTypeInvalid:
+      assert(false);
+    break;
+    case EvalMatTypeOther:
+      assert(mat); // KvK should already be handled.
+      const MatInfo matPawns=matInfoMakeMaskPieceType(PieceTypePawn);
+      const MatInfo matMinors=(matInfoMakeMaskPieceType(PieceTypeKnight) |
+                               matInfoMakeMaskPieceType(PieceTypeBishopL) |
+                               matInfoMakeMaskPieceType(PieceTypeBishopD));
+      const MatInfo matMajors=(matInfoMakeMaskPieceType(PieceTypeRook)|matInfoMakeMaskPieceType(PieceTypeQueen));
+      const MatInfo matWhite=matInfoMakeMaskColour(ColourWhite);
+      const MatInfo matBlack=matInfoMakeMaskColour(ColourBlack);
       
-      // KPvK special evaluation function.
-      if (mat==M(PieceWPawn,1) || mat==M(PieceBPawn,1))
-        matData->function=&evaluateKPvK;
-    }
-    else if ((mat & matMajors)==mat)
-    {
-      // Majors only.
-      
-      // Single side with material should be easy win (at least a rook ahead).
-      if ((mat & matWhite)==mat)
-        matData->scoreOffset+=ScoreEasyWin;
-      else if ((mat & matBlack)==mat)
-        matData->scoreOffset-=ScoreEasyWin;
-    }
+      if (!(mat & matPawns))
+      {
+        // Pawnless.
+        if ((mat & matMinors)==mat)
+        {
+          // Minors only.
+          switch(minorCount)
+          {
+            case 0: case 1:
+              assert(false); // Should have already been handled.
+            break;
+            case 2:
+              // Don't need to consider bishops of a single colour as these are
+              // evaluated as insufficient material draws.
+              assert(mat!=(M(PieceWBishopL,1)|M(PieceBBishopL,1)) && // KBvKB (same coloured bishops)
+                     mat!=(M(PieceWBishopD,1)|M(PieceBBishopD,1)) &&
+                     mat!=M(PieceWBishopL,2) && mat!=M(PieceWBishopD,2) && // KBBvK (same coloured bishops).
+                     mat!=M(PieceBBishopL,2) && mat!=M(PieceBBishopD,2));
+              // Nor do we need to consider KNNvK as this is handled in other case statement.
+              assert(mat!=M(PieceWKnight,2) && mat!=M(PieceBKnight,2)); // KNNvK.
+              
+              // Win for bishop pair and bishop + knight, draw for everything else.
+              if (mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)) || // KBBvK.
+                  mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)) ||
+                  mat==(M(PieceWBishopL,1)|M(PieceWKnight,1)) || // KBNvK.
+                  mat==(M(PieceWBishopD,1)|M(PieceWKnight,1)) ||
+                  mat==(M(PieceBBishopL,1)|M(PieceBKnight,1)) ||
+                  mat==(M(PieceBBishopD,1)|M(PieceBKnight,1)))
+                factor/=2; // More difficult than material advantage suggests.
+              else
+              {
+                assert(mat==(M(PieceWBishopL,1)|M(PieceBKnight,1)) || // KBvKN.
+                       mat==(M(PieceWBishopD,1)|M(PieceBKnight,1)) ||
+                       mat==(M(PieceBBishopL,1)|M(PieceWKnight,1)) ||
+                       mat==(M(PieceBBishopD,1)|M(PieceWKnight,1)) ||
+                       mat==(M(PieceWBishopL,1)|M(PieceBBishopD,1)) || // KBvKB (opposite bishops)
+                       mat==(M(PieceWBishopD,1)|M(PieceBBishopL,1)) ||
+                       mat==(M(PieceWKnight,1)|M(PieceBKnight,1))); // KNvKN.
+                factor/=128; // All others are trivial draws.
+              }
+            break;
+            case 3:
+              if (mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceWKnight,1)) || // KBBvKN (bishop pair).
+                  mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceBKnight,1)))
+                factor/=2;
+              else if (mat==(M(PieceWKnight,1)|M(PieceWBishopL,1)|M(PieceBBishopL,1)) || // KBNvKB (same coloured bishops).
+                       mat==(M(PieceWKnight,1)|M(PieceWBishopD,1)|M(PieceBBishopD,1)) ||
+                       mat==(M(PieceBKnight,1)|M(PieceBBishopL,1)|M(PieceWBishopL,1)) ||
+                       mat==(M(PieceBKnight,1)|M(PieceBBishopD,1)|M(PieceWBishopD,1)) ||
+                       mat==(M(PieceWKnight,1)|M(PieceWBishopD,1)|M(PieceBBishopL,1)) || // KBNvKB (opposite coloured bishops).
+                       mat==(M(PieceWKnight,1)|M(PieceWBishopL,1)|M(PieceBBishopD,1)) ||
+                       mat==(M(PieceBKnight,1)|M(PieceBBishopD,1)|M(PieceWBishopL,1)) ||
+                       mat==(M(PieceBKnight,1)|M(PieceBBishopL,1)|M(PieceWBishopD,1)) ||
+                       mat==(M(PieceWKnight,1)|M(PieceWBishopL,1)|M(PieceBKnight,1)) || // KBNvN.
+                       mat==(M(PieceWKnight,1)|M(PieceWBishopD,1)|M(PieceBKnight,1)) ||
+                       mat==(M(PieceBKnight,1)|M(PieceBBishopL,1)|M(PieceWKnight,1)) ||
+                       mat==(M(PieceBKnight,1)|M(PieceBBishopD,1)|M(PieceWKnight,1)))
+                factor/=16;
+              else if (mat==(M(PieceWKnight,2)|M(PieceBKnight,1)) || // KNNvKN.
+                       mat==(M(PieceBKnight,2)|M(PieceWKnight,1)) ||
+                       mat==(M(PieceWKnight,2)|M(PieceBBishopL,1)) || // KNNvKB.
+                       mat==(M(PieceWKnight,2)|M(PieceBBishopD,1)) ||
+                       mat==(M(PieceBKnight,2)|M(PieceWBishopL,1)) ||
+                       mat==(M(PieceBKnight,2)|M(PieceWBishopD,1)) ||
+                       mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBBishopL,1)) || // KBBvKB (bishop pair).
+                       mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBBishopD,1)) ||
+                       mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWBishopL,1)) ||
+                       mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWBishopL,1)) ||
+                       mat==(M(PieceWBishopL,2)|M(PieceBBishopD,1)) ||  // KBBvKB (no bishop pair).
+                       mat==(M(PieceWBishopD,2)|M(PieceBBishopL,1)) ||
+                       mat==(M(PieceBBishopL,2)|M(PieceWBishopD,1)) ||
+                       mat==(M(PieceBBishopD,2)|M(PieceWBishopL,1)) ||
+                       mat==(M(PieceWBishopL,2)|M(PieceBKnight,1)) || // KBBvN (no bishop pair).
+                       mat==(M(PieceWBishopD,2)|M(PieceBKnight,1)) ||
+                       mat==(M(PieceBBishopL,2)|M(PieceWKnight,1)) ||
+                       mat==(M(PieceBBishopD,2)|M(PieceWKnight,1)))
+                factor/=32;
+            break;
+          }
+        }
+        else if ((mat & matMajors)==mat)
+        {
+          // Majors only.
+          
+          // Single side with material should be easy win (at least a rook ahead).
+          if ((mat & matWhite)==mat)
+            matData->scoreOffset+=ScoreEasyWin;
+          else if ((mat & matBlack)==mat)
+            matData->scoreOffset-=ScoreEasyWin;
+          else if (mat==(M(PieceWQueen,1)|M(PieceBRook,1))|| // KQvKR.
+                   mat==(M(PieceBQueen,1)|M(PieceWRook,1)))
+            factor/=2;
+          else if (mat==(M(PieceWQueen,1)|M(PieceBQueen,1))) // KQvKQ.
+            matData->tempo=evalTempoKQKQ;
+          else if (mat==(M(PieceWQueen,2)|M(PieceBQueen,2))) // KQQvKQQ.
+            matData->tempo=evalTempoKQQKQQ;
+        }
+        else
+        {
+          // Mix of major and minor pieces.
+          switch(minorCount+rookCount+queenCount)
+          {
+            case 0: case 1:
+              assert(false); // KvK already handled and single piece cannot be both minor and major.
+            break;
+            case 2:
+              if (mat==(M(PieceWRook,1)|M(PieceBBishopL,1)) || // KRvKB.
+                  mat==(M(PieceBRook,1)|M(PieceWBishopL,1)) ||
+                  mat==(M(PieceWRook,1)|M(PieceBBishopD,1)) ||
+                  mat==(M(PieceBRook,1)|M(PieceWBishopD,1)) ||
+                  mat==(M(PieceWRook,1)|M(PieceBKnight,1)) || // KRvKN.
+                  mat==(M(PieceBRook,1)|M(PieceWKnight,1)))
+                factor/=4;
+            break;
+            case 3:
+              if (mat==(M(PieceWQueen,1)|M(PieceWBishopL,1)|M(PieceBQueen,1)) || // KQBvKQ.
+                  mat==(M(PieceWQueen,1)|M(PieceWBishopD,1)|M(PieceBQueen,1)) ||
+                  mat==(M(PieceBQueen,1)|M(PieceBBishopL,1)|M(PieceWQueen,1)) ||
+                  mat==(M(PieceBQueen,1)|M(PieceBBishopD,1)|M(PieceWQueen,1)) ||
+                  mat==(M(PieceWQueen,1)|M(PieceBKnight,2)) || // KQvKNN.
+                  mat==(M(PieceBQueen,1)|M(PieceWKnight,2)))
+                factor/=8;
+              else if (mat==(M(PieceWQueen,1)|M(PieceWKnight,1)|M(PieceBQueen,1)) || // KQNvKQ.
+                       mat==(M(PieceBQueen,1)|M(PieceBKnight,1)|M(PieceWQueen,1)) ||
+                       mat==(M(PieceWRook,1)|M(PieceWKnight,1)|M(PieceBRook,1)) || // KRNvKR.
+                       mat==(M(PieceBRook,1)|M(PieceBKnight,1)|M(PieceWRook,1)) ||
+                       mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBQueen,1)) || // KQvKBB. (bishop pair)
+                       mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWQueen,1)) ||
+                       mat==(M(PieceWQueen,1)|M(PieceBRook,1)|M(PieceBBishopL,1)) || // KQvKRB.
+                       mat==(M(PieceWQueen,1)|M(PieceBRook,1)|M(PieceBBishopD,1)) ||
+                       mat==(M(PieceBQueen,1)|M(PieceWRook,1)|M(PieceWBishopL,1)) ||
+                       mat==(M(PieceBQueen,1)|M(PieceWRook,1)|M(PieceWBishopD,1)) ||
+                       mat==(M(PieceWQueen,1)|M(PieceBRook,1)|M(PieceBKnight,1)) || // KQvKRN.
+                       mat==(M(PieceBQueen,1)|M(PieceWRook,1)|M(PieceWKnight,1)) ||
+                       mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBRook,1)) || // KRvKBB (bishop pair).
+                       mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWRook,1)) ||
+                       mat==(M(PieceWRook,1)|M(PieceWBishopL,1)|M(PieceBRook,1)) || // KRBvKR.
+                       mat==(M(PieceWRook,1)|M(PieceWBishopD,1)|M(PieceBRook,1)) ||
+                       mat==(M(PieceBRook,1)|M(PieceBBishopL,1)|M(PieceWRook,1)) ||
+                       mat==(M(PieceBRook,1)|M(PieceBBishopD,1)|M(PieceWRook,1)))
+                factor/=4;
+            break;
+          }
+        }
+      }
+    break;
+    case EvalMatTypeDraw:
+      factor=0;
+    break;
+    case EvalMatTypeKNNvK:
+      factor/=128;
+    break;
+    case EvalMatTypeKPvK:
+      // Special evaluation function.
+      matData->function=&evaluateKPvK;
+    break;
+    case EvalMatTypeKBPvK:
+    break;
   }
   matData->weightMG=(matData->weightMG*factor)/1024;
   matData->weightEG=(matData->weightEG*factor)/1024;

@@ -12,6 +12,7 @@
 // Transposition table entry - 128 bits.
 STATICASSERT(MoveBit<=16);
 STATICASSERT(ScoreBit<=16);
+STATICASSERT(DepthBit<=8);
 STATICASSERT(BoundBit<=2);
 STATICASSERT(DateBit<=6);
 typedef struct
@@ -43,9 +44,9 @@ const size_t ttMaxSizeMb=1024*1024; // 1tb
 
 bool ttEntryMatch(const Pos *pos, const TTEntry *entry);
 bool ttEntryUnused(const TTEntry *entry);
-unsigned int ttEntryFitness(unsigned int age, unsigned int depth, bool exact);
-Score ttScoreOut(Score score, unsigned int ply);
-Score ttScoreIn(Score score, unsigned int ply);
+unsigned int ttEntryFitness(unsigned int age, Depth depth, bool exact);
+Score ttScoreOut(Score score, Depth ply);
+Score ttScoreIn(Score score, Depth ply);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -85,7 +86,7 @@ void ttClear(void)
   htableClear(tt);
 }
 
-bool ttRead(const Pos *pos, unsigned int ply, Move *move, unsigned int *depth, Score *score, Bound *bound)
+bool ttRead(const Pos *pos, Depth ply, Move *move, Depth *depth, Score *score, Bound *bound)
 {
   // Grab cluster
   uint64_t key=posGetKey(pos);
@@ -118,16 +119,18 @@ bool ttRead(const Pos *pos, unsigned int ply, Move *move, unsigned int *depth, S
 Move ttReadMove(const Pos *pos)
 {
   Move move=MoveInvalid;
-  unsigned int dummyDepth;
+  Depth dummyDepth;
   Score dummyScore;
   Bound dummyBound;
   ttRead(pos, 0, &move, &dummyDepth, &dummyScore, &dummyBound);
   return move;
 }
 
-void ttWrite(const Pos *pos, unsigned int ply, unsigned int depth, Move move, Score score, Bound bound)
+void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bound bound)
 {
   // Sanity checks.
+  assert(depthIsValid(ply));
+  assert(depthIsValid(depth));
   assert(moveIsValid(move) || move==MoveNone);
   assert(scoreIsValid(score));
   assert(bound!=BoundNone);
@@ -204,7 +207,7 @@ bool ttEntryUnused(const TTEntry *entry)
   return (entry->move==MoveInvalid);
 }
 
-unsigned int ttEntryFitness(unsigned int age, unsigned int depth, bool exact)
+unsigned int ttEntryFitness(unsigned int age, Depth depth, bool exact)
 {
   // Evaluate how 'fit' an entry is to be replaced.
   // Based on the following factors, in order:
@@ -212,21 +215,23 @@ unsigned int ttEntryFitness(unsigned int age, unsigned int depth, bool exact)
   // * Age - prefer replacing older entries over new ones.
   // * Depth - prefer replacing shallower entries over deeper ones.
   // * Bound - prefer exact bounds to upper- or lower-bounds.
+  assert(depthIsValid(depth));
   assert(exact==0 || exact==1);
-  assert(depth<256);
-  return 2*256*age+2*(255-depth)+(1-exact);
+  return 2*DepthMax*age+2*(DepthMax-1-depth)+(1-exact);
 }
 
-Score ttScoreOut(Score score, unsigned int ply)
+Score ttScoreOut(Score score, Depth ply)
 {
+  assert(depthIsValid(ply));
   if (scoreIsMate(score))
     return (score>0 ? score-ply : score+ply); // Adjust to distance from root [to mate].
   else
     return score;
 }
 
-Score ttScoreIn(Score score, unsigned int ply)
+Score ttScoreIn(Score score, Depth ply)
 {
+  assert(depthIsValid(ply));
   if (scoreIsMate(score))
     return (score>0 ? score+ply : score-ply); // Adjust to distance from this node [to mate].
   else

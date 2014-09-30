@@ -3,11 +3,11 @@
 #include "time.h"
 #include "uci.h"
 
-void perft(Pos *pos, unsigned int maxDepth)
+void perft(Pos *pos, Depth maxDepth)
 {
   uciWrite("Perft:\n");
   uciWrite("%6s %11s %9s %15s\n", "Depth", "Nodes", "Time", "NPS");
-  unsigned int depth;
+  Depth depth;
   for(depth=1;depth<=maxDepth;++depth)
   {
     TimeMs time=timeGet();
@@ -17,14 +17,14 @@ void perft(Pos *pos, unsigned int maxDepth)
     if (time>0)
     {
       unsigned long long int nps=(nodes*1000llu)/time;
-      uciWrite("%6i %11llu %9llu %4llu,%03llu,%03llunps\n", depth, nodes, time, nps/1000000, (nps/1000)%1000, nps%1000);
+      uciWrite("%6i %11llu %9llu %4llu,%03llu,%03llunps\n", (unsigned int)depth, nodes, time, nps/1000000, (nps/1000)%1000, nps%1000);
     }
     else
-      uciWrite("%6i %11llu %9i %15s\n", depth, nodes, 0, "-");
+      uciWrite("%6i %11llu %9i %15s\n", (unsigned int)depth, nodes, 0, "-");
   }
 }
 
-void divide(Pos *pos, unsigned int depth)
+void divide(Pos *pos, Depth depth)
 {
   if (depth<1)
     return;
@@ -47,7 +47,7 @@ void divide(Pos *pos, unsigned int depth)
   uciWrite("Total: %llu\n", total);
 }
 
-unsigned long long int perftRaw(Pos *pos, unsigned int depth)
+unsigned long long int perftRaw(Pos *pos, Depth depth)
 {
   if (depth<1)
     return 1;

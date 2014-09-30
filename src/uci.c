@@ -125,50 +125,66 @@ void uciLoop(void)
     if (utilStrEqual(part, "go"))
     {
       // Parse arguments.
-      TimeMs moveTime=0, totalTime=0, incTime=0;
-      int movesToGo=0;
-      bool infinite=false, ponder=false;
-      
+      SearchLimit limit;
+      searchLimitInit(&limit, recvTime);
+      bool inSearchMoves=false;
       while((part=strtok_r(NULL, " ", &savePtr))!=NULL)
       {
         if ((utilStrEqual(part, "wtime") && posGetSTM(pos)==ColourWhite) ||
             (utilStrEqual(part, "btime") && posGetSTM(pos)==ColourBlack))
         {
+          inSearchMoves=false;
           if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-            totalTime=atoll(part);
+            searchLimitSetTotalTime(&limit, atoll(part));
         }
         else if ((utilStrEqual(part, "winc") && posGetSTM(pos)==ColourWhite) ||
                  (utilStrEqual(part, "binc") && posGetSTM(pos)==ColourBlack))
         {
+          inSearchMoves=false;
           if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-            incTime=atoll(part);
+            searchLimitSetIncTime(&limit, atoll(part));
         }
         else if (utilStrEqual(part, "movestogo"))
         {
+          inSearchMoves=false;
           if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-            movesToGo=atoi(part);
+            searchLimitSetMovesToGo(&limit, atoi(part));
         }
         else if (utilStrEqual(part, "movetime"))
         {
+          inSearchMoves=false;
           if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-            moveTime=atoll(part);
+            searchLimitSetMoveTime(&limit, atoll(part));
         }
-        else if (utilStrEqual(part, "infinite"))
-          infinite=true;
-        else if (utilStrEqual(part, "ponder"))
-          ponder=true;
+        else if (utilStrEqual(part, "infinite") || utilStrEqual(part, "ponder"))
+        {
+          inSearchMoves=false;
+          searchLimitSetInfinite(&limit, true);
+        }
+        else if (utilStrEqual(part, "nodes"))
+        {
+          inSearchMoves=false;
+          if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
+            searchLimitSetNodes(&limit, atoi(part));
+        }
+        else if (utilStrEqual(part, "depth"))
+        {
+          inSearchMoves=false;
+          if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
+            searchLimitSetDepth(&limit, atoi(part));
+        }
+        else if (utilStrEqual(part, "searchmoves"))
+          inSearchMoves=true;
+        else if (inSearchMoves)
+        {
+          Move move=posMoveFromStr(pos, part);
+          if (moveIsValid(move) && posCanMakeMove(pos, move))
+            searchLimitAddMove(&limit, move);
+        }
       }
       
-      // Decide how to use our time.
-      if (movesToGo<=0)
-        movesToGo=25;
-      if (moveTime<=0)
-        moveTime=totalTime/movesToGo+incTime;
-      TimeMs maxTime=totalTime-25;
-      moveTime=utilMin(moveTime, maxTime);
-      
       // Search.
-      searchThink(pos, recvTime, moveTime, infinite, ponder);
+      searchThink(pos, &limit);
     }
     else if (utilStrEqual(part, "position"))
     {
@@ -203,7 +219,7 @@ void uciLoop(void)
         else if (inMoves)
         {
           Move move=posMoveFromStr(pos, part);
-          if (!posMakeMove(pos, move))
+          if (!moveIsValid(move) || !posMakeMove(pos, move))
             break;
         }
       }

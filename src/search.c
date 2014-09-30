@@ -12,6 +12,7 @@
 #include "tt.h"
 #include "tune.h"
 #include "uci.h"
+#include "util.h"
 
 #define SearchMaxPly 128
 
@@ -21,9 +22,9 @@ Thread *searchThread=NULL;
 
 typedef struct
 {
-  // Ssearch functions should not modify these entries:
+  // Search functions should not modify these entries:
   Pos *pos;
-  unsigned int depth, ply;
+  Depth depth, ply;
   Score alpha, beta;
   bool inCheck;
   // Search functions should ensure these are set correctly before returning:
@@ -31,10 +32,12 @@ typedef struct
   Bound bound;
 }Node;
 
-unsigned long long int searchNodeCount; // Number of nodes entered since begining of last search.
-bool searchInfiniteFlag, searchStopFlag;
-TimeMs searchStartTime, searchEndTime;
-unsigned int searchDate; // Incremented after each SearchThink() call.
+unsigned long long int searchNodeCount; // Number of nodes entered since beginning of last search.
+bool searchStopFlag;
+Lock *searchActivity=NULL; // Once reached depth limit, search will wait for this before printing bestmove command.
+TimeMs searchEndTime;
+SearchLimit searchLimit;
+unsigned int searchDate; // Incremented after each searchThink() call.
 
 TUNECONST int searchNullReduction=1;
 TUNECONST int searchIIDMin=2;
@@ -75,10 +78,13 @@ void searchInterfaceValue(void *ptr, int value);
 
 void searchInit(void)
 {
-  // Create worker thread.
+  // Create worker thread and lock.
   searchThread=threadNew();
   if (searchThread==NULL)
     mainFatalError("Error: Could not start search worker thread.\n");
+  searchActivity=lockNew(0);
+  if (searchActivity==NULL)
+    mainFatalError("Error: Could not init lock for search.\n");
   
   // Set all structures to clean state.
   searchClear();
@@ -99,11 +105,12 @@ void searchQuit(void)
   // If searching, signal to stop and wait until done.
   searchStop();
   
-  // Free the worker thread.
+  // Free the worker thread and lock;
   threadFree(searchThread);
+  lockFree(searchActivity);
 }
 
-void searchThink(const Pos *srcPos, TimeMs startTime, TimeMs searchTime, bool infinite, bool ponder)
+void searchThink(const Pos *srcPos, const SearchLimit *limit)
 {
   // Make sure we are not already searching.
   searchStop();
@@ -113,11 +120,30 @@ void searchThink(const Pos *srcPos, TimeMs startTime, TimeMs searchTime, bool in
   if (pos==NULL)
     return;
   searchNodeCount=0;
-  searchInfiniteFlag=(infinite || ponder);
   searchStopFlag=false;
-  searchStartTime=startTime;
-  searchEndTime=startTime+searchTime;
+  while (lockTryWait(searchActivity)) ; // Reset to 0.
+  searchEndTime=TimeMsInvalid;
+  searchLimit=*limit;
   searchDate=(searchDate+1)%DateMax;
+  
+  // Decide how to use our time.
+  TimeMs searchTime=TimeMsInvalid;
+  if (searchLimit.totalTime!=TimeMsInvalid || searchLimit.incTime!=TimeMsInvalid)
+  {
+    if (searchLimit.totalTime==TimeMsInvalid)
+      searchLimit.totalTime=0;
+    if (searchLimit.incTime==TimeMsInvalid)
+      searchLimit.incTime=0;
+    if (searchLimit.movesToGo<=0)
+      searchLimit.movesToGo=25;
+    TimeMs maxTime=searchLimit.totalTime-25;
+    searchTime=utilMin(searchTime, searchLimit.totalTime/searchLimit.movesToGo+searchLimit.incTime);
+    searchTime=utilMin(searchTime, maxTime);
+  }
+  if (searchLimit.moveTime!=TimeMsInvalid)
+    searchTime=utilMin(searchTime, searchLimit.moveTime);
+  if (searchTime!=TimeMsInvalid)
+    searchEndTime=searchLimit.startTime+searchTime;
   
   // Set away worker
   threadRun(searchThread, &searchIDLoop, (void *)pos);
@@ -126,7 +152,9 @@ void searchThink(const Pos *srcPos, TimeMs startTime, TimeMs searchTime, bool in
 void searchStop(void)
 {
   // Signal for search to stop.
+  searchLimit.infinite=false;
   searchStopFlag=true;
+  lockPost(searchActivity);
   
   // Wait until actually finished.
   threadWaitReady(searchThread);
@@ -137,7 +165,7 @@ void searchClear(void)
   // Clear history tables.
   historyClear();
   
-  // Clear transpostion table.
+  // Clear transposition table.
   ttClear();
   
   // Reset search date.
@@ -146,7 +174,8 @@ void searchClear(void)
 
 void searchPonderHit(void)
 {
-  searchInfiniteFlag=false;
+  searchLimit.infinite=false;
+  lockPost(searchActivity);
 }
 
 MoveScore searchScoreMove(const Pos *pos, Move move)
@@ -186,6 +215,59 @@ unsigned int searchDateToAge(unsigned int date)
   return (date<=searchDate ? searchDate-date : DateMax+searchDate-date);
 }
 
+void searchLimitInit(SearchLimit *limit, TimeMs startTime)
+{
+  assert(startTime!=TimeMsInvalid);
+  limit->infinite=false;
+  limit->startTime=startTime;
+  limit->totalTime=TimeMsInvalid;
+  limit->incTime=TimeMsInvalid;
+  limit->moveTime=TimeMsInvalid;
+  limit->movesToGo=0;
+  limit->depth=DepthMax-1;
+  limit->nodes=0;
+}
+
+void searchLimitSetInfinite(SearchLimit *limit, bool infinite)
+{
+  limit->infinite=infinite;
+}
+
+void searchLimitSetTotalTime(SearchLimit *limit, TimeMs totalTime)
+{
+  limit->totalTime=totalTime;
+}
+
+void searchLimitSetIncTime(SearchLimit *limit, TimeMs incTime)
+{
+  limit->incTime=incTime;
+}
+
+void searchLimitSetMoveTime(SearchLimit *limit, TimeMs moveTime)
+{
+  limit->moveTime=moveTime;
+}
+
+void searchLimitSetDepth(SearchLimit *limit, Depth depth)
+{
+  limit->depth=utilMin(depth, DepthMax-1);
+}
+
+void searchLimitSetNodes(SearchLimit *limit, unsigned long long int nodes)
+{
+  limit->nodes=nodes;
+}
+
+void searchLimitSetMovesToGo(SearchLimit *limit, unsigned int movesToGo)
+{
+  limit->movesToGo=movesToGo;
+}
+
+void searchLimitAddMove(SearchLimit *limit, Move move)
+{
+  // TODO: Implement this.
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -201,7 +283,7 @@ void searchIDLoop(void *posPtr)
   node.inCheck=posIsSTMInCheck(node.pos);
   
   // Loop increasing search depth until we run out of 'time'.
-  for(node.depth=1;node.depth<SearchMaxPly;++node.depth)
+  for(node.depth=1;node.depth<=searchLimit.depth;++node.depth)
   {
     // Search
     searchNode(&node);
@@ -227,12 +309,17 @@ void searchIDLoop(void *posPtr)
   Move ponderMove=MoveInvalid;
   if (searchPonder && moveIsValid(bestMove))
   {
+    assert(posCanMakeMove(node.pos, bestMove));
     posMakeMove(node.pos, bestMove);
     ponderMove=ttReadMove(node.pos);
     if (!moveIsValid(ponderMove) || !posCanMakeMove(node.pos, ponderMove))
       ponderMove=posGenLegalMove(node.pos, MoveTypeAny);
     posUndoMove(node.pos);
   }
+  
+  // This is to handle infinite mode - wait until told to stop.
+  while(searchLimit.infinite)
+    lockWait(searchActivity);
   
   // Send best move (and potentially ponder move) to GUI.
   char str[8];
@@ -248,7 +335,7 @@ void searchIDLoop(void *posPtr)
   else
     uciWrite("bestmove %s\n", str);
   
-  // Free position
+  // Free memory.
   posFree(node.pos);
   
   // Age history table.
@@ -300,10 +387,18 @@ Score searchQNode(Node *node)
 
 void searchNodeInternal(Node *node)
 {
-  // Q node? (or ply limit reached).
-  if (searchNodeIsQ(node) || node->ply>=SearchMaxPly)
+  // Q node?
+  if (searchNodeIsQ(node))
   {
     searchQNode(node);
+    return;
+  }
+  
+  // Ply limit reached?
+  if (node->ply>=DepthMax)
+  {
+    node->bound=BoundExact;
+    node->score=evaluate(node->pos);
     return;
   }
   
@@ -516,6 +611,14 @@ void searchNodeInternal(Node *node)
 
 void searchQNodeInternal(Node *node)
 {
+  // Ply limit reached?
+  if (node->ply>=DepthMax)
+  {
+    node->bound=BoundExact;
+    node->score=evaluate(node->pos);
+    return;
+  }
+  
   // Init.
   ++searchNodeCount;
   Score alpha=node->alpha;
@@ -626,14 +729,19 @@ void searchQNodeInternal(Node *node)
 
 bool searchIsTimeUp(void)
 {
+  // If stop flag is set we are expected to quit as soon as possible.
   if (searchStopFlag)
     return true;
   
-  if (searchInfiniteFlag || (searchNodeCount&1023)!=0 || timeGet()<searchEndTime)
-    return false;
+  // Check time limit and node count.
+  if (((searchNodeCount&1023)==0 && searchEndTime!=TimeMsInvalid && timeGet()>=searchEndTime) ||
+      (searchLimit.nodes!=0 && searchNodeCount>=searchLimit.nodes))
+  {
+    lockPost(searchActivity);
+    return searchStopFlag=true;
+  }
   
-  searchStopFlag=true;
-  return true;
+  return false;
 }
 
 void searchOutput(Node *node)
@@ -642,10 +750,10 @@ void searchOutput(Node *node)
   assert(node->bound!=BoundNone);
   
   // Various bits of data
-  TimeMs time=timeGet()-searchStartTime;
+  TimeMs time=timeGet()-searchLimit.startTime;
   char str[32];
   scoreToStr(node->score, node->bound, str);
-  uciWrite("info depth %u score %s nodes %llu time %llu", node->depth, str, searchNodeCount, (unsigned long long int)time);
+  uciWrite("info depth %u score %s nodes %llu time %llu", (unsigned int)node->depth, str, searchNodeCount, (unsigned long long int)time);
   if (time>0)
     uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
 # ifndef NDEBUG
@@ -693,8 +801,8 @@ bool searchIsZugzwang(const Node *node)
 void searchNodePreCheck(Node *node)
 {
   // Check preset values are sensible.
-  assert(node->depth>=0);
-  assert(node->ply>=0);
+  assert(depthIsValid(node->depth));
+  assert(depthIsValid(node->ply));
   assert(-ScoreInf<=node->alpha && node->alpha<node->beta && node->beta<=ScoreInf);
   assert(node->inCheck==posIsSTMInCheck(node->pos));
   
@@ -727,7 +835,7 @@ bool searchInteriorRecog(Node *node)
 {
   // Sanity checks.
   assert(node->alpha>=-ScoreInf && node->alpha<node->beta && node->beta<=ScoreInf);
-  assert(node->ply>0);
+  assert(depthIsValid(node->ply));
   
   // Test for draws by rule (and rare checkmates).
   if (posIsDraw(node->pos, node->ply))

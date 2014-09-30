@@ -3,6 +3,8 @@
 
 #include "time.h"
 
+const TimeMs TimeMsInvalid=~((TimeMs)0);
+
 TimeMs timeGet()
 {
   struct timeval tp;

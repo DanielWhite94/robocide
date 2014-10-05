@@ -33,6 +33,7 @@ typedef struct
 }Node;
 
 unsigned long long int searchNodeCount; // Number of nodes entered since beginning of last search.
+unsigned long long int searchNodeNext; // Node count at which we should next check the time.
 bool searchStopFlag;
 Lock *searchActivity=NULL; // Once reached depth limit, search will wait for this before printing bestmove command.
 TimeMs searchEndTime;
@@ -120,6 +121,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit)
   if (pos==NULL)
     return;
   searchNodeCount=0;
+  searchNodeNext=~0llu; // So we never check clock unless time is specified (see below).
   searchStopFlag=false;
   while (lockTryWait(searchActivity)) ; // Reset to 0.
   searchEndTime=TimeMsInvalid;
@@ -143,7 +145,10 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit)
   if (searchLimit.moveTime!=TimeMsInvalid)
     searchTime=utilMin(searchTime, searchLimit.moveTime);
   if (searchTime!=TimeMsInvalid)
+  {
     searchEndTime=searchLimit.startTime+searchTime;
+    searchNodeNext=1;
+  }
   
   // Set away worker
   threadRun(searchThread, &searchIDLoop, (void *)pos);
@@ -733,15 +738,44 @@ bool searchIsTimeUp(void)
   if (searchStopFlag)
     return true;
   
-  // Check time limit and node count.
-  if (((searchNodeCount&1023)==0 && searchEndTime!=TimeMsInvalid && timeGet()>=searchEndTime) ||
-      (searchLimit.nodes!=0 && searchNodeCount>=searchLimit.nodes))
+  // Check node count.
+  if (searchLimit.nodes!=0 && searchNodeCount>=searchLimit.nodes)
+    goto timeup;
+  
+  // Time to check the real clock?
+  if (searchNodeCount>=searchNodeNext)
   {
-    lockPost(searchActivity);
-    return searchStopFlag=true;
+    assert(searchEndTime!=TimeMsInvalid);
+    
+    // Is time up? (want to return asap).
+    TimeMs currTime=timeGet();
+    if (currTime>=searchEndTime)
+      goto timeup;
+    
+    // Update searchNodeNext to check again in the future.
+    if (currTime>searchLimit.startTime)
+    {
+      // Aim to check again 50% through our remaining time for this move.
+      // So if, for example, we allocated 16s for the current search, and have
+      // already used 12s, we aim to check again at 14s (12+(16-12)/2).
+      // We use the node counter and previous nps as a rough timer to avoid
+      // checking the real time too often.
+      TimeMs timeDelay=64*(searchEndTime-currTime); // We /128 later to avoid losing accuracy.
+      unsigned long long int nodeDelay=(searchNodeCount*timeDelay)/(128*(currTime-searchLimit.startTime));
+      searchNodeNext=searchNodeCount+nodeDelay;
+    }
+    else
+      // No time passed yet since we started searching, check again later.
+      searchNodeNext*=2;
   }
   
   return false;
+  
+  timeup:
+  lockPost(searchActivity);
+  searchStopFlag=true;
+  
+  return true;
 }
 
 void searchOutput(Node *node)

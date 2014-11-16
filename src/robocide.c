@@ -5,7 +5,7 @@
 #include "bb.h"
 #include "bitbase.h"
 #include "eval.h"
-#include "main.h"
+#include "robocide.h"
 #include "pos.h"
 #include "search.h"
 #include "tt.h"

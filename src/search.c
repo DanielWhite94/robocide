@@ -5,7 +5,7 @@
 #include "bitbase.h"
 #include "eval.h"
 #include "history.h"
-#include "main.h"
+#include "robocide.h"
 #include "score.h"
 #include "search.h"
 #include "thread.h"

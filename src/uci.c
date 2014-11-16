@@ -6,7 +6,7 @@
 #include "eval.h"
 #include "perft.h"
 #include "pos.h"
-#include "main.h"
+#include "robocide.h"
 #include "moves.h"
 #include "search.h"
 #include "see.h"

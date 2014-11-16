@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "htable.h"
-#include "main.h"
+#include "robocide.h"
 #include "search.h"
 #include "tt.h"
 #include "uci.h"

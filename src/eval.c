@@ -381,11 +381,12 @@ VPair evaluateDefault(EvalData *data)
   evalVPairAdd(&score, &data->pawnData.score);
   
   // All pieces.
-  const Sq *sq, *sqEnd;
   PieceType type;
-  Piece piece;
   for(type=PieceTypeKnight;type<=PieceTypeKing;++type)
   {
+    Piece piece;
+    const Sq *sq, *sqEnd;
+    
     // White pieces.
     piece=pieceMake(type, ColourWhite);
     sq=posGetPieceListStart(pos, piece);
@@ -758,11 +759,10 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData)
   
   // Loop over each pawn.
   Colour colour;
-  const Sq *sq, *sqEnd;
   for(colour=ColourWhite;colour<=ColourBlack;++colour)
   {
-    sq=posGetPieceListStart(pos, pieceMake(PieceTypePawn, colour));
-    sqEnd=posGetPieceListEnd(pos, pieceMake(PieceTypePawn, colour));
+    const Sq *sq=posGetPieceListStart(pos, pieceMake(PieceTypePawn, colour));
+    const Sq *sqEnd=posGetPieceListEnd(pos, pieceMake(PieceTypePawn, colour));
     for(;sq<sqEnd;++sq)
     {
       PawnType type=((((doubled[colour]>>*sq)&1)<<PawnTypeShiftDoubled) |

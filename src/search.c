@@ -855,14 +855,9 @@ void searchNodePostCheck(const Node *preNode, const Node *postNode)
   
   // Check type, move and score have been set and are sensible.
   if (scoreIsValid(postNode->score))
-  {
     assert(postNode->bound==BoundLower || postNode->bound==BoundUpper || postNode->bound==BoundExact);
-  }
   else
-  {
-    assert(searchIsTimeUp());
     assert(postNode->bound==BoundNone);
-  }
 }
 
 bool searchInteriorRecog(Node *node)

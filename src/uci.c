@@ -378,8 +378,9 @@ bool uciOptionNewCombo(const char *name, void(*function)(void *userData, const c
     if (optionsMem[i]==NULL)
     {
       va_end(ap);
-      for(--i;i>=0;--i)
-        free(optionsMem[i]);
+      size_t j;
+      for(j=0;j<i;++j)
+        free(optionsMem[j]);
       free(nameMem);
       free(initialMem);
       free(optionsMem);

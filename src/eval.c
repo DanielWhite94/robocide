@@ -65,127 +65,22 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
   [PieceTypeRook]={5350,5350},
   [PieceTypeQueen]={10000,10000},
   [PieceTypeKing]={0,0}};
-TUNECONST VPair evalPawnFiles[FileNB]={{-100,-50},{-50,0},{0,0},{50,50},{50,50},{0,0},{-50,0},{-100,-50}};
-TUNECONST VPair evalPawnRanks[RankNB]={{0,0},{0,0},{10,10},{20,35},{30,80},{40,110},{50,150},{0,0}};
-TUNECONST VPair evalPawnCentre={200,0};
-TUNECONST VPair evalPawnOuterCentre={50,0};
-TUNECONST VPair evalPawnDoubled={-100,-200};
-TUNECONST VPair evalPawnIsolated={-300,-200};
-TUNECONST VPair evalPawnBlocked={-100,-100};
-TUNECONST VPair evalPawnPassedQuadA={56,50}; // Coefficients used in quadratic formula for passed pawn score (with rank as the input).
-TUNECONST VPair evalPawnPassedQuadB={-109,50};
-TUNECONST VPair evalPawnPassedQuadC={155,50};
-TUNECONST VPair evalKnightPawnAffinity={30,30}; // Bonus each knight receives for each friendly pawn on the board.
-TUNECONST VPair evalBishopPair={500,500};
-TUNECONST VPair evalBishopMob={40,30};
+TUNECONST VPair evalKnightMob={0,0};
+TUNECONST VPair evalBishopMob={0,0};
 TUNECONST VPair evalOppositeBishopFactor={256,192}; // /256.
-TUNECONST VPair evalRookPawnAffinity={-70,-70}; // Bonus each rook receives for each friendly pawn on the board.
-TUNECONST VPair evalRookMobFile={20,30};
-TUNECONST VPair evalRookMobRank={10,20};
-TUNECONST VPair evalRookOpenFile={100,50};
-TUNECONST VPair evalRookSemiOpenFile={50,20};
-TUNECONST VPair evalRookOn7th={50,100};
-TUNECONST VPair evalRookTrapped={-400,0};
-TUNECONST VPair evalKingShieldClose={150,0};
-TUNECONST VPair evalKingShieldFar={50,0};
+TUNECONST VPair evalRookFileMob={0,0};
+TUNECONST VPair evalRookRankMob={0,0};
+TUNECONST VPair evalQueenMob={0,0};
 TUNECONST VPair evalTempoDefault={35,0};
 TUNECONST VPair evalTempoKQKQ={200,200};
 TUNECONST VPair evalTempoKQQKQQ={500,500};
 TUNECONST Value evalHalfMoveFactor=2048;
 TUNECONST Value evalWeightFactor=144;
 
-VPair evalPST[PieceTypeNB][SqNB]={
-[PieceTypeNone]={
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
-[PieceTypePawn]={
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}},
-[PieceTypeKnight]={
-  { -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
-  { -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
-  {  -70,  -30},{  -20,   20},{   10,   50},{   20,   60},{   20,   60},{   10,   50},{  -20,   20},{  -70,  -30},
-  {  -40,  -10},{   10,   30},{   30,   60},{   40,   70},{   40,   70},{   30,   60},{   10,   30},{  -40,  -10},
-  {  -10,  -10},{   30,   30},{   60,   60},{   60,   70},{   60,   70},{   60,   60},{   30,   30},{  -10,  -10},
-  {    0,  -30},{   40,   20},{   70,   50},{   80,   60},{   80,   60},{   70,   50},{   40,   20},{    0,  -30},
-  {  -10,  -60},{   40,  -10},{   70,   20},{   90,   30},{   90,   30},{   70,   20},{   40,  -10},{  -10,  -60},
-  {  -20, -120},{   20,  -60},{   60,  -30},{   80,  -10},{   80,  -10},{   60,  -30},{   20,  -60},{  -20,  -12}},
-[PieceTypeBishopL]={
-  {   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  160,  120},{  160,  120},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  160,  120},{  160,  120},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60}},
-[PieceTypeBishopD]={
-  {   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  160,  120},{  160,  120},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  160,  120},{  160,  120},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-  {   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60}},
-[PieceTypeRook]={
-  {  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-  {  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-  {  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-  {  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-  {  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-  {  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-  {  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-  {  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0}},
-[PieceTypeQueen]={
-  {  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},
-  {  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},
-  {  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},
-  {  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},
-  {  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},
-  {    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-  {   25,    0},{   25,    0},{   25,    0},{   25,    0},{   25,    0},{   25,    0},{   25,    0},{   25,    0},
-  {   50,    0},{   50,    0},{   50,    0},{   50,    0},{   50,    0},{   50,    0},{   50,    0},{   50,    0}},
-[PieceTypeKing]={
-  {  570, -460},{  570, -240},{  350, -120},{  200,  -40},{  200,  -40},{  350, -120},{  570, -240},{  570, -460},
-  {  350, -240},{  320,  -40},{  140,   60},{   30,  120},{   30,  120},{  140,   60},{  320,  -40},{  350, -240},
-  {  100, -120},{   50,   60},{ -110,  180},{ -260,  240},{ -260,  240},{ -110,  180},{   50,   60},{  100, -120},
-  {    0,  -40},{  -40,  120},{ -320,  240},{ -790,  260},{ -790,  260},{ -320,  240},{  -40,  120},{    0,  -40},
-  {  -50,  -40},{ -110,  120},{ -390,  240},{ -860,  260},{ -860,  260},{ -390,  240},{ -110,  120},{  -50,  -40},
-  {  160, -120},{ -100,   60},{ -320,  180},{ -480,  240},{ -480,  240},{ -320,  180},{ -100,   60},{  160, -120},
-  {  200, -240},{  -30,  -40},{ -210,   60},{ -310,  120},{ -310,  120},{ -210,   60},{  -30,  -40},{  200, -240},
-  {  290, -460},{   70, -240},{  -80, -120},{ -160,  -40},{ -160,  -40},{  -80, -120},{   70, -240},{  290,  -46}}};
-
 ////////////////////////////////////////////////////////////////////////////////
 // Derived values
 ////////////////////////////////////////////////////////////////////////////////
 
-typedef enum
-{
-  PawnTypeStandard=0,
-  PawnTypeShiftDoubled=0,
-  PawnTypeShiftIsolated=1,
-  PawnTypeShiftBlocked=2,
-  PawnTypeShiftPassed=3,
-  PawnTypeDoubled=(1u<<PawnTypeShiftDoubled),
-  PawnTypeIsolated=(1u<<PawnTypeShiftIsolated),
-  PawnTypeBlocked=(1u<<PawnTypeShiftBlocked),
-  PawnTypePassed=(1u<<PawnTypeShiftPassed),
-  PawnTypeNB=16,
-}PawnType;
-VPair evalPawnValue[ColourNB][PawnTypeNB][SqNB];
 int evalHalfMoveFactors[128];
 uint8_t evalWeightEGFactors[128];
 
@@ -197,9 +92,10 @@ VPair evaluateDefault(EvalData *data);
 VPair evaluateKPvK(EvalData *data);
 void evalGetMatData(const Pos *pos, EvalMatData *matData);
 void evalComputeMatData(const Pos *pos, EvalMatData *matData);
-void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData);
-void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData);
-VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour);
+void evalGetPawnData(EvalData *data);
+void evalComputePawnData(EvalData *data, EvalPawnData *pawnData);
+VPair evalPiece1(EvalData *data, PieceType type, Sq sq, Colour colour);
+VPair evalPiece2(EvalData *data, PieceType type, Sq sq, Colour colour);
 Score evalInterpolate(const EvalData *data, const VPair *score);
 void evalVPairAdd(VPair *a, const VPair *b);
 void evalVPairSub(VPair *a, const VPair *b);
@@ -246,38 +142,13 @@ void evalInit(void)
   evalOptionNewVPair("Bishop", &evalMaterial[PieceTypeBishopL]);
   evalOptionNewVPair("Rook", &evalMaterial[PieceTypeRook]);
   evalOptionNewVPair("Queen", &evalMaterial[PieceTypeQueen]);
-  evalOptionNewVPair("PawnCentre", &evalPawnCentre);
-  evalOptionNewVPair("PawnOuterCentre", &evalPawnOuterCentre);
-  evalOptionNewVPair("PawnFilesAH", &evalPawnFiles[FileA]);
-  evalOptionNewVPair("PawnFilesBG", &evalPawnFiles[FileB]);
-  evalOptionNewVPair("PawnFilesCF", &evalPawnFiles[FileC]);
-  evalOptionNewVPair("PawnFilesDE", &evalPawnFiles[FileD]);
-  evalOptionNewVPair("PawnRank2", &evalPawnRanks[Rank2]);
-  evalOptionNewVPair("PawnRank3", &evalPawnRanks[Rank3]);
-  evalOptionNewVPair("PawnRank4", &evalPawnRanks[Rank4]);
-  evalOptionNewVPair("PawnRank5", &evalPawnRanks[Rank5]);
-  evalOptionNewVPair("PawnRank6", &evalPawnRanks[Rank6]);
-  evalOptionNewVPair("PawnRank7", &evalPawnRanks[Rank7]);
-  evalOptionNewVPair("PawnDoubled", &evalPawnDoubled);
-  evalOptionNewVPair("PawnIsolated", &evalPawnIsolated);
-  evalOptionNewVPair("PawnBlocked", &evalPawnBlocked);
-  evalOptionNewVPair("PawnPassedQuadA", &evalPawnPassedQuadA);
-  evalOptionNewVPair("PawnPassedQuadB", &evalPawnPassedQuadB);
-  evalOptionNewVPair("PawnPassedQuadC", &evalPawnPassedQuadC);
-  evalOptionNewVPair("KnightPawnAffinity", &evalKnightPawnAffinity);
-  evalOptionNewVPair("BishopPair", &evalBishopPair);
+  evalOptionNewVPair("KnightMobility", &evalKnightMob);
   evalOptionNewVPair("BishopMobility", &evalBishopMob);
   uciOptionNewSpin("OppositeBishopFactorMG", &evalSetValue, &evalOppositeBishopFactor.mg, 0, 512, evalOppositeBishopFactor.mg);
   uciOptionNewSpin("OppositeBishopFactorEG", &evalSetValue, &evalOppositeBishopFactor.eg, 0, 512, evalOppositeBishopFactor.eg);
-  evalOptionNewVPair("RookPawnAffinity", &evalRookPawnAffinity);
-  evalOptionNewVPair("RookMobilityFile", &evalRookMobFile);
-  evalOptionNewVPair("RookMobilityRank", &evalRookMobRank);
-  evalOptionNewVPair("RookOpenFile", &evalRookOpenFile);
-  evalOptionNewVPair("RookSemiOpenFile", &evalRookSemiOpenFile);
-  evalOptionNewVPair("RookOn7th", &evalRookOn7th);
-  evalOptionNewVPair("RookTrapped", &evalRookTrapped);
-  evalOptionNewVPair("KingShieldClose", &evalKingShieldClose);
-  evalOptionNewVPair("KingShieldFar", &evalKingShieldFar);
+  evalOptionNewVPair("RookFileMobility", &evalRookFileMob);
+  evalOptionNewVPair("RookRankMobility", &evalRookRankMob);
+  evalOptionNewVPair("QueenMobility", &evalQueenMob);
   evalOptionNewVPair("Tempo", &evalTempoDefault);
   evalOptionNewVPair("TempoKQKQ", &evalTempoKQKQ);
   evalOptionNewVPair("TempoKQQKQQ", &evalTempoKQQKQQ);
@@ -375,25 +246,62 @@ VPair evaluateDefault(EvalData *data)
   // Init.
   VPair score=VPairZero;
   const Pos *pos=data->pos;
-  
+  memset(data->attacksPiece, 0, sizeof(data->attacksPiece));
+  memset(data->attacksPieceLE, 0, sizeof(data->attacksPieceLE));
+  data->attacksColour[ColourWhite]=data->attacksColour[ColourBlack]=BBNone;
+  data->attacksAll=BBNone;
+  PieceType type, type2;
+  Piece piece;
+  const Sq *sq, *sqEnd;
+
+  // 1st pass.
+
   // Pawns (special case).
-  evalGetPawnData(pos, &data->pawnData);
-  evalVPairAdd(&score, &data->pawnData.score);
-  
-  // All pieces.
-  PieceType type;
-  for(type=PieceTypeKnight;type<=PieceTypeKing;++type)
-  {
-    Piece piece;
-    const Sq *sq, *sqEnd;
-    
+//  evalGetPawnData(data);
+//  evalVPairAdd(&score, &data->pawnData.score);
+/*
+  // Pieces.
+  for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
     // White pieces.
     piece=pieceMake(type, ColourWhite);
     sq=posGetPieceListStart(pos, piece);
     sqEnd=posGetPieceListEnd(pos, piece);
     for(;sq<sqEnd;++sq)
     {
-      VPair pieceScore=evalPiece(data, type, *sq, ColourWhite);
+      VPair pieceScore=evalPiece1(data, type, *sq, ColourWhite);
+      evalVPairAdd(&score, &pieceScore);
+    }
+    data->attacksColour[ColourWhite]|=data->attacksPiece[piece];
+    for(type2=type;type2<=PieceTypeKing;++type2)
+      data->attacksPieceLE[pieceMake(type2,ColourWhite)]|=data->attacksPiece[piece];
+
+    // Black pieces.
+    piece=pieceMake(type, ColourBlack);
+    sq=posGetPieceListStart(pos, piece);
+    sqEnd=posGetPieceListEnd(pos, piece);
+    for(;sq<sqEnd;++sq)
+    {
+      VPair pieceScore=evalPiece1(data, type, *sq, ColourBlack);
+      evalVPairSub(&score, &pieceScore);
+    }
+    data->attacksColour[ColourBlack]|=data->attacksPiece[piece];
+    for(type2=PieceTypePawn;type2<=type;++type2)
+      data->attacksPieceLE[pieceMake(type2,ColourBlack)]|=data->attacksPiece[piece];
+  }
+  data->attacksAll=(data->attacksColour[ColourWhite]|data->attacksColour[ColourBlack]);
+*/
+  // 2nd pass.
+
+  // Pieces only (pawns only have single pass).
+  for(type=PieceTypeKnight;type<=PieceTypeKing;++type)
+  {
+    // White pieces.
+    piece=pieceMake(type, ColourWhite);
+    sq=posGetPieceListStart(pos, piece);
+    sqEnd=posGetPieceListEnd(pos, piece);
+    for(;sq<sqEnd;++sq)
+    {
+      VPair pieceScore=evalPiece2(data, type, *sq, ColourWhite);
       evalVPairAdd(&score, &pieceScore);
     }
     
@@ -403,7 +311,7 @@ VPair evaluateDefault(EvalData *data)
     sqEnd=posGetPieceListEnd(pos, piece);
     for(;sq<sqEnd;++sq)
     {
-      VPair pieceScore=evalPiece(data, type, *sq, ColourBlack);
+      VPair pieceScore=evalPiece2(data, type, *sq, ColourBlack);
       evalVPairSub(&score, &pieceScore);
     }
   }
@@ -684,49 +592,34 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData)
   evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeBishopL], whiteBishopCount-blackBishopCount);
   evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeRook], G(PieceWRook)-G(PieceBRook));
   evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeQueen], G(PieceWQueen)-G(PieceBQueen));
-  
-  // Knight pawn affinity.
-  unsigned int knightAffW=G(PieceWKnight)*G(PieceWPawn);
-  unsigned int knightAffB=G(PieceBKnight)*G(PieceBPawn);
-  evalVPairAddMul(&matData->offset, &evalKnightPawnAffinity, knightAffW-knightAffB);
-  
-  // Rook pawn affinity.
-  unsigned int rookAffW=G(PieceWRook)*G(PieceWPawn);
-  unsigned int rookAffB=G(PieceBRook)*G(PieceBPawn);
-  evalVPairAddMul(&matData->offset, &evalRookPawnAffinity, rookAffW-rookAffB);
-  
-  // Bishop pair bonus
-  if (wBishopL && wBishopD)
-    evalVPairAdd(&matData->offset, &evalBishopPair);
-  if (bBishopL && bBishopD)
-    evalVPairSub(&matData->offset, &evalBishopPair);
-  
 # undef G
 # undef M
 }
 
-void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData)
+void evalGetPawnData(EvalData *data)
 {
   // Grab hash entry for this position key.
+  const Pos *pos=data->pos;
   uint64_t key=(uint64_t)posGetPawnKey(pos);
   EvalPawnData *entry=htableGrab(evalPawnTable, key);
   
   // If not a match recompute data.
   if (entry->pawns[ColourWhite]!=posGetBBPiece(pos, PieceWPawn) ||
       entry->pawns[ColourBlack]!=posGetBBPiece(pos, PieceBPawn))
-    evalComputePawnData(pos, entry);
+    evalComputePawnData(data, entry);
   
   // Copy data to return it.
-  *pawnData=*entry;
+  data->pawnData=*entry;
   
   // We are finished with Entry, release lock.
   htableRelease(evalPawnTable, key);
 }
 
-void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData)
+void evalComputePawnData(EvalData *data, EvalPawnData *pawnData)
 {
   // Init.
   pawnData->score=VPairZero;
+  const Pos *pos=data->pos;
   BB occ=posGetBBAll(pos);
   BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], attacks[ColourNB];
   BB attacksFill[ColourNB], doubled[ColourNB], isolated[ColourNB];
@@ -756,91 +649,91 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData)
   pawnData->semiOpenFiles[ColourWhite]=(fill[ColourBlack] & ~fill[ColourWhite]);
   pawnData->semiOpenFiles[ColourBlack]=(fill[ColourWhite] & ~fill[ColourBlack]);
   pawnData->openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
-  
-  // Loop over each pawn.
-  Colour colour;
-  for(colour=ColourWhite;colour<=ColourBlack;++colour)
+
+  // Attack data.
+  data->attacksPiece[PieceWPawn]=attacks[ColourWhite];
+  data->attacksPiece[PieceBPawn]=attacks[ColourBlack];
+  PieceType type;
+  for(type=PieceTypePawn;type<=PieceTypeKing;++type)
   {
-    const Sq *sq=posGetPieceListStart(pos, pieceMake(PieceTypePawn, colour));
-    const Sq *sqEnd=posGetPieceListEnd(pos, pieceMake(PieceTypePawn, colour));
-    for(;sq<sqEnd;++sq)
-    {
-      PawnType type=((((doubled[colour]>>*sq)&1)<<PawnTypeShiftDoubled) |
-                     (((isolated[colour]>>*sq)&1)<<PawnTypeShiftIsolated) |
-                     (((blocked[colour]>>*sq)&1)<<PawnTypeShiftBlocked) |
-                     (((pawnData->passed[colour]>>*sq)&1)<<PawnTypeShiftPassed));
-      assert(type>=0 && type<PawnTypeNB);
-      evalVPairAdd(&pawnData->score, &evalPawnValue[colour][type][*sq]);
-    }
+    data->attacksPieceLE[pieceMake(type, ColourWhite)]|=data->attacksPiece[PieceWPawn];
+    data->attacksPieceLE[pieceMake(type, ColourBlack)]|=data->attacksPiece[PieceBPawn];
   }
 }
 
-VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour)
-{
+VPair evalPiece1(EvalData *data, PieceType type, Sq sq, Colour colour) {
   // Init.
   VPair score=VPairZero;
   const Pos *pos=data->pos;
   Sq adjSq=(colour==ColourWhite ? sq : sqFlip(sq));
   BB bb=bbSq(sq);
-  
-  // PST.
-  evalVPairAdd(&score, &evalPST[type][adjSq]);
-  
-  // Bishop mobility.
-  if (type==PieceTypeBishopL || type==PieceTypeBishopD)
+  BB occ=posGetBBAll(pos);
+  Piece piece=pieceMake(type, colour);
+
+  // Attacks.
+  BB attacks=attacksPieceType(type, sq, occ);
+  data->attacksPiece[piece]|=attacks;
+
+  // Piece-specific.
+  switch(type)
   {
-    BB attacks=attacksBishop(sq, posGetBBAll(pos));
-    evalVPairAddMul(&score, &evalBishopMob, bbPopCount(attacks));
+    case PieceTypeKnight: break;
+    case PieceTypeBishopL:
+    case PieceTypeBishopD: break;
+    case PieceTypeRook: break;
+    case PieceTypeQueen: break;
+    case PieceTypeKing: break;
+    default: assert(false); break;
   }
-  
-  // Rooks.
-  if (type==PieceTypeRook)
+
+  return score;
+}
+
+VPair evalPiece2(EvalData *data, PieceType type, Sq sq, Colour colour)
+{
+  // Init.
+  VPair score=VPairZero;
+  const Pos *pos=data->pos;
+  BB bb=bbSq(sq);
+
+  // Piece-specific.
+  switch(type)
   {
-    BB rankBB=bbRank(sqRank(sq));
-    
-    // Mobility.
-    BB attacks=attacksRook(sq, posGetBBAll(pos));
-    evalVPairAddMul(&score, &evalRookMobFile, bbPopCount(attacks & bbFileFill(bb)));
-    evalVPairAddMul(&score, &evalRookMobRank, bbPopCount(attacks & rankBB));
-    
-    // Open and semi-open files.
-    if (bb & data->pawnData.openFiles)
-      evalVPairAdd(&score, &evalRookOpenFile);
-    else if (bb & data->pawnData.semiOpenFiles[colour])
-      evalVPairAdd(&score, &evalRookSemiOpenFile);
-    
-    // Rook on 7th.
-    BB oppPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colourSwap(colour)));
-    Sq adjOppKingSq=(colour==ColourWhite ? posGetKingSq(pos, ColourBlack) : sqFlip(posGetKingSq(pos, ColourWhite)));
-    if (sqRank(adjSq)==Rank7 && ((rankBB & oppPawns) || sqRank(adjOppKingSq)==Rank8))
-      evalVPairAdd(&score, &evalRookOn7th);
-    
-    // Trapped.
-    BB kingBB=posGetBBPiece(pos, pieceMake(PieceTypeKing, colour));
-    if (colour==ColourWhite)
+    case PieceTypeKnight:
     {
-      if (((bb & (bbSq(SqG1) | bbSq(SqH1))) && (kingBB & (bbSq(SqF1) | bbSq(SqG1)))) ||
-          ((bb & (bbSq(SqA1) | bbSq(SqB1))) && (kingBB & (bbSq(SqB1) | bbSq(SqC1)))))
-        evalVPairAdd(&score, &evalRookTrapped);
+      // Mobility.
+      BB attacks=attacksKnight(sq);
+      evalVPairAddMul(&score, &evalKnightMob, bbPopCount(attacks));
     }
-    else
+    break;
+    case PieceTypeBishopL:
+    case PieceTypeBishopD:
     {
-      if (((bb & (bbSq(SqG8) | bbSq(SqH8))) && (kingBB & (bbSq(SqF8) | bbSq(SqG8)))) ||
-          ((bb & (bbSq(SqA8) | bbSq(SqB8))) && (kingBB & (bbSq(SqB8) | bbSq(SqC8)))))
-        evalVPairAdd(&score, &evalRookTrapped);
+      // Mobility.
+      BB attacks=attacksPieceType(PieceTypeBishopL, sq, posGetBBAll(pos)); // this will be cached eventaully (if these changes prove useful)
+      evalVPairAddMul(&score, &evalBishopMob, bbPopCount(attacks));
     }
-  }
-  
-  // Kings.
-  if (type==PieceTypeKing)
-  {
-    // Pawn shield.
-    BB pawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colour));
-    BB set=bbForwardOne(bbWestOne(bb) | bb | bbEastOne(bb), colour);
-    BB shieldClose=(pawns & set);
-    BB shieldFar=(pawns & bbForwardOne(set, colour));
-    evalVPairAddMul(&score, &evalKingShieldClose, bbPopCount(shieldClose));
-    evalVPairAddMul(&score, &evalKingShieldFar, bbPopCount(shieldFar));
+    break;
+    case PieceTypeRook:
+    {
+      BB rankBB=bbRank(sqRank(sq));
+      BB attacks=attacksPieceType(PieceTypeRook, sq, posGetBBAll(pos));
+
+      // Mobility.
+      evalVPairAddMul(&score, &evalRookFileMob, bbPopCount(attacks & bbFileFill(bb)));
+      evalVPairAddMul(&score, &evalRookRankMob, bbPopCount(attacks & rankBB));
+    }
+    break;
+    case PieceTypeQueen:
+    {
+      BB attacks=attacksPieceType(PieceTypeQueen, sq, posGetBBAll(pos));
+
+      // Mobility.
+      evalVPairAddMul(&score, &evalQueenMob, bbPopCount(attacks));
+    }
+    break;
+    case PieceTypeKing: break;
+    default: assert(false); break;
   }
   
   return score;
@@ -888,17 +781,7 @@ void evalSetValue(void *varPtr, int value)
     evalMaterial[PieceTypeBishopD].mg=value;
   else if (var==&evalMaterial[PieceTypeBishopL].eg)
     evalMaterial[PieceTypeBishopD].eg=value;
-  
-  // Hack to reflect pawn files.
-  File file;
-  for(file=FileA;file<=FileD;++file)
-  {
-    if (var==&evalPawnFiles[file].mg)
-      evalPawnFiles[fileMirror(file)].mg=value;
-    else if (var==&evalPawnFiles[file].eg)
-      evalPawnFiles[fileMirror(file)].eg=value;
-  }
-  
+
   // Recalculate dervied values (such as passed pawn table).
   evalRecalc();
   
@@ -929,62 +812,6 @@ bool evalOptionNewVPair(const char *name, VPair *score)
 
 void evalRecalc(void)
 {
-  // Pawn PST.
-  Sq sq;
-  const BB centre=(bbSq(SqD4)|bbSq(SqE4)|
-                   bbSq(SqD5)|bbSq(SqE5));
-  const BB outerCentre=(bbSq(SqC3)|bbSq(SqD3)|bbSq(SqE3)|bbSq(SqF3)|
-                        bbSq(SqC4)|                      bbSq(SqF4)|
-                        bbSq(SqC5)|                      bbSq(SqF5)|
-                        bbSq(SqC6)|bbSq(SqD6)|bbSq(SqE6)|bbSq(SqF6));
-  for(sq=0;sq<SqNB;++sq)
-  {
-    if (sqRank(sq)==Rank1 || sqRank(sq)==Rank8)
-      continue;
-    BB bb=bbSq(sq);
-    evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnFiles[sqFile(sq)]);
-    evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnRanks[sqRank(sq)]);
-    if (bb & centre)
-      evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnCentre);
-    else if (bb & outerCentre)
-      evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnOuterCentre);
-  }
-  
-  // Pawn table.
-  PawnType type;
-  for(type=0;type<PawnTypeNB;++type)
-  {
-    bool isDoubled=((type & PawnTypeDoubled)!=0);
-    bool isIsolated=((type & PawnTypeIsolated)!=0);
-    bool isBlocked=((type & PawnTypeBlocked)!=0);
-    bool isPassed=((type & PawnTypePassed)!=0);
-    for(sq=0;sq<SqNB;++sq)
-    {
-      // Calculate score for white.
-      VPair *score=&evalPawnValue[ColourWhite][type][sq];
-      *score=VPairZero;
-      evalVPairAdd(score, &evalPST[PieceTypePawn][sq]);
-      if (isDoubled)
-        evalVPairAdd(score, &evalPawnDoubled);
-      if (isIsolated)
-        evalVPairAdd(score, &evalPawnIsolated);
-      if (isBlocked)
-        evalVPairAdd(score, &evalPawnBlocked);
-      if (isPassed)
-      {
-        // Generate passed pawn score from quadratic coefficients.
-        Rank rank=sqRank(sq);
-        evalVPairAddMul(score, &evalPawnPassedQuadA, rank*rank);
-        evalVPairAddMul(score, &evalPawnPassedQuadB, rank);
-        evalVPairAdd(score, &evalPawnPassedQuadC);
-      }
-      
-      // Flip square and negate score for black.
-      evalPawnValue[ColourBlack][type][sqFlip(sq)]=VPairZero;
-      evalVPairSub(&evalPawnValue[ColourBlack][type][sqFlip(sq)], score);
-    }
-  }
-  
   // Calculate factor for number of half moves since capture/pawn move.
   unsigned int i;
   for(i=0;i<128;++i)

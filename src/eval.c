@@ -50,6 +50,8 @@ struct EvalData
   const Pos *pos;
   EvalPawnData pawnData;
   EvalMatData matData;
+  BB attacksPiece[PieceNB], attacksColour[ColourNB], attacksAll;
+  BB attacksPieceLE[PieceNB]; // Attacks by pieces of same colour as given piece at with value no greater.
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -51,18 +51,25 @@ unsigned long long int perftRaw(Pos *pos, Depth depth)
 {
   if (depth<1)
     return 1;
-  
+
   unsigned long long int total=0;
   Moves moves;
   movesInit(&moves, pos, MoveTypeAny);
   Move move;
-  while((move=movesNext(&moves))!=MoveInvalid)
-  {
-    if (!posMakeMove(pos, move))
-      continue;
-    total+=perftRaw(pos, depth-1);
-    posUndoMove(pos);
+
+  if (depth==1) {
+    while((move=movesNext(&moves))!=MoveInvalid)
+      total+=posCanMakeMove(pos, move);
   }
-  
+  else {
+    while((move=movesNext(&moves))!=MoveInvalid)
+    {
+      if (!posMakeMove(pos, move))
+        continue;
+      total+=perftRaw(pos, depth-1);
+      posUndoMove(pos);
+    }
+  }
+
   return total;
 }

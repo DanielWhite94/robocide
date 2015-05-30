@@ -582,7 +582,7 @@ void posGenPseudoMoves(Moves *moves, MoveType type)
 Move posGenLegalMove(const Pos *pos, MoveType type)
 {
   Moves moves;
-  movesInit(&moves, pos, type);
+  movesInit(&moves, pos, 0, type);
   Move move;
   while((move=movesNext(&moves))!=MoveInvalid)
     if (posCanMakeMove(pos, move))
@@ -798,7 +798,7 @@ bool posMoveIsPseudoLegal(const Pos *pos, Move move)
   bool result=posMoveIsPseudoLegalInternal(pos, move);
 # ifndef NDEBUG
   Moves moves;
-  movesInit(&moves, pos, MoveTypeAny);
+  movesInit(&moves, pos, 0, MoveTypeAny);
   Move move2;
   bool trueResult=false;
   while((move2=movesNext(&moves))!=MoveInvalid)
@@ -839,7 +839,7 @@ MoveType posMoveGetType(const Pos *pos, Move move)
 Move posMoveFromStr(const Pos *pos, const char str[static 6])
 {
   Moves moves;
-  movesInit(&moves, pos, MoveTypeAny);
+  movesInit(&moves, pos, 0, MoveTypeAny);
   Move move;
   while((move=movesNext(&moves))!=MoveInvalid)
   {

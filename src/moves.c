@@ -1,5 +1,6 @@
 #include <assert.h>
 
+#include "killers.h"
 #include "moves.h"
 #include "search.h"
 
@@ -13,13 +14,14 @@ void movesSort(ScoredMove *start, ScoredMove *end); // Descending order (best mo
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void movesInit(Moves *moves, const Pos *pos, MoveType type)
+void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type)
 {
   assert(type==MoveTypeQuiet || type==MoveTypeCapture || type==MoveTypeAny);
   moves->end=moves->next=moves->list;
   moves->stage=MovesStageTT;
   moves->ttMove=MoveInvalid;
   moves->pos=pos;
+  moves->ply=ply;
   moves->allowed=moves->needed=type;
 }
 
@@ -64,8 +66,30 @@ Move movesNext(Moves *moves)
         if (move!=moves->ttMove) // Exclude TT move as this is searched earlier.
           return move;
       }
-      
+
       // Fall through.
+      moves->stage=MovesStageKillers;
+      moves->killersIndex=0;
+    case MovesStageKillers:
+      while(moves->killersIndex<KillersPerPly)
+      {
+        // Check if any killers left.
+        Move move=killers[moves->ply][moves->killersIndex++];
+        if (move==MoveInvalid)
+          break;
+
+        // Hash move?
+        if (move==moves->ttMove)
+          continue;
+
+        // Not pseudo-legal in this position?
+        if (!posMoveIsPseudoLegal(moves->pos, move))
+          continue;
+
+        return move;
+      }
+
+      // Fall through (no need to update stage as next one is only temporary).
     case MovesStageGenQuiets:
       // No captures left, do we need to generate any quiets?
       if (moves->needed & MoveTypeQuiet)
@@ -83,7 +107,14 @@ Move movesNext(Moves *moves)
       while (moves->next<moves->end)
       {
         Move move=scoredMoveGetMove(*moves->next++);
-        if (move!=moves->ttMove) // Exclude TT move as this is searched earlier.
+        // Exclude TT and killer moves as these are searched earlier.
+        if (move==moves->ttMove)
+          continue;
+        int i;
+        for(i=0;i<KillersPerPly;++i)
+          if (move==killers[moves->ply][i])
+            break;
+        if (i==KillersPerPly)
           return move;
       }
       

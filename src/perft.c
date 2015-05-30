@@ -31,7 +31,7 @@ void divide(Pos *pos, Depth depth)
   
   unsigned long long int total=0;
   Moves moves;
-  movesInit(&moves, pos, MoveTypeAny);
+  movesInit(&moves, pos, 0, MoveTypeAny);
   Move move;
   while((move=movesNext(&moves))!=MoveInvalid)
   {
@@ -54,7 +54,7 @@ unsigned long long int perftRaw(Pos *pos, Depth depth)
 
   unsigned long long int total=0;
   Moves moves;
-  movesInit(&moves, pos, MoveTypeAny);
+  movesInit(&moves, pos, 0, MoveTypeAny);
   Move move;
 
   if (depth==1) {

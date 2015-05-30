@@ -5,6 +5,7 @@
 #include "bitbase.h"
 #include "eval.h"
 #include "history.h"
+#include "killers.h"
 #include "robocide.h"
 #include "score.h"
 #include "search.h"
@@ -172,7 +173,10 @@ void searchClear(void)
   
   // Clear transposition table.
   ttClear();
-  
+
+  // Clear killer moves.
+  killersClear();
+
   // Reset search date.
   searchDate=0;
 }
@@ -345,6 +349,9 @@ void searchIDLoop(void *posPtr)
   
   // Age history table.
   historyAge();
+
+  // Clear killers (do here to avoid having to spend time at start of next search).
+  killersClear();
 }
 
 Score searchNode(Node *node)
@@ -476,7 +483,7 @@ void searchNodeInternal(Node *node)
   
   // Begin IID loop.
   Moves moves;
-  movesInit(&moves, node->pos, MoveTypeAny);
+  movesInit(&moves, node->pos, node->ply, MoveTypeAny);
   movesRewind(&moves, ttMove);
   Move bestMove;
   do
@@ -559,7 +566,13 @@ void searchNodeInternal(Node *node)
           
           // Cutoff?
           if (score>=node->beta)
+          {
+            // Update killers.
+            if (posMoveGetType(node->pos, bestMove)==MoveTypeQuiet)
+              killersCutoff(node->ply, bestMove);
+
             goto cutoff;
+          }
           
           // Update values.
           alpha=score;
@@ -656,7 +669,7 @@ void searchQNodeInternal(Node *node)
   child.alpha=-node->beta;
   child.beta=-alpha;
   Moves moves;
-  movesInit(&moves, node->pos, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
+  movesInit(&moves, node->pos, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
   Move move;
   bool noLegalMove=true;
   while((move=movesNext(&moves))!=MoveInvalid)

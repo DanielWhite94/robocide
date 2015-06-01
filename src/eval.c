@@ -62,12 +62,13 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
   [PieceTypeNone]={0,0},
   [PieceTypePawn]={900,1100},
   [PieceTypeKnight]={3500,3100},
-  [PieceTypeBishopL]={3610,3070},
-  [PieceTypeBishopD]={3610,3070},
+  [PieceTypeBishopL]={3810,3070},
+  [PieceTypeBishopD]={3810,3070},
   [PieceTypeRook]={4950,5350},
   [PieceTypeQueen]={10000,10000},
   [PieceTypeKing]={0,0}};
 TUNECONST VPair evalKnightMob={40,0};
+TUNECONST VPair evalBishopPair={400,0};
 TUNECONST VPair evalBishopMob={50,30};
 TUNECONST VPair evalOppositeBishopFactor={256,192}; // /256.
 TUNECONST VPair evalRookFileMob={50,0};
@@ -145,6 +146,7 @@ void evalInit(void)
   evalOptionNewVPair("Rook", &evalMaterial[PieceTypeRook]);
   evalOptionNewVPair("Queen", &evalMaterial[PieceTypeQueen]);
   evalOptionNewVPair("KnightMobility", &evalKnightMob);
+  evalOptionNewVPair("BishopPair", &evalBishopPair);
   evalOptionNewVPair("BishopMobility", &evalBishopMob);
   uciOptionNewSpin("OppositeBishopFactorMG", &evalSetValue, &evalOppositeBishopFactor.mg, 0, 512, evalOppositeBishopFactor.mg);
   uciOptionNewSpin("OppositeBishopFactorEG", &evalSetValue, &evalOppositeBishopFactor.eg, 0, 512, evalOppositeBishopFactor.eg);
@@ -594,6 +596,13 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData)
   evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeBishopL], whiteBishopCount-blackBishopCount);
   evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeRook], G(PieceWRook)-G(PieceBRook));
   evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeQueen], G(PieceWQueen)-G(PieceBQueen));
+
+  // Bishop pair bonus.
+  if (wBishopL && wBishopD)
+    evalVPairAdd(&matData->offset, &evalBishopPair);
+  if (bBishopL && bBishopD)
+    evalVPairSub(&matData->offset, &evalBishopPair);
+
 # undef G
 # undef M
 }

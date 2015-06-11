@@ -61,13 +61,13 @@ struct EvalData
 TUNECONST VPair evalMaterial[PieceTypeNB]={
   [PieceTypeNone]={0,0},
   [PieceTypePawn]={900,1100},
-  [PieceTypeKnight]={3500,3100},
+  [PieceTypeKnight]={3500,3200},
   [PieceTypeBishopL]={3810,3070},
   [PieceTypeBishopD]={3810,3070},
   [PieceTypeRook]={4950,5350},
   [PieceTypeQueen]={10000,10000},
   [PieceTypeKing]={0,0}};
-TUNECONST VPair evalKnightMob={40,0};
+TUNECONST VPair evalKnightMob={40,20};
 TUNECONST VPair evalBishopPair={400,0};
 TUNECONST VPair evalBishopMob={50,30};
 TUNECONST VPair evalOppositeBishopFactor={256,192}; // /256.

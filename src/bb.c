@@ -211,3 +211,24 @@ BB bbPawnSq(Sq sq)
   assert(sqIsValid(sq));
   return BBPawnSq[sq];
 }
+
+BB bbMirror(BB bb)
+{
+  const uint64_t k1=0x5555555555555555llu;
+  const uint64_t k2=0x3333333333333333llu;
+  const uint64_t k4=0x0f0f0f0f0f0f0f0fllu;
+  bb=((bb>>1) & k1) +  2*(bb & k1);
+  bb=((bb>>2) & k2) +  4*(bb & k2);
+  bb=((bb>>4) & k4) + 16*(bb & k4);
+  return bb;
+}
+
+BB bbFlip(BB bb)
+{
+  const uint64_t k1=0x00FF00FF00FF00FFllu;
+  const uint64_t k2=0x0000FFFF0000FFFFllu;
+  bb=((bb>> 8) & k1) | ((bb & k1)<< 8);
+  bb=((bb>>16) & k2) | ((bb & k2)<<16);
+  bb=( bb>>32)       | ( bb      <<32);
+  return bb;
+}

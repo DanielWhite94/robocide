@@ -33,6 +33,7 @@ BB bbBetween(BB sq1, BB sq2); // If sq1 and sq2 lie on the same file, rank or di
 BB bbBeyond(BB sq1, BB sq2); // If sq1 and sq2 lie on the same file, rank or diagonal then returns a bitboard of squares behind sq2 from sq1's point of view,
   // otherwise BBNone is returned. e.g. bbBeyond(SqA2, SqE5)==(bbSq(SqF6)|bbSq(SqG7)|bbSq(SqH8)).
 BB bbPawnSq(Sq sq); // 'Square of the pawn' for a white pawn on the given square.
-
+BB bbMirror(BB bb);
+BB bbFlip(BB bb);
 
 #endif

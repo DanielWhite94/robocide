@@ -336,6 +336,11 @@ void evalClear(void)
 {
   htableClear(evalPawnTable);
   htableClear(evalMatTable);
+	// Ensure mat!=entry->mat for all positions.
+	// Only entry where this is not the case after clearing is entry with key 0.
+  EvalMatData *entry=htableGrab(evalMatTable, 0);
+  entry->mat=1;
+  htableRelease(evalMatTable, 0);
 }
 
 EvalMatType evalGetMatType(const Pos *pos)
@@ -901,9 +906,6 @@ void evalSetValue(void *varPtr, int value)
   
   // Recalculate dervied values (such as passed pawn table).
   evalRecalc();
-  
-  // Clear now-invalid material and pawn tables etc.
-  evalClear();
 }
 
 bool evalOptionNewVPair(const char *name, VPair *score)
@@ -1001,6 +1003,9 @@ void evalRecalc(void)
     assert(factor>=0.0 && factor<=1.0);
     evalWeightEGFactors[i]=floorf(255.0*factor);
   }
+
+  // Clear now-invalid material and pawn tables etc.
+  evalClear();
 }
 
 EvalMatType evalComputeMatType(const Pos *pos)

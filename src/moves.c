@@ -152,7 +152,7 @@ void movesSort(ScoredMove *start, ScoredMove *end)
   for(ptr=start+1;ptr<end;++ptr)
   {
     ScoredMove temp=*ptr, *tempPtr;
-    for(tempPtr=ptr-1;tempPtr>=start && temp>*tempPtr;--tempPtr)
+    for(tempPtr=ptr-1;tempPtr>=start && scoredMoveCompGT(temp, *tempPtr);--tempPtr)
       *(tempPtr+1)=*tempPtr;
     *(tempPtr+1)=temp;
   }

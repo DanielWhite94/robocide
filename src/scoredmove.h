@@ -15,5 +15,6 @@ typedef uint64_t ScoredMove; // Score and move combined into 64 bit value.
 ScoredMove scoredMoveMake(MoveScore score, Move move);
 MoveScore scoredMoveGetScore(ScoredMove scoredMove);
 Move scoredMoveGetMove(ScoredMove scoredMove);
+bool scoredMoveCompGT(ScoredMove moveA, ScoredMove moveB);
 
 #endif

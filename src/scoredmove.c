@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #include "scoredmove.h"
 
 ScoredMove scoredMoveMake(MoveScore score, Move move)
@@ -13,4 +15,10 @@ MoveScore scoredMoveGetScore(ScoredMove scoredMove)
 Move scoredMoveGetMove(ScoredMove scoredMove)
 {
   return scoredMove & ((1llu<<MoveBit)-1);
+}
+
+bool scoredMoveCompGT(ScoredMove moveA, ScoredMove moveB)
+{
+  assert((moveA>moveB)==(scoredMoveGetScore(moveA)>scoredMoveGetScore(moveB)));
+  return moveA>moveB;
 }

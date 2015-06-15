@@ -488,7 +488,7 @@ void searchNodeInternal(Node *node)
   Move bestMove;
   do
   {
-    assert(depth>=0 && depth<=node->depth);
+    assert(depth<=node->depth);
     
     // Prepare to search current depth.
     Score alpha=node->alpha;

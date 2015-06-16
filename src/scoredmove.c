@@ -19,6 +19,7 @@ Move scoredMoveGetMove(ScoredMove scoredMove)
 
 bool scoredMoveCompGT(ScoredMove moveA, ScoredMove moveB)
 {
-  assert((moveA>moveB)==(scoredMoveGetScore(moveA)>scoredMoveGetScore(moveB)));
+  assert((moveA>moveB)==(scoredMoveGetScore(moveA)>scoredMoveGetScore(moveB))
+         || (scoredMoveGetScore(moveA)==scoredMoveGetScore(moveB)));
   return moveA>moveB;
 }

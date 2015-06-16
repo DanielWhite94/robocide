@@ -1395,9 +1395,15 @@ bool posIsConsistent(const Pos *pos)
   for(sq=0;sq<SqNB;++sq)
   {
     if ((posGetPieceOnSq(pos, sq)==PieceWBishopL || posGetPieceOnSq(pos, sq)==PieceBBishopL) && !sqIsLight(sq))
-      return false;
+    {
+      sprintf(error, "Light bishop on dark square %c%c.\n", fileChar(sqFile(sq)), rankChar(sqRank(sq)));
+      goto error;
+    }
     if ((posGetPieceOnSq(pos, sq)==PieceWBishopD || posGetPieceOnSq(pos, sq)==PieceBBishopD) && sqIsLight(sq))
-      return false;
+    {
+      sprintf(error, "Dark bishop on light square %c%c.\n", fileChar(sqFile(sq)), rankChar(sqRank(sq)));
+      goto error;
+    }
   }
   
   // Test EP square is valid.

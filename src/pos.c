@@ -1397,12 +1397,12 @@ bool posIsConsistent(const Pos *pos)
     if ((posGetPieceOnSq(pos, sq)==PieceWBishopL || posGetPieceOnSq(pos, sq)==PieceBBishopL) && !sqIsLight(sq))
     {
       sprintf(error, "Light bishop on dark square %c%c.\n", fileChar(sqFile(sq)), rankChar(sqRank(sq)));
-      goto error;
+      goto Error;
     }
     if ((posGetPieceOnSq(pos, sq)==PieceWBishopD || posGetPieceOnSq(pos, sq)==PieceBBishopD) && sqIsLight(sq))
     {
       sprintf(error, "Dark bishop on light square %c%c.\n", fileChar(sqFile(sq)), rankChar(sqRank(sq)));
-      goto error;
+      goto Error;
     }
   }
   

@@ -1532,6 +1532,10 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move)
       return (fromPiece==toPiece && (bbBetween(fromSq, toSq) & occ)==BBNone);
     break;
     case PieceTypeKing:
+      // King cannot change.
+      if (fromPiece!=toPiece)
+        return false;
+
       // Castling requires extra tests.
       if (toSq==fromSq+2)
         return (stm==ColourWhite ? ((pos->data->cast & CastRightsK) && !(occ & (bbSq(SqF1) | bbSq(SqG1))))
@@ -1540,7 +1544,7 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move)
         return (stm==ColourWhite ? ((pos->data->cast & CastRightsQ) && !(occ & (bbSq(SqB1) | bbSq(SqC1) | bbSq(SqD1))))
                                  : ((pos->data->cast & CastRightsq) && !(occ & (bbSq(SqB8) | bbSq(SqC8) | bbSq(SqD8)))));
       else
-        return (fromPiece==toPiece); // Standard move.
+        return true; // Standard move.
     break;
     default:
       return false;

@@ -710,7 +710,7 @@ void searchQNodeInternal(Node *node)
     }
   }
   
-  // Test for checkmate or stalemate.
+  // Test for checkmate.
   if (noLegalMove)
   {
     if (node->inCheck)
@@ -721,20 +721,13 @@ void searchQNodeInternal(Node *node)
       node->score=scoreMatedIn(node->ply);
       return;
     }
-    else if (!posLegalMoveExists(node->pos, MoveTypeQuiet))
-    {
-      assert(!posLegalMoveExists(node->pos, MoveTypeAny));
-      assert(posIsStalemate(node->pos));
-      node->bound=BoundExact;
-      node->score=ScoreDraw;
-      return;
-    }
     else
-      // Else there are quiet moves available, assume one is at least as good as standing pat.
+      // Else we assume there are quiet moves available, and also that one is at least as good as standing pat.
       node->bound=BoundLower;
   }
   
-  node->bound|=BoundUpper; // We have searched all moves.
+  if (node->inCheck)
+    node->bound|=BoundUpper; // We have searched all moves.
   
   // We now know the best move.
   cutoff:

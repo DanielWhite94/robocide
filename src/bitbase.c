@@ -92,24 +92,29 @@ void bitbaseGen(void) {
 	if (array==NULL)
 		mainFatalError("Error: Could not allocate memory for generating KPvK bitbase.\n");
 
-	// Loop over each pawn file and ranks in backwards order (from 7 to 2).
-	// We can do this as different files are independent and, for example, rank 5
-	// positions do not depend on any rank 4 positions.
+	// Mark positions which are obviously won/drawn/invalid (otherwise mark as unknown).
+	Sq wKingSq, bKingSq;
+	Colour stm;
 	File pawnFile;
 	Rank pawnRank;
 	for(pawnFile=FileA;pawnFile<=FileD;++pawnFile)
-		for(pawnRank=Rank7;pawnRank>=Rank2;--pawnRank) {
+		for(pawnRank=Rank8;pawnRank>=Rank2;--pawnRank) {
 			Sq pawnSq=sqMake(pawnFile, pawnRank);
 
-			// Mark positions which are obviously won/drawn/invalid (otherwise mark as unknown).
-			Sq wKingSq, bKingSq;
-			Colour stm;
 			for(wKingSq=0;wKingSq<SqNB;++wKingSq)
 				for(stm=0;stm<ColourNB;++stm)
 					for(bKingSq=0;bKingSq<SqNB;++bKingSq) {
 						unsigned int index=bitbaseIndexFull(pawnFile, pawnRank, wKingSq, stm, bKingSq);
 						array[index]=bitbaseComputeStaticResult(pawnSq, wKingSq, stm, bKingSq);
 					}
+		}
+
+	// Loop over each pawn file and ranks in backwards order (from 7 to 2).
+	// We can do this as different files are independent and, for example, rank 5
+	// positions do not depend on any rank 4 positions.
+	for(pawnFile=FileA;pawnFile<=FileD;++pawnFile)
+		for(pawnRank=Rank7;pawnRank>=Rank2;--pawnRank) {
+			Sq pawnSq=sqMake(pawnFile, pawnRank);
 
 			// Compute position results based on child positions.
 			bool change;
@@ -167,23 +172,28 @@ BitBaseResultFull bitbaseComputeStaticResult(Sq pawnSq, Sq wKingSq, Colour stm, 
 
 	// If any pieces occupy the same square, or the side not on move is in check, invalid position.
 	if (pawnSq==wKingSq || pawnSq==bKingSq || wKingSq==bKingSq || // Pieces overlap.
-	    sqRank(pawnSq)==Rank1 || sqRank(pawnSq)==Rank8 || // Pawn on rank 1 or 8.
+	    sqRank(pawnSq)==Rank1 || // Pawn on rank 1.
 	    (wKingAtks & bKingBB)!=BBNone || // Kings are adjacent.
 	    (stm==ColourWhite && (pawnAtks & bKingBB)!=BBNone)) // White to move, black king attacked by pawn.
 		return BitBaseResultFullInvalid;
 
 	// If pawn can promote without capture, win.
-	Sq promoSq=sqNorth(pawnSq,1);
-	if (sqRank(pawnSq)==Rank7 && stm==ColourWhite && // Pawn on 7th rank and white to move.
-	    promoSq!=wKingSq && promoSq!=bKingSq && // Promotion square empty.
-	    ((bbSq(promoSq) & bKingAtks)==BBNone || (bbSq(promoSq) & wKingAtks)!=BBNone)) // Promotion square is safe.
-		return BitBaseResultFullWin;
+	if (sqRank(pawnSq)==Rank7 && stm==ColourWhite) {
+		Sq promoSq=sqNorth(pawnSq,1);
+		if (promoSq!=wKingSq && promoSq!=bKingSq && // Promotion square empty.
+		    ((bbSq(promoSq) & bKingAtks)==BBNone || (bbSq(promoSq) & wKingAtks)!=BBNone)) // Promotion square is safe.
+			return BitBaseResultFullWin;
+	}
 
 	// If black can capture pawn, draw.
 	bool pawnAttacked=((bKingAtks & pawnBB)!=BBNone);
 	bool pawnDefended=((wKingAtks & pawnBB)!=BBNone);
 	if (stm==ColourBlack && pawnAttacked && !pawnDefended)
 	    return BitBaseResultFullDraw;
+
+	// If 'pawn' is on 8th rank, win (we have already shown that it cannot be captured).
+	if (sqRank(pawnSq)==Rank8)
+		return BitBaseResultWin;
 
 	// If no moves available for stm, draw (stalemate).
 	if (stm==ColourWhite) {
@@ -231,9 +241,8 @@ BitBaseResultFull bitbaseComputeDynamicResult(const BitBaseResultFull *array, Sq
 		}
 
 		// Standard pawn move forward.
-		// We do not need to test for moving to 8th rank or into either of the kings
-		// as such positions will be marked as 'invalid' already.
-		unsigned int newIndex=bitbaseIndexFull(pawnFile, pawnRank+1, wKingSq, colourSwap(stm), bKingSq);
+		// We do not need to test for moving to 8th rank or into either of the kings as such positions will be marked already.
+		unsigned int newIndex=bitbaseIndexFull(pawnFile, pawnRank+1, wKingSq, xstm, bKingSq);
 		bool singlePushOk=true;
 		switch(array[newIndex]) {
 			case BitBaseResultFullInvalid: singlePushOk=false; break; // Invalid move.

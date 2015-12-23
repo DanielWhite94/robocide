@@ -5,7 +5,8 @@
 
 typedef enum { ColourWhite, ColourBlack, ColourNB} Colour;
 
-Colour colourSwap(Colour colour);
 bool colourIsValid(Colour colour);
+
+Colour colourSwap(Colour colour);
 
 #endif

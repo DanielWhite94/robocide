@@ -8,14 +8,13 @@
 #include "pos.h"
 #include "square.h"
 
-typedef struct
-{
-  Piece array[64];
-  Colour stm;
-  CastRights castRights;
-  Sq epSq;
-  unsigned int halfMoveNumber, fullMoveNumber;
-}Fen;
+typedef struct {
+	Piece array[64];
+	Colour stm;
+	CastRights castRights;
+	Sq epSq;
+	unsigned int halfMoveNumber, fullMoveNumber;
+} Fen;
 
 bool fenRead(Fen *data, const char *string);
 

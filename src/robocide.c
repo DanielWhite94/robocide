@@ -11,31 +11,29 @@
 #include "tt.h"
 #include "uci.h"
 
-int main()
-{
-  bbInit();
-  attacksInit();
-  bitbaseInit();
-  posInit();
-  evalInit();
-  ttInit();
-  searchInit();
-  
-  uciLoop();
-  
-  searchQuit();
-  ttQuit();
-  evalQuit();
-  bitbaseQuit();
-  
-  return EXIT_SUCCESS;
+int main() {
+	bbInit();
+	attacksInit();
+	bitbaseInit();
+	posInit();
+	evalInit();
+	ttInit();
+	searchInit();
+	
+	uciLoop();
+	
+	searchQuit();
+	ttQuit();
+	evalQuit();
+	bitbaseQuit();
+	
+	return EXIT_SUCCESS;
 }
 
-void mainFatalError(const char *format, ...)
-{
-  va_list ap;
-  va_start(ap, format);
-  vfprintf(stderr, format, ap);
-  va_end(ap);
-  exit(EXIT_FAILURE);
+void mainFatalError(const char *format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	vfprintf(stderr, format, ap);
+	va_end(ap);
+	exit(EXIT_FAILURE);
 }

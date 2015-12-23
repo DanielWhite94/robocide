@@ -35,11 +35,11 @@ Move movesNext(Moves *moves) {
 		case MovesStageTT:
 			// Update stage and next ptr ready for next call (at most one TT move).
 			moves->stage=MovesStageGenCaptures;
-			
+
 			// Do we have a TT move?
 			if (moves->ttMove!=MoveInvalid)
 				return moves->ttMove;
-			
+
 			// Fall through.
 		case MovesStageGenCaptures:
 			// Do we need to generate any captures?
@@ -50,7 +50,7 @@ Move movesNext(Moves *moves) {
 				movesSort(moves->next, moves->end);
 				moves->needed&=~MoveTypeCapture;
 			}
-			
+
 			// Fall through.
 			moves->stage=MovesStageCaptures;
 		case MovesStageCaptures:
@@ -91,7 +91,7 @@ Move movesNext(Moves *moves) {
 				movesSort(moves->next, moves->end);
 				moves->needed&=~MoveTypeQuiet;
 			}
-			
+
 			// Fall through.
 			moves->stage=MovesStageQuiets;
 		case MovesStageQuiets:
@@ -108,12 +108,12 @@ Move movesNext(Moves *moves) {
 				if (i==KillersPerPly)
 					return move;
 			}
-			
+
 			// No moves left
 			return MoveInvalid;
 		break;
 	}
-	
+
 	assert(false);
 	return MoveInvalid;
 }
@@ -124,7 +124,7 @@ const Pos *movesGetPos(Moves *moves) {
 
 void movesPush(Moves *moves, Move move) {
 	assert(moves->end>=moves->list && moves->end<moves->list+MovesMax);
-	
+
 	// Combine with score and add to list
 	MoveScore score=searchScoreMove(moves->pos, move);
 	*moves->end++=scoredMoveMake(score, move);

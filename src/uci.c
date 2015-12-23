@@ -159,7 +159,7 @@ void uciLoop(void)
 						searchLimitAddMove(&limit, move);
 				}
 			}
-			
+
 			// Search.
 			searchThink(pos, &limit);
 		} else if (utilStrEqual(part, "position")) {
@@ -180,7 +180,7 @@ void uciLoop(void)
 					*(end-1)=' ';
 			} else
 				continue;
-			
+
 			// Make any moves given.
 			bool inMoves=false;
 			while((part=strtok_r(NULL, " ", &savePtr))!=NULL) {
@@ -238,7 +238,7 @@ void uciLoop(void)
 			uciWrite("uciok\n");
 		}
 	}
-	
+
 	// Clean up.
 	free(line);
 	posFree(pos);
@@ -258,14 +258,14 @@ bool uciOptionNewCheck(const char *name, void(*function)(void *userData, bool va
 	char *nameMem=malloc(strlen(name)+1);
 	if (nameMem==NULL)
 		return false;
-	
+
 	// Allocate new option.
 	UciOption *option=uciOptionNewBase();
 	if (option==NULL) {
 		free(nameMem);
 		return false;
 	}
-	
+
 	// Set data.
 	option->name=nameMem;
 	strcpy(option->name, name);
@@ -273,7 +273,7 @@ bool uciOptionNewCheck(const char *name, void(*function)(void *userData, bool va
 	option->userData=userData;
 	option->o.check.function=function;
 	option->o.check.initial=initial;
-	
+
 	return true;
 }
 
@@ -282,14 +282,14 @@ bool uciOptionNewSpin(const char *name, void(*function)(void *userData, int valu
 	char *nameMem=malloc(strlen(name)+1);
 	if (nameMem==NULL)
 		return false;
-	
+
 	// Allocate new option.
 	UciOption *option=uciOptionNewBase();
 	if (option==NULL) {
 		free(nameMem);
 		return false;
 	}
-	
+
 	// Set data.
 	option->name=nameMem;
 	strcpy(option->name, name);
@@ -299,7 +299,7 @@ bool uciOptionNewSpin(const char *name, void(*function)(void *userData, int valu
 	option->o.spin.min=min;
 	option->o.spin.max=max;
 	option->o.spin.initial=initial;
-	
+
 	return true;
 }
 
@@ -314,7 +314,7 @@ bool uciOptionNewCombo(const char *name, void(*function)(void *userData, const c
 		free(optionsMem);
 		return false;
 	}
-	
+
 	// Parse variable number of options.
 	va_list ap;
 	va_start(ap, optionCount);
@@ -335,7 +335,7 @@ bool uciOptionNewCombo(const char *name, void(*function)(void *userData, const c
 		strcpy(optionsMem[i], arg);
 	}
 	va_end(ap);
-	
+
 	// Allocate new option.
 	UciOption *option=uciOptionNewBase();
 	if (option==NULL) {
@@ -346,7 +346,7 @@ bool uciOptionNewCombo(const char *name, void(*function)(void *userData, const c
 		free(optionsMem);
 		return false;
 	}
-	
+
 	// Set data.
 	option->name=nameMem;
 	strcpy(option->name, name);
@@ -357,7 +357,7 @@ bool uciOptionNewCombo(const char *name, void(*function)(void *userData, const c
 	strcpy(option->o.combo.initial, initial);
 	option->o.combo.options=optionsMem;
 	option->o.combo.optionCount=optionCount;
-	
+
 	return true;
 }
 
@@ -366,21 +366,21 @@ bool uciOptionNewButton(const char *name, void(*function)(void *userData), void 
 	char *nameMem=malloc(strlen(name)+1);
 	if (nameMem==NULL)
 		return false;
-	
+
 	// Allocate new option.
 	UciOption *option=uciOptionNewBase();
 	if (option==NULL) {
 		free(nameMem);
 		return false;
 	}
-	
+
 	// Set data.
 	option->name=nameMem;
 	strcpy(option->name, name);
 	option->type=UciOptionTypeButton;
 	option->userData=userData;
 	option->o.button.function=function;
-	
+
 	return true;
 }
 
@@ -393,7 +393,7 @@ bool uciOptionNewString(const char *name, void(*function)(void *userData, const 
 		free(initialMem);
 		return false;
 	}
-	
+
 	// Allocate new option.
 	UciOption *option=uciOptionNewBase();
 	if (option==NULL) {
@@ -401,7 +401,7 @@ bool uciOptionNewString(const char *name, void(*function)(void *userData, const 
 		free(initialMem);
 		return false;
 	}
-	
+
 	// Set data.
 	option->name=nameMem;
 	strcpy(option->name, name);
@@ -410,7 +410,7 @@ bool uciOptionNewString(const char *name, void(*function)(void *userData, const 
 	option->o.string.function=function;
 	option->o.string.initial=initialMem;
 	strcpy(option->o.string.initial, initial);
-	
+
 	return true;
 }
 
@@ -423,7 +423,7 @@ void uciQuit(void) {
 	unsigned int i, j;
 	for(i=0;i<uciOptionCount;++i) {
 		UciOption *option=&uciOptions[i];
-		
+
 		free(option->name);
 		switch(option->type) {
 			case UciOptionTypeCheck: break;
@@ -440,7 +440,7 @@ void uciQuit(void) {
 			break;
 		}
 	}
-	
+
 	// Free array of options.
 	free(uciOptions);
 	uciOptions=NULL;
@@ -464,12 +464,12 @@ void uciParseSetOption(char *string) {
 		value+=6; // Skip 'value '.
 	}
 	*nameEnd='\0';
-	
+
 	// Find option with given name.
 	UciOption *option=uciOptionFromName(name);
 	if (option==NULL)
 		return;
-	
+
 	// Each type of option is handled separately.
 	switch(option->type) {
 		case UciOptionTypeCheck:

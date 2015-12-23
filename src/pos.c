@@ -83,7 +83,7 @@ void posInit(void) {
 	posCastlingUpdate[SqE8]=~CastRightskq;
 	posCastlingUpdate[SqH1]=~CastRightsK;
 	posCastlingUpdate[SqH8]=~CastRightsk;
-	
+
 	// Hash keys
 	utilRandSeed(1804289383);
 	posKeySTM=posRandKey();
@@ -107,7 +107,7 @@ void posInit(void) {
 		posKeyPiece[PieceBRook][i]=posRandKey();
 		posKeyPiece[PieceBQueen][i]=posRandKey();
 		posKeyPiece[PieceBKing][i]=posRandKey();
-		
+
 		posPawnKeyPiece[PieceWPawn][i]=posRandKey();
 		posPawnKeyPiece[PieceBPawn][i]=posRandKey();
 	}
@@ -128,7 +128,7 @@ void posInit(void) {
 	posKeyCastling[CastRightsKkq]=posKeyCastling[CastRightsKk]^posKeyCastling[CastRightsq];
 	posKeyCastling[CastRightsQkq]=posKeyCastling[CastRightsQk]^posKeyCastling[CastRightsq];
 	posKeyCastling[CastRightsKQkq]=posKeyCastling[CastRightsKQ]^posKeyCastling[CastRightskq];
-	
+
 	posMatKey[0]=0; // For empty squares.
 	for(i=1;i<PieceNB*16;++i)
 		posMatKey[i]=posRandKey();
@@ -145,16 +145,16 @@ Pos *posNew(const char *gfen) {
 	}
 	pos->dataStart=posData;
 	pos->dataEnd=posData+1;
-	
+
 	// If no FEN given use initial position.
 	const char *fen=(gfen!=NULL ? gfen : posStartFEN);
-	
+
 	// Set to FEN.
 	if (!posSetToFEN(pos, fen)) {
 		posFree(pos);
 		return NULL;
 	}
-	
+
 	return pos;
 }
 
@@ -175,7 +175,7 @@ Pos *posCopy(const Pos *src) {
 		free(posData);
 		return NULL;
 	}
-	
+
 	// Set data
 	*pos=*src;
 	pos->dataStart=posData;
@@ -183,9 +183,9 @@ Pos *posCopy(const Pos *src) {
 	size_t dataLen=(src->data-src->dataStart);
 	pos->data=posData+dataLen;
 	memcpy(pos->dataStart, src->dataStart, (dataLen+1)*sizeof(PosData));
-	
+
 	assert(posIsConsistent(pos));
-	
+
 	return pos;
 }
 
@@ -197,10 +197,10 @@ bool posSetToFEN(Pos *pos, const char *string) {
 			return false;
 	} else if (!fenRead(&fen, string))
 		return false;
-	
+
 	// Set position to clean state.
 	posClean(pos);
-	
+
 	// Set position to given FEN.
 	Sq sq;
 	for(sq=0;sq<SqNB;++sq)
@@ -213,9 +213,9 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	if (fen.epSq!=SqInvalid && posIsEPCap(pos, fen.epSq))
 		pos->data->epSq=fen.epSq;
 	pos->data->key=posComputeKey(pos);
-	
+
 	assert(posIsConsistent(pos));
-	
+
 	return true;
 }
 
@@ -293,7 +293,7 @@ MatInfo posGetMatInfo(const Pos *pos) {
 	const MatInfo *pieceListNext=((MatInfo *)pos->pieceListNext);
 	MatInfo white=pieceListNext[ColourWhite]-0x7060504030201000llu;
 	MatInfo black=pieceListNext[ColourBlack]-0xF0E0D0C0B0A09080llu;
-	
+
 	// Interleave white and black into a single 64 bit integer (we only need 4
 	// bits per piece)
 	return ((black<<4) | white);
@@ -304,7 +304,7 @@ bool posMakeMove(Pos *pos, Move move) {
 # ifndef NDEBUG
 	bool canMakeMoveResult=posCanMakeMove(pos, move);
 # endif
-	
+
 	// Use next data entry.
 	if (pos->data+1>=pos->dataEnd) {
 		// We need more space.
@@ -318,7 +318,7 @@ bool posMakeMove(Pos *pos, Move move) {
 		pos->data=ptr+dataOffset;
 	}
 	++pos->data;
-	
+
 	// Update generic fields.
 	Sq fromSq=moveGetFromSq(move);
 	Sq toSq=moveGetToSq(move);
@@ -332,18 +332,18 @@ bool posMakeMove(Pos *pos, Move move) {
 	pos->data->capSq=toSq;
 	pos->fullMoveNumber+=(pos->stm==ColourBlack); // Inc after black's move.
 	pos->stm=colourSwap(pos->stm);
-	
+
 	if (move!=MoveNone) {
 		Piece fromPiece=posGetPieceOnSq(pos, fromSq);
 		pos->data->movePiece=fromPiece;
-		
+
 		// Update castling rights
 		pos->data->cast&=posCastlingUpdate[fromSq] & posCastlingUpdate[toSq];
-		
+
 		switch(pieceGetType(fromPiece)) {
 			case PieceTypePawn: {
 				// Pawns are complicated so deserve a special case.
-				
+
 				// En-passent capture?
 				bool isEP=(sqFile(fromSq)!=sqFile(toSq) && pos->data->capPiece==PieceNone);
 				if (isEP) {
@@ -351,22 +351,22 @@ bool posMakeMove(Pos *pos, Move move) {
 					pos->data->capPiece=pieceMake(PieceTypePawn, pos->stm);
 					assert(posGetPieceOnSq(pos, pos->data->capSq)==pos->data->capPiece);
 				}
-				
+
 				// Capture?
 				if (pos->data->capPiece!=PieceNone)
 					// Remove piece.
 					posPieceRemove(pos, pos->data->capSq);
-				
+
 				// Move the pawn, potentially promoting.
 				Piece toPiece=moveGetToPiece(move);
 				if (toPiece!=fromPiece)
 					posPieceMoveChange(pos, fromSq, toSq, toPiece);
 				else
 					posPieceMove(pos, fromSq, toSq);
-				
+
 				// Pawn moves reset 50 move counter.
 				pos->data->halfMoveNumber=0;
-				
+
 				// If double pawn move check set EP capture square (for next move).
 				if (abs(sqRank(toSq)-sqRank(fromSq))==2) {
 					Sq epSq=toSq^8;
@@ -380,37 +380,37 @@ bool posMakeMove(Pos *pos, Move move) {
 					posPieceMove(pos, toSq+1, toSq-1); // Kingside.
 				else if (sqFile(toSq)==sqFile(fromSq)-2)
 					posPieceMove(pos, toSq-2, toSq+1); // Queenside.
-				
+
 				// Fall through to move king.
 			default:
 				// Capture?
 				if (pos->data->capPiece!=PieceNone) {
 					// Remove piece.
 					posPieceRemove(pos, toSq);
-					
+
 					// Captures reset 50 move counter.
 					pos->data->halfMoveNumber=0;
 				}
-				
+
 				// Move non-pawn piece (i.e. no promotion to worry about).
 				posPieceMove(pos, fromSq, toSq);
 			break;
 		}
-		
+
 		// Does move leave STM in check?
 		if (posIsXSTMInCheck(pos)) {
 			posUndoMove(pos);
 			assert(!canMakeMoveResult);
 			return false;
 		}
-		
+
 		// Update key.
 		pos->data->key^=posKeyCastling[pos->data->cast^(pos->data-1)->cast]^posKeyEP[pos->data->epSq];
 	}
-	
+
 	assert(posIsConsistent(pos));
 	assert(canMakeMoveResult);
-	
+
 	return true;
 }
 
@@ -419,7 +419,7 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 	assert(moveIsValid(move) || move==MoveNone);
 	if (move==MoveNone)
 		return true;
-	
+
 	// Use local variables to simulate having made the move.
 	Colour stm=moveGetColour(move);
 	assert(stm==posGetSTM(pos));
@@ -431,7 +431,7 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 	BB fromBB=bbSq(fromSq);
 	BB toBB=bbSq(toSq);
 	Sq kingSq=posGetKingSq(pos, stm);
-	
+
 	if (fromSq==kingSq)
 		kingSq=toSq; // King move.
 	occ&=~fromBB; // Move piece.
@@ -443,12 +443,12 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 		occ^=bbSq(toSq^8);
 		opp^=bbSq(toSq^8);
 	}
-	
+
 	// Make a list of squares we need to ensure are unattacked.
 	BB checkSquares=bbSq(kingSq);
 	if (moveIsCastling(move))
 		checkSquares|=fromBB|bbSq((toSq+fromSq)/2);
-	
+
 	// Test for attacks to any of checkSquares.
 	// Pawns are done setwise.
 	BB oppPawns=(posGetBBPiece(pos, pieceMake(PieceTypePawn, xstm)) & opp);
@@ -457,56 +457,56 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 	// Pieces are checked for each square in checkSquares (which usually only has a single bit set anyway).
 	while(checkSquares) {
 		Sq sq=bbScanReset(&checkSquares);
-		
+
 		// Knights.
 		if (attacksKnight(sq) & opp & posGetBBPiece(pos, pieceMake(PieceTypeKnight, xstm)))
 			return false;
-		
+
 		// Bishops and diagonal queen moves.
 		if (attacksBishop(sq, occ) & opp &
 		    (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, xstm)) |
 		     posGetBBPiece(pos, pieceMake(PieceTypeBishopD, xstm)) |
 		     posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))))
 			return false;
-		
+
 		// Rooks and orthogonal queen moves.
 		if (attacksRook(sq, occ) & opp &
 		    (posGetBBPiece(pos, pieceMake(PieceTypeRook, xstm)) |
 		     posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))))
 			return false;
-		
+
 		// King.
 		if (attacksKing(sq) & opp & posGetBBPiece(pos, pieceMake(PieceTypeKing, xstm)))
 			return false;
 	}
-	
+
 	return true;
 }
 
 void posUndoMove(Pos *pos) {
 	Move move=pos->data->lastMove;
 	assert(moveIsValid(move) || move==MoveNone);
-	
+
 	// Update generic fields.
 	pos->stm=colourSwap(pos->stm);
 	pos->fullMoveNumber-=(pos->stm==ColourBlack);
-	
+
 	if (move!=MoveNone) {
 		Sq fromSq=moveGetFromSq(move);
 		Sq toSq=moveGetToSq(move);
 		Piece toPiece=moveGetToPiece(move);
-		
+
 		// Move piece back.
 		if (toPiece!=pos->data->movePiece) {
 			assert(pieceGetType(pos->data->movePiece)==PieceTypePawn);
 			posPieceMoveChange(pos, toSq, fromSq, pos->data->movePiece);
 		} else
 			posPieceMove(pos, toSq, fromSq);
-		
+
 		// Replace any captured piece.
 		if (pos->data->capPiece!=PieceNone)
 			posPieceAdd(pos, pos->data->capPiece, pos->data->capSq);
-		
+
 		// If castling replace the rook.
 		if (pieceGetType(toPiece)==PieceTypeKing) {
 			if (toSq==fromSq+2)
@@ -515,16 +515,16 @@ void posUndoMove(Pos *pos) {
 				posPieceMove(pos, toSq+1, toSq-2); // Queenside.
 		}
 	}
-	
+
 	// Discard data.
 	--pos->data;
-	
+
 	assert(posIsConsistent(pos));
 }
 
 void posGenPseudoMoves(Moves *moves, MoveType type) {
 	assert(type==MoveTypeQuiet || type==MoveTypeCapture || type==MoveTypeAny);
-	
+
 	// Standard moves (no pawns or castling).
 	BB occ=posGetBBAll(movesGetPos(moves));
 	BB allowed=BBNone;
@@ -533,10 +533,10 @@ void posGenPseudoMoves(Moves *moves, MoveType type) {
 	if (type & MoveTypeCapture)
 		allowed|=occ;
 	posGenPseudoNormal(moves, allowed);
-	
+
 	// Pawns.
 	posGenPseudoPawnMoves(moves, type);
-	
+
 	// Castling.
 	if (type & MoveTypeQuiet)
 		posGenPseudoCast(moves);
@@ -556,34 +556,34 @@ bool posIsSqAttackedByColour(const Pos *pos, Sq sq, Colour colour) {
 	assert(sqIsValid(sq));
 	assert(colourIsValid(colour));
 	BB occ=posGetBBAll(pos);
-	
+
 	// Pawns.
 	if (bbForwardOne(bbWingify(posGetBBPiece(pos, pieceMake(PieceTypePawn, colour))), colour) & bbSq(sq))
 		return true;
-	
+
 	// Knights.
 	if (attacksKnight(sq) & posGetBBPiece(pos, pieceMake(PieceTypeKnight, colour)))
 		return true;
-	
+
 	// Bishops.
 	BB bishopSet=attacksBishop(sq, occ);
 	if (bishopSet & (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, colour)) |
 	                 posGetBBPiece(pos, pieceMake(PieceTypeBishopD, colour))))
 		return true;
-	
+
 	// Rooks.
 	BB rookSet=attacksRook(sq, occ);
 	if (rookSet & posGetBBPiece(pos, pieceMake(PieceTypeRook, colour)))
 		return true;
-	
+
 	// Queens.
 	if ((bishopSet | rookSet) & posGetBBPiece(pos, pieceMake(PieceTypeQueen, colour)))
 		return true;
-	
+
 	// King.
 	if (attacksKing(sq) & posGetBBPiece(pos, pieceMake(PieceTypeKing, colour)))
 		return true;
-	
+
 	return false;
 }
 
@@ -601,21 +601,21 @@ bool posIsXSTMInCheck(const Pos *pos) {
 
 bool posIsDraw(const Pos *pos, unsigned int ply) {
 	// False positives are bad, false negatives are OK.
-	
+
 	// Repetition (2-fold).
 	PosData *ptr, *endPtr=utilMax(pos->dataStart, pos->data-posGetHalfMoveNumber(pos));
 	for(ptr=pos->data-2;ptr>=endPtr;ptr-=2)
 		if (ptr->key==pos->data->key)
 			return true;
-	
+
 	// 50-move rule.
 	if (posGetHalfMoveNumber(pos)>=100)
 		return true;
-	
+
 	// Insufficient material.
 	if (evalGetMatType(pos)==EvalMatTypeDraw)
 		return true;
-	
+
 	return false;
 }
 
@@ -634,7 +634,7 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 	BB allowed=BBNone; // Squares pieces can move to.
 	if (type & MoveTypeQuiet) allowed|=~occ;
 	if (type & MoveTypeCapture) allowed|=opp;
-	
+
 	// Pieces (ordered for speed).
 	if (posLegalMoveExistsPiece(pos, PieceTypeKing, allowed) ||
 	    posLegalMoveExistsPiece(pos, PieceTypeKnight, allowed) ||
@@ -643,14 +643,14 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 	    posLegalMoveExistsPiece(pos, PieceTypeBishopL, allowed) ||
 	    posLegalMoveExistsPiece(pos, PieceTypeBishopD, allowed))
 		goto success;
-	
+
 	// Pawns.
 	Piece piece=pieceMake(PieceTypePawn, stm);
 	BB pawns=posGetBBPiece(pos, piece);
 	BB forwardPawns=(bbForwardOne(pawns, stm) & ~occ);
 	int delta;
 	BB set;
-	
+
 	if (type & MoveTypeQuiet) {
 		// Pawns - standard move forward.
 		delta=(stm==ColourWhite ? 8 : -8);
@@ -662,7 +662,7 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 			if (posCanMakeMove(pos, move))
 				goto success;
 		}
-		
+
 		// Pawns - double first move.
 		delta=(stm==ColourWhite ? 16 : -16);
 		set=(bbForwardOne(forwardPawns, stm) & ~occ);
@@ -675,7 +675,7 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 				goto success;
 		}
 	}
-	
+
 	if (type & MoveTypeCapture) {
 		// Pawns - west captures.
 		delta=(stm==ColourWhite ? 7 : -9);
@@ -688,7 +688,7 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 			if (posCanMakeMove(pos, move))
 				goto success;
 		}
-		
+
 		// Pawns - east captures.
 		delta=(stm==ColourWhite ? 9 : -7);
 		set=(bbEastOne(forwardPawns) & opp);
@@ -700,18 +700,18 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 			if (posCanMakeMove(pos, move))
 				goto success;
 		}
-		
+
 		// Pawns - en-passent captures.
 		if (pos->data->epSq!=SqInvalid) {
 			Sq toSq=pos->data->epSq, fromSq;
-			
+
 			// Left capture.
 			if (sqFile(pos->data->epSq)!=FileH && posGetPieceOnSq(pos, fromSq=sqEastOne(sqBackwardOne(toSq, stm)))==piece) {
 				Move move=moveMake(fromSq, toSq, piece);
 				if (posCanMakeMove(pos, move))
 					goto success;
 			}
-			
+
 			// Right capture.
 			if (sqFile(pos->data->epSq)!=FileA && posGetPieceOnSq(pos, fromSq=sqWestOne(sqBackwardOne(toSq, stm)))==piece) {
 				Move move=moveMake(fromSq, toSq, piece);
@@ -720,11 +720,11 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 			}
 		}
 	}
-	
+
 	// No moves available.
 	assert(posGenLegalMove(pos, type)==MoveInvalid);
 	return false;
-	
+
 	// At least one move available.
 	success:
 	assert(posGenLegalMove(pos, type)!=MoveInvalid);
@@ -759,19 +759,19 @@ MoveType posMoveGetType(const Pos *pos, Move move){
 	Piece capPiece=posGetPieceOnSq(pos, toSq);
 	if (capPiece!=PieceNone)
 		return MoveTypeCapture;
-	
+
 	// Promotion?
 	Sq fromSq=moveGetFromSq(move);
 	Piece fromPiece=posGetPieceOnSq(pos, fromSq);
 	Piece toPiece=moveGetToPiece(move);
 	if (fromPiece!=toPiece)
 		return MoveTypeCapture;
-	
+
 	// En-passent capture?
 	assert(capPiece==PieceNone);
 	if (pieceGetType(fromPiece)==PieceTypePawn && sqFile(fromSq)!=sqFile(toSq))
 		return MoveTypeCapture;
-	
+
 	// Otherwise must be quiet.
 	return MoveTypeQuiet;
 }
@@ -795,10 +795,10 @@ void posMoveToStr(const Pos *pos, Move move, char str[static 6]) {
 		strcpy(str, "0000");
 		return;
 	}
-	
+
 	// Sanity checks.
 	assert(posGetSTM(pos)==moveGetColour(move));
-	
+
 	// From/to squares.
 	Sq fromSq=moveGetFromSq(move);
 	Sq toSq=moveGetToSq(move);
@@ -806,7 +806,7 @@ void posMoveToStr(const Pos *pos, Move move, char str[static 6]) {
 	str[1]=rankToChar(sqRank(fromSq));
 	str[2]=fileToChar(sqFile(toSq));
 	str[3]=rankToChar(sqRank(toSq));
-	
+
 	// Promotion?
 	Piece fromPiece=posGetPieceOnSq(pos, fromSq);
 	assert(fromPiece!=PieceNone && pieceGetColour(fromPiece)==posGetSTM(pos));
@@ -814,7 +814,7 @@ void posMoveToStr(const Pos *pos, Move move, char str[static 6]) {
 	bool isPromo=(fromPiece!=toPiece);
 	assert(!isPromo || sqRank(toSq)==(posGetSTM(pos)==ColourWhite ? Rank8 : Rank1));
 	str[4]=(isPromo ? pieceTypeToPromoChar(pieceGetType(toPiece)) : '\0');
-	
+
 	str[5]='\0';
 }
 
@@ -881,7 +881,7 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq) {
 	assert(pieceIsValid(piece));
 	assert(sqIsValid(sq));
 	assert(posGetPieceOnSq(pos, sq)==PieceNone);
-	
+
 	// Update position.
 	pos->bbPiece[piece]^=bbSq(sq);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(sq);
@@ -889,7 +889,7 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq) {
 	uint8_t index=(pos->pieceListNext[piece]++);
 	pos->array64[sq]=index;
 	pos->pieceList[index]=sq;
-	
+
 	// Update hash keys.
 	pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
@@ -900,7 +900,7 @@ void posPieceRemove(Pos *pos, Sq sq) {
 	// Sanity checks.
 	assert(sqIsValid(sq));
 	assert(posGetPieceOnSq(pos, sq)!=PieceNone);
-	
+
 	// Update position.
 	uint8_t index=pos->array64[sq];
 	Piece piece=(index>>4);
@@ -911,7 +911,7 @@ void posPieceRemove(Pos *pos, Sq sq) {
 	pos->pieceList[index]=pos->pieceList[lastIndex];
 	pos->array64[pos->pieceList[index]]=index;
 	pos->array64[sq]=(PieceNone<<4);
-	
+
 	// Update hash keys.
 	pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
@@ -923,7 +923,7 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq) {
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
 	assert(posGetPieceOnSq(pos, fromSq)!=PieceNone);
 	assert(posGetPieceOnSq(pos, toSq)==PieceNone);
-	
+
 	// Update position.
 	uint8_t index=pos->array64[fromSq];
 	Piece piece=(index>>4);
@@ -933,7 +933,7 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq) {
 	pos->array64[toSq]=index;
 	pos->array64[fromSq]=(PieceNone<<4);
 	pos->pieceList[index]=toSq;
-	
+
 	// Update hash keys.
 	pos->data->key^=posKeyPiece[piece][fromSq]^posKeyPiece[piece][toSq];
 	pos->pawnKey^=posPawnKeyPiece[piece][fromSq]^posPawnKeyPiece[piece][toSq];
@@ -946,7 +946,7 @@ void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece) {
 	assert(posGetPieceOnSq(pos, toSq)==PieceNone);
 	assert(pieceIsValid(toPiece));
 	assert(pieceGetColour(toPiece)==pieceGetColour(posGetPieceOnSq(pos, fromSq)));
-	
+
 	// Update position.
 	posPieceRemove(pos, fromSq);
 	posPieceAdd(pos, toPiece, toSq);
@@ -959,7 +959,7 @@ void posGenPseudoNormal(Moves *moves, BB allowed) {
 	Colour stm=posGetSTM(pos);
 	allowed&=~posGetBBColour(pos, stm); // Don't want to self-capture.
 	BB occ=posGetBBAll(pos);
-	
+
 	// Loop over each piece type.
 	PieceType type;
 	for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
@@ -970,7 +970,7 @@ void posGenPseudoNormal(Moves *moves, BB allowed) {
 		for(;sq<endSq;++sq) {
 			// Calculate attack set.
 			BB set=(attacksPiece(piece, *sq, occ) & allowed);
-			
+
 			// Loop over destination squares and add as individual moves.
 			while(set)
 				PUSH(moveMake(*sq, bbScanReset(&set), piece));
@@ -989,10 +989,10 @@ void posGenPseudoPawnMoves(Moves *moves, MoveType type) {
 	BB pawns=posGetBBPiece(pos, piece);
 	BB forwardPawns=bbForwardOne(pawns, stm);
 	BB backRanks=(bbRank(Rank1) | bbRank(Rank8));
-	
+
 	if (type & MoveTypeCapture) {
 		BB set, set2;
-		
+
 		// Forward promotions.
 		set=(forwardPawns & empty & backRanks);
 		while(set) {
@@ -1003,7 +1003,7 @@ void posGenPseudoPawnMoves(Moves *moves, MoveType type) {
 			PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
 		}
-		
+
 		// Capture left.
 		set=bbWestOne(forwardPawns) & opp;
 		set2=(set & backRanks);
@@ -1021,7 +1021,7 @@ void posGenPseudoPawnMoves(Moves *moves, MoveType type) {
 			Sq fromSq=sqEastOne(sqBackwardOne(toSq, stm));
 			PUSH(moveMake(fromSq, toSq, piece));
 		}
-		
+
 		// Capture right.
 		set=bbEastOne(forwardPawns) & opp;
 		set2=(set & backRanks);
@@ -1039,33 +1039,33 @@ void posGenPseudoPawnMoves(Moves *moves, MoveType type) {
 			Sq fromSq=sqWestOne(sqBackwardOne(toSq, stm));
 			PUSH(moveMake(fromSq, toSq, piece));
 		}
-		
+
 		// En-passent captures.
 		if (pos->data->epSq!=SqInvalid) {
 			Sq toSq=pos->data->epSq, fromSq;
-			
+
 			// Left capture.
 			if (sqFile(pos->data->epSq)!=FileH && posGetPieceOnSq(pos, fromSq=sqEastOne(sqBackwardOne(toSq, stm)))==piece)
 				PUSH(moveMake(fromSq, toSq, piece));
-			
+
 			// Right capture.
 			if (sqFile(pos->data->epSq)!=FileA && posGetPieceOnSq(pos, fromSq=sqWestOne(sqBackwardOne(toSq, stm)))==piece)
 				PUSH(moveMake(fromSq, toSq, piece));
 		}
 	}
-	
+
 	if (type & MoveTypeQuiet) {
 		int delta=(stm==ColourWhite ? 8 : -8);
 		BB allowed=(empty & ~backRanks);
 		BB one=(forwardPawns & allowed);
 		BB two=(bbForwardOne(one, stm) & allowed & (stm==ColourWhite ? bbRank(Rank4) : bbRank(Rank5)));
-		
+
 		// Standard move forward.
 		while(one) {
 			Sq toSq=bbScanReset(&one);
 			PUSH(moveMake(toSq-delta, toSq, piece));
 		}
-		
+
 		// Double first move.
 		while(two) {
 			Sq toSq=bbScanReset(&two);
@@ -1096,16 +1096,16 @@ void posGenPseudoCast(Moves *moves) {
 Key posComputeKey(const Pos *pos) {
 	// En-passent square and castling rights.
 	Key key=posKeyEP[pos->data->epSq]^posKeyCastling[pos->data->cast];
-	
+
 	// Colour.
 	if (posGetSTM(pos)==ColourBlack)
 		key^=posKeySTM;
-	
+
 	// Pieces.
 	Sq sq;
 	for(sq=0;sq<SqNB;++sq)
 		key^=posKeyPiece[posGetPieceOnSq(pos, sq)][sq];
-	
+
 	return key;
 }
 
@@ -1115,7 +1115,7 @@ Key posComputePawnKey(const Pos *pos) {
 	Sq sq;
 	for(sq=0;sq<SqNB;++sq)
 		key^=posPawnKeyPiece[posGetPieceOnSq(pos, sq)][sq];
-	
+
 	return key;
 }
 
@@ -1124,7 +1124,7 @@ Key posComputeMatKey(const Pos *pos) {
 	Sq sq;
 	for(sq=0;sq<SqNB;++sq)
 		key^=posMatKey[pos->array64[sq]];
-	
+
 	return key;
 }
 
@@ -1140,12 +1140,12 @@ bool posIsEPCap(const Pos *pos, Sq sq) {
 	Sq victimSq=sq^8;
 	if (posGetPieceOnSq(pos, victimSq)!=victim)
 		return false;
-	
+
 	// Simulate capturing the pawn.
 	BB occ=posGetBBAll(pos);
 	assert(occ&bbSq(victimSq)); // To make XOR trick work.
 	occ^=bbSq(victimSq);
-	
+
 	// Check if capturing pawn(s) are pinned.
 	Piece attacker=pieceMake(PieceTypePawn, stm);
 	Sq kingSq=posGetKingSq(pos, stm);
@@ -1157,12 +1157,12 @@ bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq 
 	// Sanity checks.
 	assert(posGetPieceOnSq(pos, pinnedSq)!=PieceNone);
 	assert(atkColour==colourSwap(pieceGetColour(posGetPieceOnSq(pos, pinnedSq))));
-	
+
 	// Anything between victim and 'pinned' piece?
 	BB between=bbBetween(pinnedSq, victimSq);
 	if (between & occ)
 		return false;
-	
+
 	// Test if the victim would be attacked if the 'pinned' piece is removed,
 	assert(occ&bbSq(pinnedSq)); // To make XOR trick work.
 	occ^=bbSq(pinnedSq);
@@ -1181,13 +1181,13 @@ bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq 
 							 posGetBBPiece(pos, pieceMake(PieceTypeQueen, atkColour))))
 			return true;
 	}
-	
+
 	return false;
 }
 
 bool posIsConsistent(const Pos *pos) {
 	char error[512];
-	
+
 	// Test bitboards are self consistent.
 	BB wAll=BBNone, bAll=BBNone;
 	PieceType type1, type2;
@@ -1214,7 +1214,7 @@ bool posIsConsistent(const Pos *pos) {
 		strcpy(error, "Bitboard 'all' error.\n");
 		goto Error;
 	}
-	
+
 	// Test Array64 'pointers' are correct (consistent and agree with bitboards).
 	Sq sq;
 	uint8_t index;
@@ -1253,7 +1253,7 @@ bool posIsConsistent(const Pos *pos) {
 			goto Error;
 		}
 	}
-	
+
 	// Test piece lists are correct.
 	for(type1=PieceTypePawn;type1<=PieceTypeKing;++type1) {
 		Piece piece=pieceMake(type1, ColourWhite);
@@ -1273,7 +1273,7 @@ bool posIsConsistent(const Pos *pos) {
 				goto Error;
 			}
 	}
-	
+
 	// Test correct bishop pieces are correct (either light or dark).
 	for(sq=0;sq<SqNB;++sq) {
 		if ((posGetPieceOnSq(pos, sq)==PieceWBishopL || posGetPieceOnSq(pos, sq)==PieceBBishopL) && !sqIsLight(sq)) {
@@ -1285,14 +1285,14 @@ bool posIsConsistent(const Pos *pos) {
 			goto Error;
 		}
 	}
-	
+
 	// Test EP square is valid.
 	if (pos->data->epSq!=SqInvalid && !posIsEPCap(pos, pos->data->epSq)) {
 		sprintf(error, "Position has invalid ep capture sq %c%c.\n",
 						fileToChar(sqFile(pos->data->epSq)), rankToChar(sqRank(pos->data->epSq)));
 		goto Error;
 	}
-	
+
 	// Test hash keys match.
 	Key trueKey=posComputeKey(pos);
 	Key key=posGetKey(pos);
@@ -1301,7 +1301,7 @@ bool posIsConsistent(const Pos *pos) {
 						key, trueKey);
 		goto Error;
 	}
-	
+
 	// Test pawn hash keys match.
 	Key truePawnKey=posComputePawnKey(pos);
 	Key pawnKey=posGetPawnKey(pos);
@@ -1310,7 +1310,7 @@ bool posIsConsistent(const Pos *pos) {
 						pawnKey, truePawnKey);
 		goto Error;
 	}
-	
+
 	// Test mat hash keys match.
 	Key trueMatKey=posComputeMatKey(pos);
 	Key matKey=posGetMatKey(pos);
@@ -1319,9 +1319,9 @@ bool posIsConsistent(const Pos *pos) {
 						matKey, trueMatKey);
 		goto Error;
 	}
-	
+
 	return true;
-	
+
 	Error:
 #	ifndef NDEBUG
 	uciWrite("---------------------------------\n");
@@ -1344,24 +1344,24 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 		return !posIsSTMInCheck(pos);
 	else if (!moveIsValid(move))
 		return false;
-	
+
 	// We can now assume that move was generated by one of the posGenX()
 	// functions (just not necessarily for the current position).
 	// Hence we can assume piece movements are valid (although they may be blocked
 	// in the current position).
-	
+
 	// Is move of correct colour for stm?
 	Colour stm=posGetSTM(pos);
 	Piece toPiece=moveGetToPiece(move);
 	if (pieceGetColour(toPiece)!=stm)
 		return false;
-	
+
 	// Friendly capture?
 	Sq toSq=moveGetToSq(move);
 	Piece capPiece=posGetPieceOnSq(pos, toSq);
 	if (capPiece!=PieceNone && pieceGetColour(capPiece)==stm)
 		return false;
-	
+
 	// Piece-specific logic.
 	Sq fromSq=moveGetFromSq(move);
 	Piece fromPiece=posGetPieceOnSq(pos, fromSq);
@@ -1373,7 +1373,7 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 			// Moving pawn of correct colour?
 			if (pieceGetColour(fromPiece)!=stm)
 				return false;
-			
+
 			// Valid rank movement?
 			int colourDelta=(stm==ColourWhite ? 1 : -1);
 			int rankDelta=sqRank(toSq)-sqRank(fromSq);
@@ -1381,13 +1381,13 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 			    (rankDelta!=2*colourDelta || (sqRank(fromSq)!=Rank2 && sqRank(fromSq)!=Rank7) ||
 			     posGetPieceOnSq(pos, (fromSq+toSq)/2)!=PieceNone))
 				return false;
-			
+
 			// Valid file movement?
 			// The next line was derived from the following equivalent expression:
 			// (!(dX==0 && capPiece==PieceNone) && !(dX==1 && (capPiece!=PieceNone || toSq==pos->data->epSq)));
 			if ((dX!=0 || capPiece!=PieceNone) && (dX!=1 || (capPiece==PieceNone && toSq!=pos->data->epSq)))
 				return false;
-			
+
 			// Valid to-piece?
 			PieceType toPieceType=pieceGetType(toPiece);
 			if (sqRank(toSq)==Rank1 || sqRank(toSq)==Rank8)
@@ -1432,7 +1432,7 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 
 bool posLegalMoveExistsPiece(const Pos *pos, PieceType type, BB allowed) {
 	assert(pieceTypeIsValid(type) && type!=PieceTypePawn);
-	
+
 	Colour stm=posGetSTM(pos);
 	BB occ=posGetBBAll(pos);
 	Piece piece=pieceMake(type, stm);

@@ -21,7 +21,7 @@ void attacksInit(void) {
 				attacksArrayKing[from]|=bbSq(to);
 		}
 	}
-	
+
 	// Magic move generation for sliders.
 	initmagicmoves();
 }
@@ -59,7 +59,7 @@ BB attacksKing(Sq sq) {
 BB attacksPiece(Piece piece, Sq sq, BB occ) {
 	assert(pieceIsValid(piece));
 	assert(sqIsValid(sq));
-	
+
 	switch(pieceGetType(piece)) {
 		case PieceTypePawn: return attacksPawn(sq, pieceGetColour(piece)); break;
 		case PieceTypeKnight: return attacksKnight(sq); break;
@@ -75,7 +75,7 @@ BB attacksPiece(Piece piece, Sq sq, BB occ) {
 BB attacksPieceType(PieceType type, Sq sq, BB occ) {
 	assert(type>=PieceTypeKnight && type<=PieceTypeKing);
 	assert(sqIsValid(sq));
-	
+
 	switch(type) {
 		case PieceTypeKnight: return attacksKnight(sq); break;
 		case PieceTypeBishopL: return attacksBishop(sq, occ); break;

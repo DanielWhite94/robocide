@@ -15,7 +15,7 @@ void perft(Pos *pos, Depth maxDepth) {
 		TimeMs time=timeGet();
 		unsigned long long int nodes=perftRaw(pos, depth);
 		time=timeGet()-time;
-		
+
 		if (time>0) {
 			unsigned long long int nps=(nodes*1000llu)/time;
 			uciWrite("%6i %11llu %9llu %4llu,%03llu,%03llunps\n", (unsigned int)depth, nodes, time, nps/1000000, (nps/1000)%1000, nps%1000);
@@ -27,7 +27,7 @@ void perft(Pos *pos, Depth maxDepth) {
 void divide(Pos *pos, Depth depth) {
 	if (depth<1)
 		return;
-	
+
 	unsigned long long int total=0;
 	Moves moves;
 	movesInit(&moves, pos, 0, MoveTypeAny);

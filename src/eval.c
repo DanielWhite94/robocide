@@ -239,7 +239,7 @@ void evalInit(void) {
 		mainFatalError("Error: Could not allocate pawn hash table.\n");
 	uciOptionNewSpin("PawnHash", &htableResizeInterface, evalPawnTable, 1, evalPawnTableMaxSizeMb, evalPawnTableDefaultSizeMb);
 	uciOptionNewButton("Clear PawnHash", &htableClearInterface, evalPawnTable);
-	
+
 	// Setup mat hash table.
 	EvalMatData nullEntryMat;
 	nullEntryMat.mat=(matInfoMake(PieceWKing, 0)|matInfoMake(PieceBKing, 0)); // No position can have 0 pieces (kings are always required)
@@ -248,10 +248,10 @@ void evalInit(void) {
 		mainFatalError("Error: Could not allocate mat hash table.\n");
 	uciOptionNewSpin("MatHash", &htableResizeInterface, evalMatTable, 1, evalMatTableMaxSizeMb, evalMatTableDefaultSizeMb);
 	uciOptionNewButton("Clear MatHash", &htableClearInterface, evalMatTable);
-	
+
 	// Calculate dervied values (such as passed pawn table).
 	evalRecalc();
-	
+
 	// Setup callbacks for tuning values.
 # ifdef TUNE
 	evalOptionNewVPair("Pawn", &evalMaterial[PieceTypePawn]);
@@ -309,37 +309,37 @@ void evalQuit(void) {
 Score evaluate(const Pos *pos) {
 	// Init data struct.
 	EvalData data={.pos=pos};
-	
+
 	// Evaluation function depends on material combination.
 	evalGetMatData(pos, &data.matData);
-	
+
 	// Evaluate.
 	VPair score=data.matData.function(&data);
-	
+
 	// Material combination offset.
 	evalVPairAdd(&score, &data.matData.offset);
-	
+
 	// Tempo bonus.
 	if (posGetSTM(pos)==ColourWhite)
 		evalVPairAdd(&score, &data.matData.tempo);
 	else
 		evalVPairSub(&score, &data.matData.tempo);
-	
+
 	// Interpolate score based on phase of the game and special material combination considerations.
 	Score scalarScore=evalInterpolate(&data, &score);
-	
+
 	// Drag score towards 0 as we approach 50-move rule
 	unsigned int halfMoves=posGetHalfMoveNumber(data.pos);
 	assert(halfMoves<128);
 	scalarScore=(scalarScore*evalHalfMoveFactors[halfMoves])/256;
-	
+
 	// Add score offset
 	scalarScore+=data.matData.scoreOffset;
-	
+
 	// Adjust for side to move
 	if (posGetSTM(data.pos)==ColourBlack)
 		scalarScore=-scalarScore;
-	
+
 	return scalarScore;
 }
 
@@ -357,7 +357,7 @@ EvalMatType evalGetMatType(const Pos *pos) {
 	// Grab hash entry for this position key
 	uint64_t key=(uint64_t)posGetMatKey(pos);
 	EvalMatData *entry=htableGrab(evalMatTable, key);
-	
+
 	// If not a match clear entry
 	MatInfo mat=posGetMatInfo(pos);
 	if (entry->mat!=mat) {
@@ -365,17 +365,17 @@ EvalMatType evalGetMatType(const Pos *pos) {
 		entry->type=EvalMatTypeInvalid;
 		entry->function=NULL;
 	}
-	
+
 	// If no data already, compute
 	if (entry->type==EvalMatTypeInvalid)
 		entry->type=evalComputeMatType(pos);
-	
+
 	// Copy data to return it
 	EvalMatType type=entry->type;
-	
+
 	// We are finished with Entry, release lock
 	htableRelease(evalMatTable, key);
-	
+
 	return type;
 }
 
@@ -387,17 +387,17 @@ VPair evaluateDefault(EvalData *data) {
 	// Init.
 	VPair score=VPairZero;
 	const Pos *pos=data->pos;
-	
+
 	// Pawns (special case).
 	evalGetPawnData(pos, &data->pawnData);
 	evalVPairAdd(&score, &data->pawnData.score);
-	
+
 	// All pieces.
 	PieceType type;
 	for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
 		Piece piece;
 		const Sq *sq, *sqEnd;
-		
+
 		// White pieces.
 		piece=pieceMake(type, ColourWhite);
 		sq=posGetPieceListStart(pos, piece);
@@ -406,7 +406,7 @@ VPair evaluateDefault(EvalData *data) {
 			VPair pieceScore=evalPiece(data, type, *sq, ColourWhite);
 			evalVPairAdd(&score, &pieceScore);
 		}
-		
+
 		// Black pieces.
 		piece=pieceMake(type, ColourBlack);
 		sq=posGetPieceListStart(pos, piece);
@@ -416,7 +416,7 @@ VPair evaluateDefault(EvalData *data) {
 			evalVPairSub(&score, &pieceScore);
 		}
 	}
-	
+
 	return score;
 }
 
@@ -436,7 +436,7 @@ VPair evaluateKPvK(EvalData *data) {
 			return evaluateDefault(data);
 		} break;
 	}
-	
+
 	assert(false);
 	return VPairZero;
 }
@@ -445,7 +445,7 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 	// Grab hash entry for this position key.
 	uint64_t key=(uint64_t)posGetMatKey(pos);
 	EvalMatData *entry=htableGrab(evalMatTable, key);
-	
+
 	// If not a match clear entry
 	MatInfo mat=posGetMatInfo(pos);
 	if (entry->mat!=mat) {
@@ -453,16 +453,16 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 		entry->type=EvalMatTypeInvalid;
 		entry->function=NULL;
 	}
-	
+
 	// If no data already, compute.
 	if (entry->type==EvalMatTypeInvalid)
 		entry->type=evalGetMatType(pos);
 	if (entry->function==NULL)
 		evalComputeMatData(pos, entry);
-	
+
 	// Copy data to return it.
 	*matData=*entry;
-	
+
 	// We are finished with entry, release lock.
 	htableRelease(evalMatTable, key);
 }
@@ -470,7 +470,7 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 #	define M(P,N) (matInfoMake((P),(N)))
 #	define G(P) (matInfoGetPieceCount(mat,(P))) // Hard-coded 'mat'.
-	
+
 	// Init data.
 	assert(matData->mat==posGetMatInfo(pos));
 	matData->function=&evaluateDefault;
@@ -482,7 +482,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 	bool bBishopL=((mat & matInfoMakeMaskPiece(PieceBBishopL))!=0);
 	bool wBishopD=((mat & matInfoMakeMaskPiece(PieceWBishopD))!=0);
 	bool bBishopD=((mat & matInfoMakeMaskPiece(PieceBBishopD))!=0);
-	
+
 	// Find weights for middlegame and endgame.
 	unsigned int whiteBishopCount=G(PieceWBishopL)+G(PieceWBishopD);
 	unsigned int blackBishopCount=G(PieceBBishopL)+G(PieceBBishopD);
@@ -493,7 +493,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 	assert(pieceWeight<128);
 	matData->weightEG=evalWeightEGFactors[pieceWeight];
 	matData->weightMG=256-matData->weightEG;
-	
+
 	// Specific material combinations.
 	unsigned int factor=1024;
 	switch(matData->type) {
@@ -509,7 +509,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 			const MatInfo matMajors=(matInfoMakeMaskPieceType(PieceTypeRook)|matInfoMakeMaskPieceType(PieceTypeQueen));
 			const MatInfo matWhite=matInfoMakeMaskColour(ColourWhite);
 			const MatInfo matBlack=matInfoMakeMaskColour(ColourBlack);
-			
+
 			if (!(mat & matPawns)) {
 				// Pawnless.
 				if ((mat & matMinors)==mat) {
@@ -527,7 +527,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 										 mat!=M(PieceBBishopL,2) && mat!=M(PieceBBishopD,2));
 							// Nor do we need to consider KNNvK as this is handled in other case statement.
 							assert(mat!=M(PieceWKnight,2) && mat!=M(PieceBKnight,2)); // KNNvK.
-							
+
 							// Win for bishop pair and bishop + knight, draw for everything else.
 							if (mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)) || // KBBvK.
 									mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)) ||
@@ -587,7 +587,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 					}
 				} else if ((mat & matMajors)==mat) {
 					// Majors only.
-					
+
 					// Single side with material should be easy win (at least a rook ahead).
 					if ((mat & matWhite)==mat)
 						matData->scoreOffset+=ScoreEasyWin;
@@ -662,36 +662,36 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 	}
 	matData->weightMG=(matData->weightMG*factor)/1024;
 	matData->weightEG=(matData->weightEG*factor)/1024;
-	
+
 	// Opposite coloured bishop endgames are drawish.
 	if ((wBishopL^wBishopD) && (bBishopL^bBishopD) && (wBishopL^bBishopL)) {
 		matData->weightMG=(matData->weightMG*evalOppositeBishopFactor.mg)/256;
 		matData->weightEG=(matData->weightEG*evalOppositeBishopFactor.eg)/256;
 	}
-	
+
 	// Material.
 	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypePawn], G(PieceWPawn)-G(PieceBPawn));
 	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeKnight], G(PieceWKnight)-G(PieceBKnight));
 	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeBishopL], whiteBishopCount-blackBishopCount);
 	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeRook], G(PieceWRook)-G(PieceBRook));
 	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeQueen], G(PieceWQueen)-G(PieceBQueen));
-	
+
 	// Knight pawn affinity.
 	unsigned int knightAffW=G(PieceWKnight)*G(PieceWPawn);
 	unsigned int knightAffB=G(PieceBKnight)*G(PieceBPawn);
 	evalVPairAddMul(&matData->offset, &evalKnightPawnAffinity, knightAffW-knightAffB);
-	
+
 	// Rook pawn affinity.
 	unsigned int rookAffW=G(PieceWRook)*G(PieceWPawn);
 	unsigned int rookAffB=G(PieceBRook)*G(PieceBPawn);
 	evalVPairAddMul(&matData->offset, &evalRookPawnAffinity, rookAffW-rookAffB);
-	
+
 	// Bishop pair bonus
 	if (wBishopL && wBishopD)
 		evalVPairAdd(&matData->offset, &evalBishopPair);
 	if (bBishopL && bBishopD)
 		evalVPairSub(&matData->offset, &evalBishopPair);
-	
+
 #	undef G
 #	undef M
 }
@@ -700,15 +700,15 @@ void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData) {
 	// Grab hash entry for this position key.
 	uint64_t key=(uint64_t)posGetPawnKey(pos);
 	EvalPawnData *entry=htableGrab(evalPawnTable, key);
-	
+
 	// If not a match recompute data.
 	if (entry->pawns[ColourWhite]!=posGetBBPiece(pos, PieceWPawn) ||
 			entry->pawns[ColourBlack]!=posGetBBPiece(pos, PieceBPawn))
 		evalComputePawnData(pos, entry);
-	
+
 	// Copy data to return it.
 	*pawnData=*entry;
-	
+
 	// We are finished with Entry, release lock.
 	htableRelease(evalPawnTable, key);
 }
@@ -745,7 +745,7 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	pawnData->semiOpenFiles[ColourWhite]=(fill[ColourBlack] & ~fill[ColourWhite]);
 	pawnData->semiOpenFiles[ColourBlack]=(fill[ColourWhite] & ~fill[ColourBlack]);
 	pawnData->openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
-	
+
 	// Loop over each pawn.
 	Colour colour;
 	for(colour=ColourWhite;colour<=ColourBlack;++colour) {
@@ -768,37 +768,37 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 	const Pos *pos=data->pos;
 	Sq adjSq=(colour==ColourWhite ? sq : sqFlip(sq));
 	BB bb=bbSq(sq);
-	
+
 	// PST.
 	evalVPairAdd(&score, &evalPST[type][adjSq]);
-	
+
 	// Bishop mobility.
 	if (type==PieceTypeBishopL || type==PieceTypeBishopD) {
 		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairAddMul(&score, &evalBishopMob, bbPopCount(attacks));
 	}
-	
+
 	// Rooks.
 	if (type==PieceTypeRook) {
 		BB rankBB=bbRank(sqRank(sq));
-		
+
 		// Mobility.
 		BB attacks=attacksRook(sq, posGetBBAll(pos));
 		evalVPairAddMul(&score, &evalRookMobFile, bbPopCount(attacks & bbFileFill(bb)));
 		evalVPairAddMul(&score, &evalRookMobRank, bbPopCount(attacks & rankBB));
-		
+
 		// Open and semi-open files.
 		if (bb & data->pawnData.openFiles)
 			evalVPairAdd(&score, &evalRookOpenFile);
 		else if (bb & data->pawnData.semiOpenFiles[colour])
 			evalVPairAdd(&score, &evalRookSemiOpenFile);
-		
+
 		// Rook on 7th.
 		BB oppPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colourSwap(colour)));
 		Sq adjOppKingSq=(colour==ColourWhite ? posGetKingSq(pos, ColourBlack) : sqFlip(posGetKingSq(pos, ColourWhite)));
 		if (sqRank(adjSq)==Rank7 && ((rankBB & oppPawns) || sqRank(adjOppKingSq)==Rank8))
 			evalVPairAdd(&score, &evalRookOn7th);
-		
+
 		// Trapped.
 		BB kingBB=posGetBBPiece(pos, pieceMake(PieceTypeKing, colour));
 		if (colour==ColourWhite) {
@@ -811,7 +811,7 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 				evalVPairAdd(&score, &evalRookTrapped);
 		}
 	}
-	
+
 	// Kings.
 	if (type==PieceTypeKing) {
 		// Pawn shield.
@@ -822,7 +822,7 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 		evalVPairAddMul(&score, &evalKingShieldClose, bbPopCount(shieldClose));
 		evalVPairAddMul(&score, &evalKingShieldFar, bbPopCount(shieldFar));
 	}
-	
+
 	return score;
 }
 
@@ -856,13 +856,13 @@ void evalSetValue(void *varPtr, int value) {
 	// Set value.
 	Value *var=(Value *)varPtr;
 	*var=value;
-	
+
 	// Hack for bishops.
 	if (var==&evalMaterial[PieceTypeBishopL].mg)
 		evalMaterial[PieceTypeBishopD].mg=value;
 	else if (var==&evalMaterial[PieceTypeBishopL].eg)
 		evalMaterial[PieceTypeBishopD].eg=value;
-	
+
 	// Hack to reflect pawn files.
 	File file;
 	for(file=FileA;file<=FileD;++file) {
@@ -871,7 +871,7 @@ void evalSetValue(void *varPtr, int value) {
 		else if (var==&evalPawnFiles[file].eg)
 			evalPawnFiles[fileMirror(file)].eg=value;
 	}
-	
+
 	// Recalculate dervied values (such as passed pawn table).
 	evalRecalc();
 }
@@ -882,7 +882,7 @@ bool evalOptionNewVPair(const char *name, VPair *score) {
 	char *fullName=malloc(nameLen+2+1);
 	if (fullName==NULL)
 		return false;
-	
+
 	// Add option for each of mg/eg
 	bool success=true;
 	const Value min=-32767, max=32767;
@@ -890,7 +890,7 @@ bool evalOptionNewVPair(const char *name, VPair *score) {
 	success&=uciOptionNewSpin(fullName, &evalSetValue, &score->mg, min, max, score->mg);
 	sprintf(fullName, "%sEG", name);
 	success&=uciOptionNewSpin(fullName, &evalSetValue, &score->eg, min, max, score->eg);
-	
+
 	free(fullName);
 	return success;
 }
@@ -916,7 +916,7 @@ void evalRecalc(void) {
 		else if (bb & outerCentre)
 			evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnOuterCentre);
 	}
-	
+
 	// Pawn table.
 	PawnType type;
 	for(type=0;type<PawnTypeNB;++type) {
@@ -942,13 +942,13 @@ void evalRecalc(void) {
 				evalVPairAddMul(score, &evalPawnPassedQuadB, rank);
 				evalVPairAdd(score, &evalPawnPassedQuadC);
 			}
-			
+
 			// Flip square and negate score for black.
 			evalPawnValue[ColourBlack][type][sqFlip(sq)]=VPairZero;
 			evalVPairSub(&evalPawnValue[ColourBlack][type][sqFlip(sq)], score);
 		}
 	}
-	
+
 	// Calculate factor for number of half moves since capture/pawn move.
 	unsigned int i;
 	for(i=0;i<128;++i) {
@@ -956,7 +956,7 @@ void evalRecalc(void) {
 		assert(factor>=0.0 && factor<=1.0);
 		evalHalfMoveFactors[i]=floorf(255.0*factor);
 	}
-	
+
 	// Calculate factor for each material weight.
 	for(i=0;i<128;++i) {
 		float factor=exp2f(-(float)(i*i)/((float)evalWeightFactor));
@@ -971,21 +971,21 @@ void evalRecalc(void) {
 EvalMatType evalComputeMatType(const Pos *pos) {
 #	define MAKE(p,n) matInfoMake((p),(n))
 #	define MASK(t) matInfoMakeMaskPieceType(t)
-	
+
 	// Grab material info.
 	MatInfo mat=posGetMatInfo(pos);
-	
+
 	// Compute material infos (done at compile time, hopefully).
 	const MatInfo matKings=(MAKE(PieceWKing,1)|MAKE(PieceBKing,1));
 	const MatInfo matKNvK=(MAKE(PieceWKnight,1)|matKings);
 	const MatInfo matKvKN=(MAKE(PieceBKnight,1)|matKings);
 	const MatInfo matBishopsL=(MASK(PieceTypeBishopL)|matKings);
 	const MatInfo matBishopsD=(MASK(PieceTypeBishopD)|matKings);
-	
+
 	// If only pieces are bishops and all share same colour squares, draw.
 	if ((mat & ~matBishopsL)==0 || (mat & ~matBishopsD)==0)
 		return EvalMatTypeDraw;
-	
+
 	// Check for known combinations.
 	unsigned int pieceCount=bbPopCount(posGetBBAll(pos));
 	assert(pieceCount>=2 && pieceCount<=32);
@@ -1010,10 +1010,10 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 				return EvalMatTypeKBPvK;
 		break;
 	}
-	
+
 	// Other combination.
 	return EvalMatTypeOther;
-	
+
 #	undef MASK
 #	undef MAKE
 }

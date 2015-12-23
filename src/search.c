@@ -95,13 +95,13 @@ void searchInit(void) {
 	searchActivity=lockNew(0);
 	if (searchActivity==NULL)
 		mainFatalError("Error: Could not init lock for search.\n");
-	
+
 	// Set all structures to clean state.
 	searchClear();
-	
+
 	// Init pondering option.
 	uciOptionNewCheck("Ponder", &searchInterfacePonder, NULL, searchPonder);
-	
+
 	// Setup callbacks for tuning values.
 # ifdef TUNE
 	uciOptionNewSpin("NullReduction", &searchInterfaceValue, &searchNullReduction, 0, 8, searchNullReduction);
@@ -113,7 +113,7 @@ void searchInit(void) {
 void searchQuit(void) {
 	// If searching, signal to stop and wait until done.
 	searchStop();
-	
+
 	// Free the worker thread and lock;
 	threadFree(searchThread);
 	lockFree(searchActivity);
@@ -122,7 +122,7 @@ void searchQuit(void) {
 void searchThink(const Pos *srcPos, const SearchLimit *limit) {
 	// Make sure we are not already searching.
 	searchStop();
-	
+
 	// Prepare for search.
 	Pos *pos=posCopy(srcPos);
 	if (pos==NULL)
@@ -134,7 +134,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit) {
 	searchEndTime=TimeMsInvalid;
 	searchLimit=*limit;
 	searchDate=(searchDate+1)%DateMax;
-	
+
 	// Decide how to use our time.
 	TimeMs searchTime=TimeMsInvalid;
 	if (searchLimit.totalTime!=TimeMsInvalid || searchLimit.incTime!=TimeMsInvalid) {
@@ -154,7 +154,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit) {
 		searchEndTime=searchLimit.startTime+searchTime;
 		searchNodeNext=1;
 	}
-	
+
 	// Set away worker
 	threadRun(searchThread, &searchIDLoop, (void *)pos);
 }
@@ -164,7 +164,7 @@ void searchStop(void) {
 	searchLimit.infinite=false;
 	searchStopFlag=true;
 	lockPost(searchActivity);
-	
+
 	// Wait until actually finished.
 	threadWaitReady(searchThread);
 }
@@ -172,7 +172,7 @@ void searchStop(void) {
 void searchClear(void) {
 	// Clear history tables.
 	historyClear();
-	
+
 	// Clear transposition table.
 	ttClear();
 
@@ -191,7 +191,7 @@ void searchPonderHit(void) {
 MoveScore searchScoreMove(const Pos *pos, Move move) {
 	// Sanity checks.
 	assert(moveIsValid(move));
-	
+
 	// Extract move info.
 	Sq fromSq=moveGetFromSq(move);
 	Sq toSq=moveGetToSq(move);
@@ -199,17 +199,17 @@ MoveScore searchScoreMove(const Pos *pos, Move move) {
 	PieceType fromPieceType=pieceGetType(fromPiece);
 	PieceType toPieceType=moveGetToPieceType(move);
 	PieceType capturedPieceType=pieceGetType(posGetPieceOnSq(pos, toSq));
-	
+
 	// Sort by MVV-LVA
 	if (capturedPieceType==PieceTypeNone && fromPieceType==PieceTypePawn &&
 			sqFile(fromSq)!=sqFile(toSq))
 		capturedPieceType=PieceTypePawn; // En-passent capture.
 	MoveScore score=(capturedPieceType+toPieceType-fromPieceType)*8+(8-toPieceType);
 	score<<=HistoryBit;
-	
+
 	// Further sort using history tables
 	score+=historyGet(fromPiece, toSq);
-	
+
 	assert(score<MoveScoreMax);
 	return score;
 }
@@ -278,29 +278,29 @@ void searchIDLoop(void *posPtr) {
 	node.alpha=-ScoreInf;
 	node.beta=ScoreInf;
 	node.inCheck=posIsSTMInCheck(node.pos);
-	
+
 	// Loop increasing search depth until we run out of 'time'.
 	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
 		// Search
 		searchNode(&node);
-		
+
 		// No info found? (out of time/nodes/etc.).
 		if (node.bound==BoundNone)
 			break;
-		
+
 		// Output info
 		searchOutput(&node);
-		
+
 		// Time to end?
 		if (searchIsTimeUp())
 			break;
 	}
-	
+
 	// Grab best move from TT if available, otherwise choose a legal move.
 	Move bestMove=ttReadMove(node.pos);
 	if (!moveIsValid(bestMove) || !posCanMakeMove(node.pos, bestMove))
 		bestMove=posGenLegalMove(node.pos, MoveTypeAny);
-	
+
 	// If in pondering mode try to extract ponder move.
 	Move ponderMove=MoveInvalid;
 	if (searchPonder && moveIsValid(bestMove)) {
@@ -311,11 +311,11 @@ void searchIDLoop(void *posPtr) {
 			ponderMove=posGenLegalMove(node.pos, MoveTypeAny);
 		posUndoMove(node.pos);
 	}
-	
+
 	// This is to handle infinite mode - wait until told to stop.
 	while(searchLimit.infinite)
 		lockWait(searchActivity);
-	
+
 	// Send best move (and potentially ponder move) to GUI.
 	char str[8];
 	posMoveToStr(node.pos, bestMove, str);
@@ -328,10 +328,10 @@ void searchIDLoop(void *posPtr) {
 	}
 	else
 		uciWrite("bestmove %s\n", str);
-	
+
 	// Free memory.
 	posFree(node.pos);
-	
+
 	// Age history table.
 	historyAge();
 
@@ -343,19 +343,19 @@ Score searchNode(Node *node) {
 # ifndef NDEBUG
 	// Save node_t structure for post-checks.
 	Node preNode=*node;
-	
+
 	// Pre-checks.
 	searchNodePreCheck(node);
 # endif
-	
+
 	// Call main search function.
 	searchNodeInternal(node);
-	
+
 # ifndef NDEBUG
 	// Post-checks.
 	searchNodePostCheck(&preNode, node);
 # endif
-	
+
 	return node->score;
 }
 
@@ -363,20 +363,20 @@ Score searchQNode(Node *node) {
 # ifndef NDEBUG
 	// Save node_t structure for post-checks.
 	Node preNode=*node;
-	
+
 	// Pre-checks.
 	searchNodePreCheck(node);
 	assert(searchNodeIsQ(node));
 # endif
-	
+
 	// Call main search function.
 	searchQNodeInternal(node);
-	
+
 # ifndef NDEBUG
 	// Post-checks.
 	searchNodePostCheck(&preNode, node);
 # endif
-	
+
 	return node->score;
 }
 
@@ -386,21 +386,21 @@ void searchNodeInternal(Node *node) {
 		searchQNode(node);
 		return;
 	}
-	
+
 	// Ply limit reached?
 	if (node->ply>=DepthMax) {
 		node->bound=BoundExact;
 		node->score=evaluate(node->pos);
 		return;
 	}
-	
+
 	// Node begins.
 	++searchNodeCount;
-	
+
 	// Interior node recogniser (also handles draws).
 	if (node->ply>0 && searchInteriorRecog(node))
 		return;
-	
+
 	// Check transposition table.
 	Move ttMove=MoveInvalid;
 	unsigned int ttDepth;
@@ -411,7 +411,7 @@ void searchNodeInternal(Node *node) {
 		assert(moveIsValid(ttMove));
 		assert(scoreIsValid(ttScore));
 		assert(ttBound!=BoundNone);
-		
+
 		// Check for cutoff.
 		if (ttDepth>=node->depth &&
 		    (ttBound==BoundExact ||
@@ -422,7 +422,7 @@ void searchNodeInternal(Node *node) {
 			return;
 		}
 	}
-	
+
 	// Null move pruning.
 	Node child;
 	child.pos=node->pos;
@@ -430,7 +430,7 @@ void searchNodeInternal(Node *node) {
 	if (!searchNodeIsPV(node) && searchNullReduction>0 && node->depth>1+searchNullReduction &&
 			!scoreIsMate(node->beta) && !searchIsZugzwang(node) && evaluate(node->pos)>=node->beta) {
 		assert(!node->inCheck);
-		
+
 		posMakeMove(node->pos, MoveNone);
 		child.inCheck=false;
 		child.depth=node->depth-1-searchNullReduction;
@@ -438,7 +438,7 @@ void searchNodeInternal(Node *node) {
 		child.beta=1-node->beta;
 		Score score=-searchNode(&child);
 		posUndoMove(node->pos);
-		
+
 		if (score>=node->beta)
 		{
 			node->bound=BoundLower;
@@ -446,17 +446,17 @@ void searchNodeInternal(Node *node) {
 			return;
 		}
 	}
-	
+
 	// Internal iterative deepening.
 	unsigned int depth=node->depth;
 	if (searchIIDReduction>0 && node->depth>=searchIIDMin && searchNodeIsPV(node) && !moveIsValid(ttMove)) {
 		unsigned int k=(node->depth-searchIIDMin)/searchIIDReduction;
 		depth=node->depth-k*searchIIDReduction;
-		
+
 		assert(depth>=searchIIDMin && depth<=node->depth);
 		assert((node->depth-depth)%searchIIDReduction==0);
 	}
-	
+
 	// Begin IID loop.
 	Moves moves;
 	movesInit(&moves, node->pos, node->ply, MoveTypeAny);
@@ -464,7 +464,7 @@ void searchNodeInternal(Node *node) {
 	Move bestMove;
 	do {
 		assert(depth<=node->depth);
-		
+
 		// Prepare to search current depth.
 		Score alpha=node->alpha;
 		node->score=ScoreInvalid;
@@ -477,7 +477,7 @@ void searchNodeInternal(Node *node) {
 			// Make move (might leave us in check, if so skip).
 			if (!posMakeMove(node->pos, move))
 				continue;
-			
+
 			// PVS search
 			child.inCheck=posIsSTMInCheck(node->pos);
 			child.depth=depth-!child.inCheck; // Check extension.
@@ -486,7 +486,7 @@ void searchNodeInternal(Node *node) {
 				// We have found a good move, try zero window search.
 				assert(child.alpha==child.beta-1);
 				score=-searchNode(&child);
-				
+
 				// Research?
 				if (score>alpha && score<node->beta) {
 					child.alpha=-node->beta;
@@ -498,10 +498,10 @@ void searchNodeInternal(Node *node) {
 				assert(child.alpha==-node->beta);
 				score=-searchNode(&child);
 			}
-			
+
 			// Undo move.
 			posUndoMove(node->pos);
-			
+
 			// Out of time? (previous search result is invalid).
 			if (searchIsTimeUp()) {
 				// Not yet started node->depth search or no moves searched?
@@ -512,24 +512,24 @@ void searchNodeInternal(Node *node) {
 				}
 				assert(scoreIsValid(node->score));
 				assert(moveIsValid(bestMove));
-				
+
 				// We may have useful info, update TT.
 				ttWrite(node->pos, node->ply, node->depth, bestMove, node->score, node->bound);
-				
+
 				return;
 			}
-			
+
 			// Better move?
 			if (score>node->score) {
 				// Update best score and move.
 				node->score=score;
 				bestMove=move;
-				
+
 				// Alpha improvement?
 				if (score>alpha) {
 					// We can trust the score as a lowerbound.
 					node->bound|=BoundLower;
-					
+
 					// Cutoff?
 					if (score>=node->beta) {
 						// Update killers.
@@ -538,7 +538,7 @@ void searchNodeInternal(Node *node) {
 
 						goto cutoff;
 					}
-					
+
 					// Update values.
 					alpha=score;
 					child.alpha=-alpha-1;
@@ -546,7 +546,7 @@ void searchNodeInternal(Node *node) {
 				}
 			}
 		}
-		
+
 		// Test for checkmate or stalemate.
 		if (node->score==ScoreInvalid) {
 			node->bound=BoundExact;
@@ -559,20 +559,20 @@ void searchNodeInternal(Node *node) {
 			}
 			return;
 		}
-		
+
 		node->bound|=BoundUpper; // We have searched all moves.
-		
+
 		cutoff:
 		movesRewind(&moves, bestMove);
-		
+
 		// Continue onto next depth or done.
 	} while((depth+=searchIIDReduction)<=node->depth);
-	
+
 	// We now know the best move.
 	assert(moveIsValid(bestMove));
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
-	
+
 	// Update history table.
 	if (posMoveGetType(node->pos, bestMove)==MoveTypeQuiet) {
 		Piece fromPiece=moveGetToPiece(bestMove);
@@ -580,10 +580,10 @@ void searchNodeInternal(Node *node) {
 		Sq toSq=moveGetToSq(bestMove);
 		historyInc(fromPiece, toSq, node->depth);
 	}
-	
+
 	// Update transposition table.
 	ttWrite(node->pos, node->ply, node->depth, bestMove, node->score, node->bound);
-	
+
 	return;
 }
 
@@ -594,15 +594,15 @@ void searchQNodeInternal(Node *node) {
 		node->score=evaluate(node->pos);
 		return;
 	}
-	
+
 	// Init.
 	++searchNodeCount;
 	Score alpha=node->alpha;
-	
+
 	// Interior node recogniser (also handles draws).
 	if (searchInteriorRecog(node))
 		return;
-	
+
 	// Standing pat (when not in check).
 	if (!node->inCheck) {
 		Score eval=evaluate(node->pos);
@@ -613,7 +613,7 @@ void searchQNodeInternal(Node *node) {
 		} else if (eval>alpha)
 			alpha=eval;
 	}
-	
+
 	// Search moves.
 	Node child;
 	node->bound=BoundNone;
@@ -634,34 +634,34 @@ void searchQNodeInternal(Node *node) {
 		child.inCheck=posIsSTMInCheck(node->pos);
 		Score score=-searchQNode(&child);
 		posUndoMove(node->pos);
-		
+
 		// Out of time? (previous search result is invalid).
 		if (searchIsTimeUp()) {
 			// Update score if valid.
 			if (node->bound!=BoundNone)
 				node->score=alpha;
-			
+
 			return;
 		}
-		
+
 		// We have a legal move.
 		noLegalMove=false;
-		
+
 		// Better move?
 		if (score>alpha) {
 			// We can now trust score as a lowerbound.
 			node->bound|=BoundLower;
-			
+
 			// Update alpha.
 			alpha=score;
 			child.beta=-alpha;
-			
+
 			// Cutoff?
 			if (score>=node->beta)
 				goto cutoff;
 		}
 	}
-	
+
 	// Test for checkmate.
 	if (noLegalMove) {
 		if (node->inCheck) {
@@ -675,16 +675,16 @@ void searchQNodeInternal(Node *node) {
 			// Else we assume there are quiet moves available, and also that one is at least as good as standing pat.
 			node->bound=BoundLower;
 	}
-	
+
 	if (node->inCheck)
 		node->bound|=BoundUpper; // We have searched all moves.
-	
+
 	// We now know the best move.
 	cutoff:
 	node->score=alpha;
 	assert(node->bound!=BoundNone);
 	assert(scoreIsValid(node->score));
-	
+
 	return;
 }
 
@@ -692,20 +692,20 @@ bool searchIsTimeUp(void) {
 	// If stop flag is set we are expected to quit as soon as possible.
 	if (searchStopFlag)
 		return true;
-	
+
 	// Check node count.
 	if (searchLimit.nodes!=0 && searchNodeCount>=searchLimit.nodes)
 		goto timeup;
-	
+
 	// Time to check the real clock?
 	if (searchNodeCount>=searchNodeNext) {
 		assert(searchEndTime!=TimeMsInvalid);
-		
+
 		// Is time up? (want to return asap).
 		TimeMs currTime=timeGet();
 		if (currTime>=searchEndTime)
 			goto timeup;
-		
+
 		// Update searchNodeNext to check again in the future.
 		if (currTime>searchLimit.startTime) {
 			// Aim to check again 50% through our remaining time for this move.
@@ -720,20 +720,20 @@ bool searchIsTimeUp(void) {
 			// No time passed yet since we started searching, check again later.
 			searchNodeNext*=2;
 	}
-	
+
 	return false;
-	
+
 	timeup:
 	lockPost(searchActivity);
 	searchStopFlag=true;
-	
+
 	return true;
 }
 
 void searchOutput(Node *node) {
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
-	
+
 	// Various bits of data
 	TimeMs time=timeGet()-searchLimit.startTime;
 	char str[32];
@@ -744,7 +744,7 @@ void searchOutput(Node *node) {
 # ifndef NDEBUG
 	uciWrite(" rawscore %i", (int)node->score);
 # endif
-	
+
 	// PV (extracted from TT)
 	uciWrite(" pv");
 	unsigned int ply=0;
@@ -753,27 +753,27 @@ void searchOutput(Node *node) {
 		Move move=ttReadMove(node->pos);
 		if (move==MoveInvalid)
 			break;
-		
+
 		// Compute move string before we make the move.
 		posMoveToStr(node->pos, move, str);
-		
+
 		// Make move.
 		if (!posMakeMove(node->pos, move))
 			break;
 		++ply;
-		
+
 		// Print move string.
 		uciWrite(" %s", str);
-		
+
 		// Draw? (don't want infinite PVs in case of repetition).
 		if (posIsDraw(node->pos, ply))
 			break;
 	}
-	
+
 	// Return position to initial state.
 	for(;ply>0;--ply)
 		posUndoMove(node->pos);
-	
+
 	uciWrite("\n");
 }
 
@@ -787,7 +787,7 @@ void searchNodePreCheck(Node *node) {
 	assert(depthIsValid(node->ply));
 	assert(-ScoreInf<=node->alpha && node->alpha<node->beta && node->beta<=ScoreInf);
 	assert(node->inCheck==posIsSTMInCheck(node->pos));
-	
+
 	// Set other values to invalid to detect errors in post-checks.
 	node->bound=BoundNone;
 	node->score=ScoreInvalid;
@@ -799,7 +799,7 @@ void searchNodePostCheck(const Node *preNode, const Node *postNode) {
 	assert(postNode->depth==preNode->depth);
 	assert(postNode->ply==preNode->ply);
 	assert(postNode->inCheck==preNode->inCheck);
-	
+
 	// Check type, move and score have been set and are sensible.
 	if (scoreIsValid(postNode->score))
 		assert(postNode->bound==BoundLower || postNode->bound==BoundUpper || postNode->bound==BoundExact);
@@ -811,28 +811,28 @@ bool searchInteriorRecog(Node *node) {
 	// Sanity checks.
 	assert(node->alpha>=-ScoreInf && node->alpha<node->beta && node->beta<=ScoreInf);
 	assert(depthIsValid(node->ply));
-	
+
 	// Test for draws by rule (and rare checkmates).
 	if (posIsDraw(node->pos, node->ply)) {
 		node->bound=BoundExact;
-		
+
 		// In rare cases checkmate can be given on 100th half move.
 		if (node->inCheck && posGetHalfMoveNumber(node->pos)==100 && !posLegalMoveExists(node->pos, MoveTypeAny)) {
 			assert(posIsMate(node->pos));
 			node->score=scoreMatedIn(node->ply);
 		} else
 			node->score=ScoreDraw;
-		
+
 		return true;
 	}
-	
+
 	// Blocked positions.
 	if (node->beta<=ScoreDraw && searchInteriorRecogBlocked(node)) {
 		node->score=ScoreDraw;
 		node->bound=BoundLower;
 		return true;
 	}
-	
+
 	// Special material combination recognizers.
 	switch(evalGetMatType(node->pos)) {
 		case EvalMatTypeKNNvK: if (searchInteriorRecogKNNvK(node)) return true; break;
@@ -842,7 +842,7 @@ bool searchInteriorRecog(Node *node) {
 			// No handler for this combination.
 		break;
 	}
-	
+
 	return false;
 }
 
@@ -860,13 +860,13 @@ bool searchInteriorRecogBlocked(Node *node) {
 	BB defOcc=posGetBBColour(pos, def);
 	BB defPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, def));
 	BB defKing=posGetBBPiece(pos, pieceMake(PieceTypeKing, def));
-	
+
 	// Can any of attacker's pawns potentially move, either by:
 	// * Moving forward if they are not blocked by a same-coloured pawn or one of the defender's pieces.
 	// * Capturing if the defender has any pieces on target squares.
 	if (((atkPawnStops&~(defOcc|atkPawns)) | (atkPawnAtks&defOcc))!=BBNone)
 		return false;
-	
+
 	// Now test if any of the attacker's pieces can reach any of the defender's
 	// blockers (or king).
 	// Note: We overestimate the power of the attacker. It is assumed that he
@@ -892,7 +892,7 @@ bool searchInteriorRecogBlocked(Node *node) {
 			return false;
 		atkInfluence|=fill;
 	}
-	
+
 	// Calculate squares defender attacks (and hence where attacker king can not
 	// walk).
 	// Note: We underestimate the power of the defender. We do not consider
@@ -907,14 +907,14 @@ bool searchInteriorRecogBlocked(Node *node) {
 		Sq sq=bbScanReset(&set);
 		defAttacks|=attacksPiece(posGetPieceOnSq(pos, sq), sq, occ);
 	}
-	
+
 	// King fill.
 	BB atkKing=posGetBBPiece(pos, pieceMake(PieceTypeKing, atk));
 	BB fill=searchFill(PieceTypeKing, atkKing, (defAttacks | atkPawns), target);
 	if ((fill & target)!=BBNone)
 		return false;
 	atkInfluence|=fill;
-	
+
 	// Finally ensure the defender has a legal move which does not disturb the fortress.
 	// As we know the current piece placement holds the fortress, we just need to
 	// test that one of the defender's pieces has a reversible move available
@@ -928,7 +928,7 @@ bool searchInteriorRecogBlocked(Node *node) {
 		if ((attacks & safe)!=BBNone)
 			return true;
 	}
-	
+
 	// Defender may have to move a blocker or make a capture, potentially
 	// distrupting the fortress. Let search deal with this.
 	return false;
@@ -943,7 +943,7 @@ bool searchInteriorRecogKNNvK(Node *node) {
 		node->bound=BoundExact;
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -954,7 +954,7 @@ bool searchInteriorRecogKPvK(Node *node) {
 		node->bound=BoundExact;
 		return true;
 	}
-	
+
 	// We could return a win here but prefer to let evaluation guide us to
 	// shortest win.
 	return false;
@@ -983,36 +983,36 @@ bool searchInteriorRecogKBPvK(Node *node) {
 		node->bound=BoundExact;
 		return true;
 	}
-	
+
 	return false;
 #	undef M
 }
 
 BB searchFill(PieceType type, BB init, BB occ, BB target) {
 	assert(type>=PieceTypeKnight && type<=PieceTypeKing);
-	
+
 	BB fill=init;
 	BB done=occ;
 	BB todo=init;
 	while(todo!=BBNone) {
 		assert((done & todo)==BBNone);
-		
+
 		// Choose a new square to generate the moves for.
 		Sq sq=bbScanReset(&todo);
-		
+
 		// Mark this square as done.
 		done|=bbSq(sq);
-		
+
 		// Hit target?
 		BB attacks=attacksPieceType(type, sq, occ);
 		if ((attacks & target)!=BBNone)
 			return attacks;
-		
+
 		// Add attacks from this square to 'todo' list (if not already done).
 		todo|=(attacks & ~done);
 		fill|=attacks;
 	}
-	
+
 	return fill;
 }
 
@@ -1032,7 +1032,7 @@ void searchInterfacePonder(void *dummy, bool ponder) {
 void searchInterfaceValue(void *ptr, int value) {
 	// Set value.
 	*((int *)ptr)=value;
-	
+
 	// Clear now-invalid TT and history etc.
 	searchClear();
 }

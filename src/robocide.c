@@ -19,14 +19,14 @@ int main() {
 	evalInit();
 	ttInit();
 	searchInit();
-	
+
 	uciLoop();
-	
+
 	searchQuit();
 	ttQuit();
 	evalQuit();
 	bitbaseQuit();
-	
+
 	return EXIT_SUCCESS;
 }
 

@@ -616,8 +616,8 @@ void searchQNodeInternal(Node *node) {
 
 	// Search moves.
 	Node child;
-	node->bound=BoundNone;
-	node->score=ScoreInvalid;
+	node->bound=BoundLower;
+	node->score=alpha;
 	child.pos=node->pos;
 	child.depth=node->depth;
 	child.ply=node->ply+1;
@@ -636,22 +636,14 @@ void searchQNodeInternal(Node *node) {
 		posUndoMove(node->pos);
 
 		// Out of time? (previous search result is invalid).
-		if (searchIsTimeUp()) {
-			// Update score if valid.
-			if (node->bound!=BoundNone)
-				node->score=alpha;
-
+		if (searchIsTimeUp())
 			return;
-		}
 
 		// We have a legal move.
 		noLegalMove=false;
 
 		// Better move?
 		if (score>alpha) {
-			// We can now trust score as a lowerbound.
-			node->bound|=BoundLower;
-
 			// Update alpha.
 			alpha=score;
 			child.beta=-alpha;
@@ -662,22 +654,18 @@ void searchQNodeInternal(Node *node) {
 		}
 	}
 
-	// Test for checkmate.
-	if (noLegalMove) {
-		if (node->inCheck) {
-			// We always try every move when in check.
+	if (node->inCheck) {
+		// If in check we search all moves so score is exact.
+		node->bound|=BoundUpper;
+
+		// If no legal moves, checkmate.
+		if (noLegalMove) {
 			assert(posIsMate(node->pos));
-			node->bound=BoundExact;
+			assert(node->bound==BoundExact);
 			node->score=scoreMatedIn(node->ply);
 			return;
 		}
-		else
-			// Else we assume there are quiet moves available, and also that one is at least as good as standing pat.
-			node->bound=BoundLower;
 	}
-
-	if (node->inCheck)
-		node->bound|=BoundUpper; // We have searched all moves.
 
 	// We now know the best move.
 	cutoff:

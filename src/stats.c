@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "piece.h"
 #include "stats.h"
 #include "uci.h"
 
@@ -28,6 +29,8 @@ uint64_t *statsTally=NULL;
 ////////////////////////////////////////////////////////////////////////////////
 
 ssize_t statsMakeIndex(unsigned wp, unsigned wn, unsigned wbl, unsigned wbd,unsigned wr,unsigned wq, unsigned bp, unsigned bn, unsigned bbl, unsigned bbd,unsigned br,unsigned bq);
+
+unsigned statsIndexGet(size_t index, Piece piece);
 
 int statsCompare(const void *aPtr, const void *bPtr);
 
@@ -132,29 +135,18 @@ bool statsRead(const char *path) {
 		uciWrite("%3u %10llu", (unsigned) i, (unsigned long long int)data[i].count);
 
 		size_t index=data[i].index;
-		uciWrite(" bq=%u", (unsigned) (index%statsSizeQ));
-		index/=statsSizeQ;
-		uciWrite(" br=%u", (unsigned) (index%statsSizeR));
-		index/=statsSizeR;
-		uciWrite(" bbd=%u", (unsigned) (index%statsSizeB));
-		index/=statsSizeB;
-		uciWrite(" bbl=%u", (unsigned) (index%statsSizeB));
-		index/=statsSizeB;
-		uciWrite(" bn=%u", (unsigned) (index%statsSizeN));
-		index/=statsSizeN;
-		uciWrite(" bp=%u", (unsigned) (index%statsSizeP));
-		index/=statsSizeP;
-		uciWrite(" wq=%u", (unsigned) (index%statsSizeQ));
-		index/=statsSizeQ;
-		uciWrite(" wr=%u", (unsigned) (index%statsSizeR));
-		index/=statsSizeR;
-		uciWrite(" wbd=%u", (unsigned) (index%statsSizeB));
-		index/=statsSizeB;
-		uciWrite(" wbl=%u", (unsigned) (index%statsSizeB));
-		index/=statsSizeB;
-		uciWrite(" wn=%u", (unsigned) (index%statsSizeN));
-		index/=statsSizeN;
-		uciWrite(" wp=%u", (unsigned) (index%statsSizeP));
+		uciWrite(" wp=%u", statsIndexGet(index, PieceWPawn));
+		uciWrite(" wn=%u", statsIndexGet(index, PieceWKnight));
+		uciWrite(" wbl=%u", statsIndexGet(index, PieceWBishopL));
+		uciWrite(" wbd=%u", statsIndexGet(index, PieceWBishopD));
+		uciWrite(" wr=%u", statsIndexGet(index, PieceWRook));
+		uciWrite(" wq=%u", statsIndexGet(index, PieceWQueen));
+		uciWrite(" bp=%u", statsIndexGet(index, PieceBPawn));
+		uciWrite(" bn=%u", statsIndexGet(index, PieceBKnight));
+		uciWrite(" bbl=%u", statsIndexGet(index, PieceBBishopL));
+		uciWrite(" bbd=%u", statsIndexGet(index, PieceBBishopD));
+		uciWrite(" br=%u", statsIndexGet(index, PieceBRook));
+		uciWrite(" bq=%u", statsIndexGet(index, PieceBQueen));
 
 		uciWrite("\n");
 	}
@@ -176,6 +168,60 @@ ssize_t statsMakeIndex(unsigned wp, unsigned wn, unsigned wbl, unsigned wbd,unsi
 	    return -1;
 
 	return ((((((((((wp*statsSizeN+wn)*statsSizeB+wbl)*statsSizeB+wbd)*statsSizeR+wr)*statsSizeQ+wq)*statsSizeP+bp)*statsSizeN+bn)*statsSizeB+bbl)*statsSizeB+bbd)*statsSizeR+br)*statsSizeQ+bq;
+}
+
+unsigned statsIndexGet(size_t index, Piece piece) {
+	assert(pieceIsValid(piece));
+	switch(piece) {
+		case PieceNone:
+			return 0;
+		break;
+		case PieceWPawn:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB*statsSizeB*statsSizeN*statsSizeP*statsSizeQ*statsSizeR*statsSizeB*statsSizeB*statsSizeN))%statsSizeP;
+		break;
+		case PieceWKnight:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB*statsSizeB*statsSizeN*statsSizeP*statsSizeQ*statsSizeR*statsSizeB*statsSizeB))%statsSizeN;
+		break;
+		case PieceWBishopL:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB*statsSizeB*statsSizeN*statsSizeP*statsSizeQ*statsSizeR*statsSizeB))%statsSizeB;
+		break;
+		case PieceWBishopD:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB*statsSizeB*statsSizeN*statsSizeP*statsSizeQ*statsSizeR))%statsSizeB;
+		break;
+		case PieceWRook:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB*statsSizeB*statsSizeN*statsSizeP*statsSizeQ))%statsSizeR;
+		break;
+		case PieceWQueen:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB*statsSizeB*statsSizeN*statsSizeP))%statsSizeQ;
+		break;
+		case PieceWKing:
+			return 1;
+		break;
+		case PieceBPawn:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB*statsSizeB*statsSizeN))%statsSizeP;
+		break;
+		case PieceBKnight:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB*statsSizeB))%statsSizeN;
+		break;
+		case PieceBBishopL:
+			return (index/(statsSizeQ*statsSizeR*statsSizeB))%statsSizeB;
+		break;
+		case PieceBBishopD:
+			return (index/(statsSizeQ*statsSizeR))%statsSizeB;
+		break;
+		case PieceBRook:
+			return (index/statsSizeQ)%statsSizeR;
+		break;
+		case PieceBQueen:
+			return (index/1)%statsSizeQ;
+		break;
+		case PieceBKing:
+			return 1;
+		break;
+		case PieceNB:
+		assert(false);
+	}
+	return 0;
 }
 
 int statsCompare(const void *aPtr, const void *bPtr) {

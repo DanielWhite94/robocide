@@ -8,6 +8,7 @@
 #include "robocide.h"
 #include "pos.h"
 #include "search.h"
+#include "stats.h"
 #include "tt.h"
 #include "uci.h"
 
@@ -19,9 +20,16 @@ int main() {
 	evalInit();
 	ttInit();
 	searchInit();
+#	ifdef STATS
+	statsInit();
+#	endif
 
 	uciLoop();
 
+
+#	ifdef STATS
+	statsQuit();
+#	endif
 	searchQuit();
 	ttQuit();
 	evalQuit();

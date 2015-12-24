@@ -3,13 +3,15 @@ CC = gcc
 CFLAGS = -pthread -lm -Wall -O3 -flto -Wno-unused-local-typedefs
 CFLAGSDEBUG = -DNDEBUG
 
-.PHONY: default all debug tune clean
+.PHONY: default all debug stats tune clean
 
 default: $(TARGET)
 all: default
 debug: CFLAGSDEBUG := 
 tune: CFLAGS += -DTUNE
+stats: CFLAGS += -DSTATS
 debug: default
+stats: default
 tune: default
 
 OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))

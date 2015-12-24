@@ -14,6 +14,7 @@
 #include "robocide.h"
 #include "piece.h"
 #include "square.h"
+#include "stats.h"
 #include "tune.h"
 #include "uci.h"
 
@@ -307,6 +308,11 @@ void evalQuit(void) {
 }
 
 Score evaluate(const Pos *pos) {
+#	ifdef STATS
+	// Statistics
+	statsAdd(pos);
+#	endif
+
 	// Init data struct.
 	EvalData data={.pos=pos};
 

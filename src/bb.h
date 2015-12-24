@@ -29,6 +29,7 @@ BB bbSouthOne(BB bb); // Shifts all set bits south one.
 BB bbWestOne(BB bb); // Shift all set bits west one.
 BB bbEastOne(BB bb); // Shift all set bits east one.
 BB bbForwardOne(BB bb, Colour colour); // (colour==ColourWhite ? bbNorthOne(bb) : bbSouthOne(bb))
+BB bbBackwardOne(BB bb, Colour colour);
 BB bbNorthFill(BB bb); // If a bit is set, all of those directly north of it on the same file will also be set.
 BB bbSouthFill(BB bb); // If a bit is set, all of those directly south of it on the same file will also be set.
 BB bbFileFill(BB bb); // (bbNorthFill(bb) | bbSouthFill(bb))

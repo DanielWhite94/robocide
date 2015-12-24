@@ -150,6 +150,11 @@ BB bbForwardOne(BB bb, Colour colour) {
 	return (colour==ColourWhite ? bbNorthOne(bb) : bbSouthOne(bb));
 }
 
+BB bbBackwardOne(BB bb, Colour colour) {
+	assert(colourIsValid(colour));
+	return (colour==ColourWhite ? bbSouthOne(bb) : bbNorthOne(bb));
+}
+
 BB bbNorthFill(BB bb) {
 	bb|=bbNorth(bb, 1);
 	bb|=bbNorth(bb, 2);

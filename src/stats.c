@@ -28,7 +28,7 @@ uint64_t *statsTally=NULL;
 // Private prototypes.
 ////////////////////////////////////////////////////////////////////////////////
 
-ssize_t statsMakeIndex(unsigned wp, unsigned wn, unsigned wbl, unsigned wbd,unsigned wr,unsigned wq, unsigned bp, unsigned bn, unsigned bbl, unsigned bbd,unsigned br,unsigned bq);
+ssize_t statsMakeIndex(size_t wp, size_t wn, size_t wbl, size_t wbd,size_t wr,size_t wq, size_t bp, size_t bn, size_t bbl, size_t bbd,size_t br,size_t bq);
 
 unsigned statsIndexGet(size_t index, Piece piece);
 
@@ -162,7 +162,7 @@ bool statsRead(const char *path) {
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-ssize_t statsMakeIndex(unsigned wp, unsigned wn, unsigned wbl, unsigned wbd,unsigned wr,unsigned wq, unsigned bp, unsigned bn, unsigned bbl, unsigned bbd,unsigned br,unsigned bq) {
+ssize_t statsMakeIndex(size_t wp, size_t wn, size_t wbl, size_t wbd,size_t wr,size_t wq, size_t bp, size_t bn, size_t bbl, size_t bbd,size_t br,size_t bq) {
 	if (wp>=statsSizeP || wn>=statsSizeN || wbl>=statsSizeB || wbd>=statsSizeB || wr>=statsSizeR || wq>=statsSizeQ ||
 	    bp>=statsSizeP || bn>=statsSizeN || bbl>=statsSizeB || bbd>=statsSizeB || br>=statsSizeR || bq>=statsSizeQ)
 	    return -1;

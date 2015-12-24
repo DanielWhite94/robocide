@@ -104,8 +104,8 @@ BB seeAttacksTo(const Pos *pos, Sq sq, BB occ) {
 
 	// Pawns.
 	BB wing=bbWingify(bbSq(sq));
-	set|=((bbForwardOne(wing, ColourWhite) & posGetBBPiece(pos, PieceWPawn)) |
-	      (bbForwardOne(wing, ColourBlack) & posGetBBPiece(pos, PieceBPawn)));
+	set|=((bbBackwardOne(wing, ColourWhite) & posGetBBPiece(pos, PieceWPawn)) |
+	      (bbBackwardOne(wing, ColourBlack) & posGetBBPiece(pos, PieceBPawn)));
 
 	// Knights.
 	set|=(attacksKnight(sq) & (posGetBBPiece(pos, PieceWKnight) | posGetBBPiece(pos, PieceBKnight)));

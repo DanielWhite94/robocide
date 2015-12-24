@@ -9,6 +9,7 @@
 #include "robocide.h"
 #include "score.h"
 #include "search.h"
+#include "see.h"
 #include "thread.h"
 #include "tt.h"
 #include "tune.h"
@@ -628,6 +629,10 @@ void searchQNodeInternal(Node *node) {
 	Move move;
 	bool noLegalMove=true;
 	while((move=movesNext(&moves))!=MoveInvalid) {
+		// If SEE is negative, skip move.
+		if (!node->inCheck && !posMoveIsPromotion(node->pos, move) && seeSign(node->pos, moveGetFromSq(move), moveGetToSq(move))<0)
+			continue;
+
 		// Search move.
 		if (!posMakeMove(node->pos, move))
 			continue;

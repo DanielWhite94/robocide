@@ -38,12 +38,12 @@ int see(const Pos *pos, Sq fromSq, Sq toSq) {
 	BB fromSet=bbSq(fromSq);
 
 	BB mayXRay=occ^posGetBBPiece(pos, PieceWKnight)^posGetBBPiece(pos, PieceWKing)^
-								 posGetBBPiece(pos, PieceBKnight)^posGetBBPiece(pos, PieceBKing);
+	               posGetBBPiece(pos, PieceBKnight)^posGetBBPiece(pos, PieceBKing);
 	assert(mayXRay==(posGetBBPiece(pos, PieceWPawn)|posGetBBPiece(pos, PieceBPawn)|
-									 posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceBBishopL)|
-									 posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceBBishopD)|
-									 posGetBBPiece(pos, PieceWRook)|posGetBBPiece(pos, PieceBRook)|
-									 posGetBBPiece(pos, PieceWQueen)|posGetBBPiece(pos, PieceBQueen)));
+	                 posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceBBishopL)|
+	                 posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceBBishopD)|
+	                 posGetBBPiece(pos, PieceWRook)|posGetBBPiece(pos, PieceBRook)|
+	                 posGetBBPiece(pos, PieceWQueen)|posGetBBPiece(pos, PieceBQueen)));
 
 	int gain[32], depth=0;
 	gain[depth]=seePieceValue[victimType];

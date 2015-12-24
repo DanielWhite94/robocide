@@ -26,14 +26,13 @@ int main() {
 
 	uciLoop();
 
-
-#	ifdef STATS
-	statsQuit();
-#	endif
 	searchQuit();
 	ttQuit();
 	evalQuit();
 	bitbaseQuit();
+#	ifdef STATS
+	statsQuit();
+#	endif
 
 	return EXIT_SUCCESS;
 }

@@ -76,3 +76,4 @@ bool moveIsDP(Move move) {
 	assert(moveIsValid(move));
 	return (moveGetToPieceType(move)==PieceTypePawn && abs(sqRank(moveGetToSq(move))-sqRank(moveGetFromSq(move)))==2);
 }
+

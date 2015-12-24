@@ -776,6 +776,13 @@ MoveType posMoveGetType(const Pos *pos, Move move){
 	return MoveTypeQuiet;
 }
 
+bool posMoveIsPromotion(const Pos *pos, Move move) {
+	Piece fromPiece=posGetPieceOnSq(pos, moveGetFromSq(move));
+	bool result=(fromPiece!=moveGetToPiece(move));
+	assert(!result || pieceGetType(fromPiece)==PieceTypePawn);
+	return result;
+}
+
 Move posMoveFromStr(const Pos *pos, const char str[static 6]){
 	Moves moves;
 	movesInit(&moves, pos, 0, MoveTypeAny);

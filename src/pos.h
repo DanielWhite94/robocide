@@ -83,7 +83,8 @@ bool posCanMakeMove(const Pos *pos, Move move); // Returns the same result as po
 void posUndoMove(Pos *pos);
 
 void posGenPseudoMoves(Moves *moves, MoveType type);
-Move posGenLegalMove(const Pos *pos, MoveType type);
+Move posGenLegalMove(const Pos *pos);
+Move posGenRandomLegalMove(const Pos *pos);
 
 bool posIsSqAttackedByColour(const Pos *pos, Sq sq, Colour colour);
 

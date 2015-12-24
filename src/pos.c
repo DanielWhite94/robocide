@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "attacks.h"
-#include "eval.h"
 #include "fen.h"
 #include "pos.h"
 #include "uci.h"
@@ -542,13 +541,38 @@ void posGenPseudoMoves(Moves *moves, MoveType type) {
 		posGenPseudoCast(moves);
 }
 
-Move posGenLegalMove(const Pos *pos, MoveType type) {
+Move posGenLegalMove(const Pos *pos) {
 	Moves moves;
-	movesInit(&moves, pos, 0, type);
+	movesInit(&moves, pos);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid)
 		if (posCanMakeMove(pos, move))
 			return move;
+	return MoveInvalid;
+}
+
+Move posGenRandomLegalMove(const Pos *pos) {
+	Moves moves;
+	movesInit(&moves, pos);
+	Move move;
+
+	// First find count of legal moves.
+	unsigned count=0;
+	while((move=movesNext(&moves))!=MoveInvalid)
+		count+=posCanMakeMove(pos, move);
+
+	// Pick a random move in this range.
+	unsigned index=rand()%count;
+	movesRewind(&moves);
+	count=0;
+	while((move=movesNext(&moves))!=MoveInvalid) {
+		if (!posCanMakeMove(pos, move))
+			continue;
+		if (count==index)
+			return move;
+		++count;
+	}
+
 	return MoveInvalid;
 }
 
@@ -613,8 +637,7 @@ bool posIsDraw(const Pos *pos, unsigned int ply) {
 		return true;
 
 	// Insufficient material.
-	if (evalGetMatType(pos)==EvalMatTypeDraw)
-		return true;
+	// TODO: this
 
 	return false;
 }
@@ -778,7 +801,7 @@ MoveType posMoveGetType(const Pos *pos, Move move){
 
 Move posMoveFromStr(const Pos *pos, const char str[static 6]){
 	Moves moves;
-	movesInit(&moves, pos, 0, MoveTypeAny);
+	movesInit(&moves, pos);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid) {
 		char genStr[8];

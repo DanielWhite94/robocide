@@ -3,13 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "eval.h"
 #include "perft.h"
 #include "pos.h"
 #include "robocide.h"
 #include "moves.h"
-#include "search.h"
-#include "see.h"
 #include "time.h"
 #include "uci.h"
 
@@ -105,9 +102,6 @@ void uciLoop(void)
 		if (!uciRead(&line, &lineSize))
 			break; // Error
 
-		// Store time command was received (do this now to be more accurate if needed).
-		TimeMs recvTime=timeGet();
-
 		// Strip newline to simplify parsing.
 		if (line[strlen(line)-1]=='\n')
 			line[strlen(line)-1]='\0';
@@ -117,51 +111,10 @@ void uciLoop(void)
 		if ((part=strtok_r(line, " ", &savePtr))==NULL)
 			continue;
 		if (utilStrEqual(part, "go")) {
-			// Parse arguments.
-			SearchLimit limit;
-			searchLimitInit(&limit, recvTime);
-			bool inSearchMoves=false;
-			while((part=strtok_r(NULL, " ", &savePtr))!=NULL) {
-				if ((utilStrEqual(part, "wtime") && posGetSTM(pos)==ColourWhite) ||
-						(utilStrEqual(part, "btime") && posGetSTM(pos)==ColourBlack)) {
-					inSearchMoves=false;
-					if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-						searchLimitSetTotalTime(&limit, atoll(part));
-				} else if ((utilStrEqual(part, "winc") && posGetSTM(pos)==ColourWhite) ||
-								 (utilStrEqual(part, "binc") && posGetSTM(pos)==ColourBlack)) {
-					inSearchMoves=false;
-					if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-						searchLimitSetIncTime(&limit, atoll(part));
-				} else if (utilStrEqual(part, "movestogo")) {
-					inSearchMoves=false;
-					if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-						searchLimitSetMovesToGo(&limit, atoi(part));
-				} else if (utilStrEqual(part, "movetime")) {
-					inSearchMoves=false;
-					if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-						searchLimitSetMoveTime(&limit, atoll(part));
-				} else if (utilStrEqual(part, "infinite") || utilStrEqual(part, "ponder")) {
-					inSearchMoves=false;
-					searchLimitSetInfinite(&limit, true);
-				} else if (utilStrEqual(part, "nodes")) {
-					inSearchMoves=false;
-					if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-						searchLimitSetNodes(&limit, atoi(part));
-				} else if (utilStrEqual(part, "depth")) {
-					inSearchMoves=false;
-					if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
-						searchLimitSetDepth(&limit, atoi(part));
-				} else if (utilStrEqual(part, "searchmoves"))
-					inSearchMoves=true;
-				else if (inSearchMoves) {
-					Move move=posMoveFromStr(pos, part);
-					if (moveIsValid(move) && posCanMakeMove(pos, move))
-						searchLimitAddMove(&limit, move);
-				}
-			}
-
-			// Search.
-			searchThink(pos, &limit);
+			Move move=posGenRandomLegalMove(pos);
+			char str[8];
+			posMoveToStr(pos, move, str);
+			uciWrite("bestmove %s\n", str);
 		} else if (utilStrEqual(part, "position")) {
 			// Get position (either 'startpos' or FEN string).
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
@@ -193,24 +146,16 @@ void uciLoop(void)
 				}
 			}
 		}
-		else if (utilStrEqual(part, "ponderhit"))
-			searchPonderHit();
 		else if (utilStrEqual(part, "isready"))
 			uciWrite("readyok\n");
-		else if (utilStrEqual(part, "stop"))
-			searchStop();
-		else if (utilStrEqual(part, "ucinewgame")) {
-			searchClear();
-			evalClear();
-		} else if (utilStrEqual(part, "setoption")) {
+		else if (utilStrEqual(part, "setoption")) {
 			part=line+strlen("setoption");
 			uciParseSetOption(part+1);
 		} else if (utilStrEqual(part, "quit"))
 			break;
-		else if (utilStrEqual(part, "disp")) {
+		else if (utilStrEqual(part, "disp"))
 			posDraw(pos);
-			uciWrite("Eval: %i\n", (int)evaluate(pos));
-		} else if (utilStrEqual(part, "perft")) {
+		else if (utilStrEqual(part, "perft")) {
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
 				continue;
 			unsigned int depth=atoi(part);
@@ -220,18 +165,6 @@ void uciLoop(void)
 				continue;
 			unsigned int depth=atoi(part);
 			divide(pos, depth);
-		} else if (utilStrEqual(part, "see")) {
-			Moves moves;
-			movesInit(&moves, pos, 0, MoveTypeAny);
-			Move move;
-			while((move=movesNext(&moves))!=MoveInvalid) {
-				Sq toSq=moveGetToSq(move);
-				if (posGetPieceOnSq(pos, toSq)==PieceNone)
-					continue;
-				char str[8];
-				posMoveToStr(pos, move, str);
-				uciWrite("  %6s %4i\n", str, see(pos, moveGetFromSq(move), toSq));
-			}
 		} else if (utilStrEqual(part, "uci")) {
 			uciWrite("id name robocide\nid author Daniel White\n");
 			uciOptionPrint();

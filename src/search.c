@@ -449,125 +449,118 @@ void searchNodeInternal(Node *node) {
 	}
 
 	// Internal iterative deepening.
-	unsigned int depth=node->depth;
-	if (searchIIDReduction>0 && node->depth>=searchIIDMin && searchNodeIsPV(node) && !moveIsValid(ttMove)) {
-		unsigned int k=(node->depth-searchIIDMin)/searchIIDReduction;
-		depth=node->depth-k*searchIIDReduction;
+	if (searchIIDReduction>0 && node->depth>=searchIIDMin && node->depth>searchIIDReduction && searchNodeIsPV(node) && !moveIsValid(ttMove)) {
+		// No hash move available - search current node but with a reduced depth to obtain a good guess at the best move.
+		Node child=*node;
+		child.depth-=searchIIDReduction;
+		searchNode(&child);
 
-		assert(depth>=searchIIDMin && depth<=node->depth);
-		assert((node->depth-depth)%searchIIDReduction==0);
+		// Re-read 'best' move from TT.
+		if (child.bound!=BoundNone)
+			ttMove=ttReadMove(node->pos);
 	}
 
-	// Begin IID loop.
+	// Move loop.
 	Moves moves;
 	movesInit(&moves, node->pos, node->ply, MoveTypeAny);
 	movesRewind(&moves, ttMove);
-	Move bestMove;
-	do {
-		assert(depth<=node->depth);
+	Score alpha=node->alpha;
+	node->score=ScoreInvalid;
+	node->bound=BoundNone;
+	Move bestMove=MoveInvalid;
+	child.alpha=-node->beta;
+	child.beta=-alpha;
+	Move move;
+	while((move=movesNext(&moves))!=MoveInvalid) {
+		// Make move (might leave us in check, if so skip).
+		if (!posMakeMove(node->pos, move))
+			continue;
 
-		// Prepare to search current depth.
-		Score alpha=node->alpha;
-		node->score=ScoreInvalid;
-		node->bound=BoundNone;
-		bestMove=MoveInvalid;
-		child.alpha=-node->beta;
-		child.beta=-alpha;
-		Move move;
-		while((move=movesNext(&moves))!=MoveInvalid) {
-			// Make move (might leave us in check, if so skip).
-			if (!posMakeMove(node->pos, move))
-				continue;
+		// PVS search
+		child.inCheck=posIsSTMInCheck(node->pos);
+		child.depth=node->depth-!child.inCheck; // Check extension.
+		Score score;
+		if (alpha>node->alpha) {
+			// We have found a good move, try zero window search.
+			assert(child.alpha==child.beta-1);
+			score=-searchNode(&child);
 
-			// PVS search
-			child.inCheck=posIsSTMInCheck(node->pos);
-			child.depth=depth-!child.inCheck; // Check extension.
-			Score score;
-			if (alpha>node->alpha) {
-				// We have found a good move, try zero window search.
-				assert(child.alpha==child.beta-1);
+			// Research?
+			if (score>alpha && score<node->beta) {
+				child.alpha=-node->beta;
 				score=-searchNode(&child);
-
-				// Research?
-				if (score>alpha && score<node->beta) {
-					child.alpha=-node->beta;
-					score=-searchNode(&child);
-					child.alpha=child.beta-1;
-				}
-			} else {
-				// Full window search.
-				assert(child.alpha==-node->beta);
-				score=-searchNode(&child);
+				child.alpha=child.beta-1;
 			}
-
-			// Undo move.
-			posUndoMove(node->pos);
-
-			// Out of time? (previous search result is invalid).
-			if (searchIsTimeUp()) {
-				// Not yet started node->depth search or no moves searched?
-				if (depth<node->depth || node->bound==BoundNone) {
-					node->bound=BoundNone;
-					node->score=ScoreInvalid;
-					return;
-				}
-				assert(scoreIsValid(node->score));
-				assert(moveIsValid(bestMove));
-
-				// We may have useful info, update TT.
-				ttWrite(node->pos, node->ply, node->depth, bestMove, node->score, node->bound);
-
-				return;
-			}
-
-			// Better move?
-			if (score>node->score) {
-				// Update best score and move.
-				node->score=score;
-				bestMove=move;
-
-				// Alpha improvement?
-				if (score>alpha) {
-					// We can trust the score as a lowerbound.
-					node->bound|=BoundLower;
-
-					// Cutoff?
-					if (score>=node->beta) {
-						// Update killers.
-						if (posMoveGetType(node->pos, bestMove)==MoveTypeQuiet)
-							killersCutoff(node->ply, bestMove);
-
-						goto cutoff;
-					}
-
-					// Update values.
-					alpha=score;
-					child.alpha=-alpha-1;
-					child.beta=-alpha;
-				}
-			}
+		} else {
+			// Full window search.
+			assert(child.alpha==-node->beta);
+			score=-searchNode(&child);
 		}
 
-		// Test for checkmate or stalemate.
-		if (node->score==ScoreInvalid) {
-			node->bound=BoundExact;
-			if (node->inCheck) {
-				assert(posIsMate(node->pos));
-				node->score=scoreMatedIn(node->ply);
-			} else {
-				assert(posIsStalemate(node->pos));
-				node->score=ScoreDraw;
+		// Undo move.
+		posUndoMove(node->pos);
+
+		// Out of time? (previous search result is invalid).
+		if (searchIsTimeUp()) {
+			// No moves searched?
+			if (node->bound==BoundNone) {
+				node->bound=BoundNone;
+				node->score=ScoreInvalid;
+				return;
 			}
+			assert(scoreIsValid(node->score));
+			assert(moveIsValid(bestMove));
+
+			// We may have useful info, update TT.
+			ttWrite(node->pos, node->ply, node->depth, bestMove, node->score, node->bound);
+
 			return;
 		}
 
-		node->bound|=BoundUpper; // We have searched all moves.
+		// Better move?
+		if (score>node->score) {
+			// Update best score and move.
+			node->score=score;
+			bestMove=move;
 
-		cutoff:
-		movesRewind(&moves, bestMove);
+			// Alpha improvement?
+			if (score>alpha) {
+				// We can trust the score as a lowerbound.
+				node->bound|=BoundLower;
 
-		// Continue onto next depth or done.
-	} while((depth+=searchIIDReduction)<=node->depth);
+				// Cutoff?
+				if (score>=node->beta) {
+					// Update killers.
+					if (posMoveGetType(node->pos, bestMove)==MoveTypeQuiet)
+						killersCutoff(node->ply, bestMove);
+
+					goto cutoff;
+				}
+
+				// Update values.
+				alpha=score;
+				child.alpha=-alpha-1;
+				child.beta=-alpha;
+			}
+		}
+	}
+
+	// Test for checkmate or stalemate.
+	if (node->score==ScoreInvalid) {
+		node->bound=BoundExact;
+		if (node->inCheck) {
+			assert(posIsMate(node->pos));
+			node->score=scoreMatedIn(node->ply);
+		} else {
+			assert(posIsStalemate(node->pos));
+			node->score=ScoreDraw;
+		}
+		return;
+	}
+
+	node->bound|=BoundUpper; // We have searched all moves.
+
+	cutoff:
 
 	// We now know the best move.
 	assert(moveIsValid(bestMove));

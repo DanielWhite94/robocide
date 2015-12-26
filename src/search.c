@@ -429,7 +429,7 @@ void searchNodeInternal(Node *node) {
 	child.pos=node->pos;
 	child.ply=node->ply+1;
 	if (!searchNodeIsPV(node) && searchNullReduction>0 && node->depth>1+searchNullReduction &&
-			!scoreIsMate(node->beta) && !searchIsZugzwang(node) && evaluate(node->pos)>=node->beta) {
+	    !scoreIsMate(node->beta) && !searchIsZugzwang(node) && evaluate(node->pos)>=node->beta) {
 		assert(!node->inCheck);
 
 		posMakeMove(node->pos, MoveNone);

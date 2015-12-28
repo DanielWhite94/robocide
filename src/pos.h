@@ -44,6 +44,24 @@ typedef enum {
 
 typedef uint64_t MatInfo; // Holds info on number of pieces.
 
+#define MAKE(p,n) matInfoMake((p),(n))
+#define MASK(t) matInfoMakeMaskPieceType(t)
+#define MatInfoMaskKings (MAKE(PieceWKing,1)|MAKE(PieceBKing,1)) // Kings mask or equivalently KvK position.
+#define MatInfoMaskKNvK (MAKE(PieceWKnight,1)|MatInfoMaskKings) // King and white knight vs lone king.
+#define MatInfoMaskKvKN (MAKE(PieceBKnight,1)|MatInfoMaskKings) // King and black knight vs lone king.
+#define MatInfoMaskBishopsL (MASK(PieceTypeBishopL)|MatInfoMaskKings) // Light coloured bishop mask (for both colours).
+#define MatInfoMaskBishopsD (MASK(PieceTypeBishopD)|MatInfoMaskKings) // Dark coloured bishop mask (for both colours).
+#define MatInfoMaskMinors (matInfoMakeMaskPieceType(PieceTypeKnight) | \
+                           matInfoMakeMaskPieceType(PieceTypeBishopL) | \
+                           matInfoMakeMaskPieceType(PieceTypeBishopD))
+#define MatInfoMaskMajors (matInfoMakeMaskPieceType(PieceTypeRook)| \
+                           matInfoMakeMaskPieceType(PieceTypeQueen))
+#define MatInfoMaskKNvKN (M(PieceWKnight,1)|M(PieceBKnight,1)) // KNvKN.
+#define MatInfoMaskKQvKQ (M(PieceWQueen,1)|M(PieceBQueen,1)) // KQvKQ.
+#define MatInfoMaskKQQvKQQ (M(PieceWQueen,2)|M(PieceBQueen,2)) // KQQvKQQ.
+#undef MAKE
+#undef MASK
+
 typedef uint64_t Key;
 #define PRIxKey PRIx64
 

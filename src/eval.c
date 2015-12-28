@@ -503,16 +503,12 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 		case EvalMatTypeOther:
 			assert(mat); // KvK should already be handled.
 			const MatInfo matPawns=matInfoMakeMaskPieceType(PieceTypePawn);
-			const MatInfo matMinors=(matInfoMakeMaskPieceType(PieceTypeKnight) |
-			                         matInfoMakeMaskPieceType(PieceTypeBishopL) |
-			                         matInfoMakeMaskPieceType(PieceTypeBishopD));
-			const MatInfo matMajors=(matInfoMakeMaskPieceType(PieceTypeRook)|matInfoMakeMaskPieceType(PieceTypeQueen));
 			const MatInfo matWhite=matInfoMakeMaskColour(ColourWhite);
 			const MatInfo matBlack=matInfoMakeMaskColour(ColourBlack);
 
 			if (!(mat & matPawns)) {
 				// Pawnless.
-				if ((mat & matMinors)==mat) {
+				if ((mat & MatInfoMaskMinors)==mat) {
 					// Minors only.
 					switch(minorCount) {
 						case 0: case 1:
@@ -543,7 +539,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 								       mat==(M(PieceBBishopD,1)|M(PieceWKnight,1)) ||
 								       mat==(M(PieceWBishopL,1)|M(PieceBBishopD,1)) || // KBvKB (opposite bishops)
 								       mat==(M(PieceWBishopD,1)|M(PieceBBishopL,1)) ||
-								       mat==(M(PieceWKnight,1)|M(PieceBKnight,1))); // KNvKN.
+								       mat==MatInfoMaskKNvKN); // KNvKN.
 								factor/=128; // All others are trivial draws.
 							}
 						break;
@@ -585,7 +581,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 								factor/=32;
 						break;
 					}
-				} else if ((mat & matMajors)==mat) {
+				} else if ((mat & MatInfoMaskMajors)==mat) {
 					// Majors only.
 
 					// Single side with material should be easy win (at least a rook ahead).
@@ -596,9 +592,9 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 					else if (mat==(M(PieceWQueen,1)|M(PieceBRook,1))|| // KQvKR.
 					         mat==(M(PieceBQueen,1)|M(PieceWRook,1)))
 						factor/=2;
-					else if (mat==(M(PieceWQueen,1)|M(PieceBQueen,1))) // KQvKQ.
+					else if (mat==MatInfoMaskKQvKQ) // KQvKQ.
 						matData->tempo=evalTempoKQKQ;
-					else if (mat==(M(PieceWQueen,2)|M(PieceBQueen,2))) // KQQvKQQ.
+					else if (mat==MatInfoMaskKQQvKQQ) // KQQvKQQ.
 						matData->tempo=evalTempoKQQKQQ;
 				} else {
 					// Mix of major and minor pieces.
@@ -975,15 +971,8 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 	// Grab material info.
 	MatInfo mat=posGetMatInfo(pos);
 
-	// Compute material infos (done at compile time, hopefully).
-	const MatInfo matKings=(MAKE(PieceWKing,1)|MAKE(PieceBKing,1));
-	const MatInfo matKNvK=(MAKE(PieceWKnight,1)|matKings);
-	const MatInfo matKvKN=(MAKE(PieceBKnight,1)|matKings);
-	const MatInfo matBishopsL=(MASK(PieceTypeBishopL)|matKings);
-	const MatInfo matBishopsD=(MASK(PieceTypeBishopD)|matKings);
-
 	// If only pieces are bishops and all share same colour squares, draw.
-	if ((mat & ~matBishopsL)==0 || (mat & ~matBishopsD)==0)
+	if ((mat & ~MatInfoMaskBishopsL)==0 || (mat & ~MatInfoMaskBishopsD)==0)
 		return EvalMatTypeDraw;
 
 	// Check for known combinations.
@@ -995,18 +984,18 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 			assert(false);
 		break;
 		case 3:
-			if (mat==matKNvK || mat==matKvKN)
+			if (mat==MatInfoMaskKNvK || mat==MatInfoMaskKvKN)
 				return EvalMatTypeDraw;
-			else if (mat==(MAKE(PieceWPawn,1)|matKings) || mat==(MAKE(PieceBPawn,1)|matKings))
+			else if (mat==(MAKE(PieceWPawn,1)|MatInfoMaskKings) || mat==(MAKE(PieceBPawn,1)|MatInfoMaskKings))
 				return EvalMatTypeKPvK;
 		break;
 		case 4:
-			if (mat==(MAKE(PieceWKnight,2)|matKings) || mat==(MAKE(PieceBKnight,2)|matKings))
+			if (mat==(MAKE(PieceWKnight,2)|MatInfoMaskKings) || mat==(MAKE(PieceBKnight,2)|MatInfoMaskKings))
 				return EvalMatTypeKNNvK;
-			else if (mat==(MAKE(PieceWBishopL,1)|MAKE(PieceWPawn,1)|matKings) ||
-			         mat==(MAKE(PieceWBishopD,1)|MAKE(PieceWPawn,1)|matKings) ||
-			         mat==(MAKE(PieceBBishopL,1)|MAKE(PieceBPawn,1)|matKings) ||
-			         mat==(MAKE(PieceBBishopD,1)|MAKE(PieceBPawn,1)|matKings))
+			else if (mat==(MAKE(PieceWBishopL,1)|MAKE(PieceWPawn,1)|MatInfoMaskKings) ||
+			         mat==(MAKE(PieceWBishopD,1)|MAKE(PieceWPawn,1)|MatInfoMaskKings) ||
+			         mat==(MAKE(PieceBBishopL,1)|MAKE(PieceBPawn,1)|MatInfoMaskKings) ||
+			         mat==(MAKE(PieceBBishopD,1)|MAKE(PieceBPawn,1)|MatInfoMaskKings))
 				return EvalMatTypeKBPvK;
 		break;
 	}

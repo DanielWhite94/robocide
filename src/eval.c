@@ -1017,3 +1017,4 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 #	undef MASK
 #	undef MAKE
 }
+

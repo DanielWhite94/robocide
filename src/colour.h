@@ -9,4 +9,6 @@ bool colourIsValid(Colour colour);
 
 Colour colourSwap(Colour colour);
 
+const char *colourToStr(Colour colour); // NOT thread-safe.
+
 #endif

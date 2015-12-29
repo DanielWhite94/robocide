@@ -12,3 +12,9 @@ Colour colourSwap(Colour colour) {
 	assert(colourIsValid(colour));
 	return (colour^1);
 }
+
+const char *colourStrs[ColourNB]={[ColourWhite]="white", [ColourBlack]="black"};
+const char *colourToStr(Colour colour) {
+	assert(colour<ColourNB);
+	return colourStrs[colour];
+}

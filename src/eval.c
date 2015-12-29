@@ -661,6 +661,9 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 		break;
 		case EvalMatTypeKBPvK:
 		break;
+		case EvalMatTypeNB: // To appease the compiler.
+			assert(false);
+		break;
 	}
 	matData->weightMG=(matData->weightMG*factor)/1024;
 	matData->weightEG=(matData->weightEG*factor)/1024;

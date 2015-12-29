@@ -398,6 +398,23 @@ void searchNodeInternal(Node *node) {
 	// Node begins.
 	++searchNodeCount;
 
+	// Mate distance pruning.
+	if (node->ply>0) {
+		Score matedIn=scoreMatedIn(node->ply);
+		if (matedIn>=node->beta) {
+			node->bound=BoundLower;
+			node->score=matedIn;
+			return;
+		}
+
+		Score mateIn=scoreMateIn(node->ply);
+		if (mateIn<=node->alpha) {
+			node->bound=BoundUpper;
+			node->score=mateIn;
+			return;
+		}
+	}
+
 	// Interior node recogniser (also handles draws).
 	if (node->ply>0 && searchInteriorRecog(node))
 		return;

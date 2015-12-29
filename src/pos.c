@@ -299,6 +299,10 @@ MatInfo posGetMatInfo(const Pos *pos) {
 	return ((black<<4) | white);
 }
 
+CastRights posGetCastRights(const Pos *pos) {
+	return pos->data->cast;
+}
+
 bool posMakeMove(Pos *pos, Move move) {
 	assert(moveIsValid(move) || move==MoveNone);
 # ifndef NDEBUG

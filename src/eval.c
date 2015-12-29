@@ -379,6 +379,12 @@ EvalMatType evalGetMatType(const Pos *pos) {
 	return type;
 }
 
+const char *evalMatTypeStrs[EvalMatTypeNB]={[EvalMatTypeInvalid]="invalid", [EvalMatTypeOther]="other ", [EvalMatTypeDraw]="draw", [EvalMatTypeKNNvK]="KNNvK", [EvalMatTypeKPvK]="KPvK", [EvalMatTypeKBPvK]="KBPvK"};
+const char *evalMatTypeToStr(EvalMatType matType) {
+	assert(matType<EvalMatTypeNB);
+	return evalMatTypeStrs[matType];
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////

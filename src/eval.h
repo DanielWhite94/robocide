@@ -11,6 +11,7 @@ typedef enum {
 	EvalMatTypeKNNvK,
 	EvalMatTypeKPvK,
 	EvalMatTypeKBPvK,
+	EvalMatTypeNB
 } EvalMatType;
 
 void evalInit(void);
@@ -21,5 +22,7 @@ Score evaluate(const Pos *pos); // Returns score in CP.
 void evalClear(void); // Clear all saved data (called when we receive 'ucinewgame', for example).
 
 EvalMatType evalGetMatType(const Pos *pos);
+
+const char *evalMatTypeToStr(EvalMatType matType); // NOT thread-safe.
 
 #endif

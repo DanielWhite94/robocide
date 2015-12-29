@@ -947,31 +947,35 @@ bool searchInteriorRecogKPvK(Node *node) {
 }
 
 bool searchInteriorRecogKBPvK(Node *node) {
-	// KBPvK (wrong rook pawn).
-	// Triggered when pawn is on a- or h-file, the bishop does not control the
-	// queening square, and the defending king is on the queening square.
-#	define M(P,N) (matInfoMake((P),(N)))
-	MatInfo mat=posGetMatInfo(node->pos);
-	const MatInfo kings=(M(PieceWKing,1)|M(PieceBKing,1));
-	if ((mat==(M(PieceWBishopL,1)|M(PieceWPawn,1)|kings) &&
-	    (posGetBBPiece(node->pos, PieceWPawn) & bbFile(FileH))!=BBNone &&
-	     posGetKingSq(node->pos, ColourBlack)==SqH8) ||
-	    (mat==(M(PieceWBishopD,1)|M(PieceWPawn,1)|kings) &&
-	     (posGetBBPiece(node->pos, PieceWPawn) & bbFile(FileA))!=BBNone &&
-	      posGetKingSq(node->pos, ColourBlack)==SqA8) ||
-	    (mat==(M(PieceBBishopL,1)|M(PieceBPawn,1)|kings) &&
-	     (posGetBBPiece(node->pos, PieceBPawn) & bbFile(FileA))!=BBNone &&
-	      posGetKingSq(node->pos, ColourWhite)==SqA1) ||
-	    (mat==(M(PieceBBishopD,1)|M(PieceBPawn,1)|kings) &&
-	     (posGetBBPiece(node->pos, PieceBPawn) & bbFile(FileH))!=BBNone &&
-	      posGetKingSq(node->pos, ColourWhite)==SqH1)) {
+	// KBPvK (wrong rook pawns).
+	// Triggered when all pawns are on a- or h-file, the bishops do not control the
+	// queening square, and the defending king is on, or can reach, the queening square.
+
+	// Sanity checks.
+	Colour atkCol=(posGetPieceCount(node->pos, PieceWPawn)>0 ? ColourWhite : ColourBlack);
+	BB pawns=posGetBBPiece(node->pos, pieceMake(PieceTypePawn, atkCol));
+	assert(pawns!=BBNone);
+	assert((posGetPieceCount(node->pos, pieceMake(PieceTypeBishopL, atkCol))>0) ^
+	       (posGetPieceCount(node->pos, pieceMake(PieceTypeBishopD, atkCol))>0));
+
+	// Ensure all pawns are on wrong rook file.
+	bool bishopIsLight=(posGetPieceCount(node->pos, pieceMake(PieceTypeBishopL, atkCol))>0);
+	BB wrongFile=((bishopIsLight^(atkCol==ColourWhite)) ? bbFile(FileA) : bbFile(FileH));
+	if (pawns & ~wrongFile)
+	  return false; // At least one other pawn.
+	assert((pawns & wrongFile)==pawns);
+
+	// Is defending king on, or within reach of, the queening square?
+	Sq defKingSq=posGetKingSq(node->pos, colourSwap(atkCol));
+	BB promoBB=(wrongFile & bbRank(atkCol==ColourWhite ? Rank8 : Rank1));
+	if ((bbSq(defKingSq) | attacksKing(defKingSq)) & promoBB) {
+		// We can be sure it is a draw.
 		node->score=ScoreDraw;
 		node->bound=BoundExact;
 		return true;
 	}
 
 	return false;
-#	undef M
 }
 
 BB searchFill(PieceType type, BB init, BB occ, BB target) {

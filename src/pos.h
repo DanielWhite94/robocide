@@ -59,6 +59,10 @@ typedef uint64_t MatInfo; // Holds info on number of pieces.
 #define MatInfoMaskKNvKN (M(PieceWKnight,1)|M(PieceBKnight,1)) // KNvKN.
 #define MatInfoMaskKQvKQ (M(PieceWQueen,1)|M(PieceBQueen,1)) // KQvKQ.
 #define MatInfoMaskKQQvKQQ (M(PieceWQueen,2)|M(PieceBQueen,2)) // KQQvKQQ.
+#define MatInfoMaskNRQ (matInfoMakeMaskPieceType(PieceTypeKnight) | \
+                        matInfoMakeMaskPieceType(PieceTypeRook) | \
+                        matInfoMakeMaskPieceType(PieceTypeQueen)) // Knight, rooks and queens of any colour.
+
 #undef MAKE
 #undef MASK
 

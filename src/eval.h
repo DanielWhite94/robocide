@@ -10,7 +10,7 @@ typedef enum {
 	EvalMatTypeDraw, // Insufficient material draw (KvK, KNvK, and bishops of single colour).
 	EvalMatTypeKNNvK,
 	EvalMatTypeKPvK,
-	EvalMatTypeKBPvK,
+	EvalMatTypeKBPvK, // Lone king against pawns, and bishops of a single colour, each of any number.
 	EvalMatTypeNB
 } EvalMatType;
 

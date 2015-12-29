@@ -1001,12 +1001,19 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 		case 4:
 			if (mat==(MAKE(PieceWKnight,2)|MatInfoMaskKings) || mat==(MAKE(PieceBKnight,2)|MatInfoMaskKings))
 				return EvalMatTypeKNNvK;
-			else if (mat==(MAKE(PieceWBishopL,1)|MAKE(PieceWPawn,1)|MatInfoMaskKings) ||
-			         mat==(MAKE(PieceWBishopD,1)|MAKE(PieceWPawn,1)|MatInfoMaskKings) ||
-			         mat==(MAKE(PieceBBishopL,1)|MAKE(PieceBPawn,1)|MatInfoMaskKings) ||
-			         mat==(MAKE(PieceBBishopD,1)|MAKE(PieceBPawn,1)|MatInfoMaskKings))
-				return EvalMatTypeKBPvK;
 		break;
+	}
+
+	// KBPvK (any positive number of pawns and any positive number of same coloured bishops).
+	const MatInfo matW=(mat & matInfoMakeMaskColour(ColourWhite) & ~MatInfoMaskKings);
+	const MatInfo matB=(mat & matInfoMakeMaskColour(ColourBlack) & ~MatInfoMaskKings);
+	const MatInfo matPawns=matInfoMakeMaskPieceType(PieceTypePawn);
+	if (!matB && (matW & matPawns) && !(matW & MatInfoMaskNRQ)) { // No black pieces, white has pawns and white does not have any knights, rooks or queens.
+		if (((matW & MatInfoMaskBishopsL)!=0)^((matW & MatInfoMaskBishopsD)!=0)) // Check white has exactly one type (colour) of bishop.
+			return EvalMatTypeKBPvK;
+	} else if (!matW && (matB & matPawns) && !(matB & MatInfoMaskNRQ)) {
+		if (((matB & MatInfoMaskBishopsL)!=0)^((matB & MatInfoMaskBishopsD)!=0))
+			return EvalMatTypeKBPvK;
 	}
 
 	// Other combination.

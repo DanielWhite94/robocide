@@ -212,10 +212,15 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour);
 
 Score evalInterpolate(const EvalData *data, const VPair *score);
 
-void evalVPairAdd(VPair *a, const VPair *b);
-void evalVPairSub(VPair *a, const VPair *b);
-void evalVPairAddMul(VPair *a, const VPair *b, int c);
-void evalVPairSubMul(VPair *a, const VPair *b, int c);
+void evalVPairAddTo(VPair *a, const VPair *b);
+void evalVPairSubFrom(VPair *a, const VPair *b);
+void evalVPairAddMulTo(VPair *a, const VPair *b, int c);
+void evalVPairSubMulFrom(VPair *a, const VPair *b, int c);
+void evalVPairNegate(VPair *a);
+
+VPair evalVPairAdd(const VPair *a, const VPair *b);
+VPair evalVPairSub(const VPair *a, const VPair *b);
+VPair evalVPairNegation(const VPair *a);
 
 #ifdef TUNE
 void evalSetValue(void *varPtr, int value);
@@ -317,13 +322,13 @@ Score evaluate(const Pos *pos) {
 	VPair score=data.matData.function(&data);
 
 	// Material combination offset.
-	evalVPairAdd(&score, &data.matData.offset);
+	evalVPairAddTo(&score, &data.matData.offset);
 
 	// Tempo bonus.
 	if (posGetSTM(pos)==ColourWhite)
-		evalVPairAdd(&score, &data.matData.tempo);
+		evalVPairAddTo(&score, &data.matData.tempo);
 	else
-		evalVPairSub(&score, &data.matData.tempo);
+		evalVPairSubFrom(&score, &data.matData.tempo);
 
 	// Interpolate score based on phase of the game and special material combination considerations.
 	Score scalarScore=evalInterpolate(&data, &score);
@@ -396,7 +401,7 @@ VPair evaluateDefault(EvalData *data) {
 
 	// Pawns (special case).
 	evalGetPawnData(pos, &data->pawnData);
-	evalVPairAdd(&score, &data->pawnData.score);
+	evalVPairAddTo(&score, &data->pawnData.score);
 
 	// All pieces.
 	PieceType type;
@@ -410,7 +415,7 @@ VPair evaluateDefault(EvalData *data) {
 		sqEnd=posGetPieceListEnd(pos, piece);
 		for(;sq<sqEnd;++sq) {
 			VPair pieceScore=evalPiece(data, type, *sq, ColourWhite);
-			evalVPairAdd(&score, &pieceScore);
+			evalVPairAddTo(&score, &pieceScore);
 		}
 
 		// Black pieces.
@@ -419,7 +424,7 @@ VPair evaluateDefault(EvalData *data) {
 		sqEnd=posGetPieceListEnd(pos, piece);
 		for(;sq<sqEnd;++sq) {
 			VPair pieceScore=evalPiece(data, type, *sq, ColourBlack);
-			evalVPairSub(&score, &pieceScore);
+			evalVPairSubFrom(&score, &pieceScore);
 		}
 	}
 
@@ -675,27 +680,27 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 	}
 
 	// Material.
-	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypePawn], G(PieceWPawn)-G(PieceBPawn));
-	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeKnight], G(PieceWKnight)-G(PieceBKnight));
-	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeBishopL], whiteBishopCount-blackBishopCount);
-	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeRook], G(PieceWRook)-G(PieceBRook));
-	evalVPairAddMul(&matData->offset, &evalMaterial[PieceTypeQueen], G(PieceWQueen)-G(PieceBQueen));
+	evalVPairAddMulTo(&matData->offset, &evalMaterial[PieceTypePawn], G(PieceWPawn)-G(PieceBPawn));
+	evalVPairAddMulTo(&matData->offset, &evalMaterial[PieceTypeKnight], G(PieceWKnight)-G(PieceBKnight));
+	evalVPairAddMulTo(&matData->offset, &evalMaterial[PieceTypeBishopL], whiteBishopCount-blackBishopCount);
+	evalVPairAddMulTo(&matData->offset, &evalMaterial[PieceTypeRook], G(PieceWRook)-G(PieceBRook));
+	evalVPairAddMulTo(&matData->offset, &evalMaterial[PieceTypeQueen], G(PieceWQueen)-G(PieceBQueen));
 
 	// Knight pawn affinity.
 	unsigned int knightAffW=G(PieceWKnight)*G(PieceWPawn);
 	unsigned int knightAffB=G(PieceBKnight)*G(PieceBPawn);
-	evalVPairAddMul(&matData->offset, &evalKnightPawnAffinity, knightAffW-knightAffB);
+	evalVPairAddMulTo(&matData->offset, &evalKnightPawnAffinity, knightAffW-knightAffB);
 
 	// Rook pawn affinity.
 	unsigned int rookAffW=G(PieceWRook)*G(PieceWPawn);
 	unsigned int rookAffB=G(PieceBRook)*G(PieceBPawn);
-	evalVPairAddMul(&matData->offset, &evalRookPawnAffinity, rookAffW-rookAffB);
+	evalVPairAddMulTo(&matData->offset, &evalRookPawnAffinity, rookAffW-rookAffB);
 
 	// Bishop pair bonus
 	if (wBishopL && wBishopD)
-		evalVPairAdd(&matData->offset, &evalBishopPair);
+		evalVPairAddTo(&matData->offset, &evalBishopPair);
 	if (bBishopL && bBishopD)
-		evalVPairSub(&matData->offset, &evalBishopPair);
+		evalVPairSubFrom(&matData->offset, &evalBishopPair);
 
 #	undef G
 #	undef M
@@ -762,7 +767,7 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 			               (((blocked[colour]>>*sq)&1)<<PawnTypeShiftBlocked) |
 			               (((pawnData->passed[colour]>>*sq)&1)<<PawnTypeShiftPassed));
 			assert(type>=0 && type<PawnTypeNB);
-			evalVPairAdd(&pawnData->score, &evalPawnValue[colour][type][*sq]);
+			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][*sq]);
 		}
 	}
 }
@@ -775,12 +780,12 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 	BB bb=bbSq(sq);
 
 	// PST.
-	evalVPairAdd(&score, &evalPST[type][adjSq]);
+	evalVPairAddTo(&score, &evalPST[type][adjSq]);
 
 	// Bishop mobility.
 	if (type==PieceTypeBishopL || type==PieceTypeBishopD) {
 		BB attacks=attacksBishop(sq, posGetBBAll(pos));
-		evalVPairAddMul(&score, &evalBishopMob, bbPopCount(attacks));
+		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks));
 	}
 
 	// Rooks.
@@ -789,31 +794,31 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 
 		// Mobility.
 		BB attacks=attacksRook(sq, posGetBBAll(pos));
-		evalVPairAddMul(&score, &evalRookMobFile, bbPopCount(attacks & bbFileFill(bb)));
-		evalVPairAddMul(&score, &evalRookMobRank, bbPopCount(attacks & rankBB));
+		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFileFill(bb)));
+		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & rankBB));
 
 		// Open and semi-open files.
 		if (bb & data->pawnData.openFiles)
-			evalVPairAdd(&score, &evalRookOpenFile);
+			evalVPairAddTo(&score, &evalRookOpenFile);
 		else if (bb & data->pawnData.semiOpenFiles[colour])
-			evalVPairAdd(&score, &evalRookSemiOpenFile);
+			evalVPairAddTo(&score, &evalRookSemiOpenFile);
 
 		// Rook on 7th.
 		BB oppPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colourSwap(colour)));
 		Sq adjOppKingSq=(colour==ColourWhite ? posGetKingSq(pos, ColourBlack) : sqFlip(posGetKingSq(pos, ColourWhite)));
 		if (sqRank(adjSq)==Rank7 && ((rankBB & oppPawns) || sqRank(adjOppKingSq)==Rank8))
-			evalVPairAdd(&score, &evalRookOn7th);
+			evalVPairAddTo(&score, &evalRookOn7th);
 
 		// Trapped.
 		BB kingBB=posGetBBPiece(pos, pieceMake(PieceTypeKing, colour));
 		if (colour==ColourWhite) {
 			if (((bb & (bbSq(SqG1) | bbSq(SqH1))) && (kingBB & (bbSq(SqF1) | bbSq(SqG1)))) ||
 			    ((bb & (bbSq(SqA1) | bbSq(SqB1))) && (kingBB & (bbSq(SqB1) | bbSq(SqC1)))))
-				evalVPairAdd(&score, &evalRookTrapped);
+				evalVPairAddTo(&score, &evalRookTrapped);
 		} else {
 			if (((bb & (bbSq(SqG8) | bbSq(SqH8))) && (kingBB & (bbSq(SqF8) | bbSq(SqG8)))) ||
 			    ((bb & (bbSq(SqA8) | bbSq(SqB8))) && (kingBB & (bbSq(SqB8) | bbSq(SqC8)))))
-				evalVPairAdd(&score, &evalRookTrapped);
+				evalVPairAddTo(&score, &evalRookTrapped);
 		}
 	}
 
@@ -824,8 +829,8 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 		BB set=bbForwardOne(bbWestOne(bb) | bb | bbEastOne(bb), colour);
 		BB shieldClose=(pawns & set);
 		BB shieldFar=(pawns & bbForwardOne(set, colour));
-		evalVPairAddMul(&score, &evalKingShieldClose, bbPopCount(shieldClose));
-		evalVPairAddMul(&score, &evalKingShieldFar, bbPopCount(shieldFar));
+		evalVPairAddMulTo(&score, &evalKingShieldClose, bbPopCount(shieldClose));
+		evalVPairAddMulTo(&score, &evalKingShieldFar, bbPopCount(shieldFar));
 	}
 
 	return score;
@@ -836,24 +841,47 @@ Score evalInterpolate(const EvalData *data, const VPair *score) {
 	return ((data->matData.weightMG*score->mg+data->matData.weightEG*score->eg)*100)/(evalMaterial[PieceTypePawn].mg*256);
 }
 
-void evalVPairAdd(VPair *a, const VPair *b) {
+void evalVPairAddTo(VPair *a, const VPair *b) {
 	a->mg+=b->mg;
 	a->eg+=b->eg;
 }
 
-void evalVPairSub(VPair *a, const VPair *b) {
+void evalVPairSubFrom(VPair *a, const VPair *b) {
 	a->mg-=b->mg;
 	a->eg-=b->eg;
 }
 
-void evalVPairAddMul(VPair *a, const VPair *b, int c) {
+void evalVPairAddMulTo(VPair *a, const VPair *b, int c) {
 	a->mg+=b->mg*c;
 	a->eg+=b->eg*c;
 }
 
-void evalVPairSubMul(VPair *a, const VPair *b, int c) {
+void evalVPairSubMulFrom(VPair *a, const VPair *b, int c) {
 	a->mg-=b->mg*c;
 	a->eg-=b->eg*c;
+}
+
+void evalVPairNegate(VPair *a) {
+	a->mg=-a->mg;
+	a->eg=-a->eg;
+}
+
+VPair evalVPairAdd(const VPair *a, const VPair *b) {
+	VPair result=*a;
+	evalVPairAddTo(&result, b);
+	return result;
+}
+
+VPair evalVPairSub(const VPair *a, const VPair *b) {
+	VPair result=*a;
+	evalVPairSubFrom(&result, b);
+	return result;
+}
+
+VPair evalVPairNegation(const VPair *a) {
+	VPair result=*a;
+	evalVPairNegate(&result);
+	return result;
 }
 
 #ifdef TUNE
@@ -914,12 +942,12 @@ void evalRecalc(void) {
 		if (sqRank(sq)==Rank1 || sqRank(sq)==Rank8)
 			continue;
 		BB bb=bbSq(sq);
-		evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnFiles[sqFile(sq)]);
-		evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnRanks[sqRank(sq)]);
+		evalVPairAddTo(&evalPST[PieceTypePawn][sq], &evalPawnFiles[sqFile(sq)]);
+		evalVPairAddTo(&evalPST[PieceTypePawn][sq], &evalPawnRanks[sqRank(sq)]);
 		if (bb & centre)
-			evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnCentre);
+			evalVPairAddTo(&evalPST[PieceTypePawn][sq], &evalPawnCentre);
 		else if (bb & outerCentre)
-			evalVPairAdd(&evalPST[PieceTypePawn][sq], &evalPawnOuterCentre);
+			evalVPairAddTo(&evalPST[PieceTypePawn][sq], &evalPawnOuterCentre);
 	}
 
 	// Pawn table.
@@ -933,24 +961,24 @@ void evalRecalc(void) {
 			// Calculate score for white.
 			VPair *score=&evalPawnValue[ColourWhite][type][sq];
 			*score=VPairZero;
-			evalVPairAdd(score, &evalPST[PieceTypePawn][sq]);
+			evalVPairAddTo(score, &evalPST[PieceTypePawn][sq]);
 			if (isDoubled)
-				evalVPairAdd(score, &evalPawnDoubled);
+				evalVPairAddTo(score, &evalPawnDoubled);
 			if (isIsolated)
-				evalVPairAdd(score, &evalPawnIsolated);
+				evalVPairAddTo(score, &evalPawnIsolated);
 			if (isBlocked)
-				evalVPairAdd(score, &evalPawnBlocked);
+				evalVPairAddTo(score, &evalPawnBlocked);
 			if (isPassed) {
 				// Generate passed pawn score from quadratic coefficients.
 				Rank rank=sqRank(sq);
-				evalVPairAddMul(score, &evalPawnPassedQuadA, rank*rank);
-				evalVPairAddMul(score, &evalPawnPassedQuadB, rank);
-				evalVPairAdd(score, &evalPawnPassedQuadC);
+				evalVPairAddMulTo(score, &evalPawnPassedQuadA, rank*rank);
+				evalVPairAddMulTo(score, &evalPawnPassedQuadB, rank);
+				evalVPairAddTo(score, &evalPawnPassedQuadC);
 			}
 
 			// Flip square and negate score for black.
 			evalPawnValue[ColourBlack][type][sqFlip(sq)]=VPairZero;
-			evalVPairSub(&evalPawnValue[ColourBlack][type][sqFlip(sq)], score);
+			evalVPairSubFrom(&evalPawnValue[ColourBlack][type][sqFlip(sq)], score);
 		}
 	}
 

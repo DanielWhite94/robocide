@@ -708,7 +708,7 @@ void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData) {
 
 	// If not a match recompute data.
 	if (entry->pawns[ColourWhite]!=posGetBBPiece(pos, PieceWPawn) ||
-			entry->pawns[ColourBlack]!=posGetBBPiece(pos, PieceBPawn))
+	    entry->pawns[ColourBlack]!=posGetBBPiece(pos, PieceBPawn))
 		evalComputePawnData(pos, entry);
 
 	// Copy data to return it.

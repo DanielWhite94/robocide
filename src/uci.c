@@ -210,6 +210,7 @@ void uciLoop(void)
 		else if (utilStrEqual(part, "disp")) {
 			posDraw(pos);
 			uciWrite("Eval: %i\n", (int)evaluate(pos));
+			uciWrite("MatType: %s\n", evalMatTypeToStr(evalGetMatType(pos)));
 		} else if (utilStrEqual(part, "perft")) {
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
 				continue;

@@ -22,6 +22,7 @@ int scoreValue(Score score); // Returns value in centi-pawns. Score should not b
 void scoreToStr(Score score, Bound bound, char str[static 32]); // "cp/mate VALUE/DISTANCE [lowerbound/upperbound]"
 
 bool scoreIsMate(Score score);
+Score scoreMateIn(unsigned int ply);
 Score scoreMatedIn(unsigned int ply);
 int scoreMateDistance(Score score);
 

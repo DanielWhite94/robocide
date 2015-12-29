@@ -44,9 +44,14 @@ bool scoreIsMate(Score score) {
 	return (abs(abs(score)+scoreMatedIn(0))<512);
 }
 
+Score scoreMateIn(unsigned int ply) {
+	assert(ply<512);
+	return ScoreMate-ply; // ScoreMate to indicate giving checkmate, -ply to give shorter mates a higher score (i.e. do not delay giving the mate).
+}
+
 Score scoreMatedIn(unsigned int ply) {
 	assert(ply<512);
-	return -ScoreMate+ply;
+	return -ScoreMate+ply; // -ScoreMate to indicate being checkmated, +ply to give longer mates a higher score (i.e. delay).
 }
 
 int scoreMateDistance(Score score) {

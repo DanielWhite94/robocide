@@ -220,13 +220,35 @@ bool posSetToFEN(Pos *pos, const char *string) {
 }
 
 void posDraw(const Pos *pos) {
+	// Header.
+	uciWrite("Position:\n");
+
+	// Board with pieces.
 	int file, rank;
 	for(rank=Rank8;rank>=Rank1;--rank) {
+		uciWrite("%i|", (rank+8)-Rank8);
 		for(file=FileA;file<=FileH;++file)
 			uciWrite(" %c", pieceToChar(posGetPieceOnSq(pos, sqMake(file,rank))));
 		uciWrite("\n");
 	}
+	uciWrite("   ----------------\n");
+	uciWrite("  ");
+	for(file=FileA;file<=FileH;++file)
+		uciWrite(" %c", (file+'a')-FileA);
 	uciWrite("\n");
+
+	// Other information.
+	uciWrite("STM: %s\n", colourToStr(posGetSTM(pos)));
+	uciWrite("Castling rights: %s\n", posCastRightsToStr(posGetCastRights(pos)));
+	if (pos->data->epSq!=SqInvalid)
+		uciWrite("EP-sq: %c%c\n", fileToChar(sqFile(pos->data->epSq)), rankToChar(sqRank(pos->data->epSq)));
+	else
+		uciWrite("EP-sq: -\n");
+	uciWrite("Half move number: %u\n", pos->data->halfMoveNumber);
+	uciWrite("Full move number: %u\n", pos->fullMoveNumber);
+	uciWrite("Base hash key: %016"PRIxKey"\n", posGetKey(pos));
+	uciWrite("Pawn hash key: %016"PRIxKey"\n", posGetPawnKey(pos));
+	uciWrite("Material hash key: %016"PRIxKey"\n", posGetMatKey(pos));
 }
 
 Colour posGetSTM(const Pos *pos) {

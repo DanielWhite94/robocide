@@ -135,4 +135,6 @@ MatInfo matInfoMakeMaskPiece(Piece piece); // A mask which one can AND with to t
 MatInfo matInfoMakeMaskPieceType(PieceType type);
 MatInfo matInfoMakeMaskColour(Colour colour);
 
+const char *posCastRightsToStr(CastRights castRights); // NOT thread-safe.
+
 #endif

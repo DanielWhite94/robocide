@@ -861,6 +861,28 @@ MatInfo matInfoMakeMaskColour(Colour colour) {
            matInfoMakeMaskPiece(pieceMake(PieceTypeKing, colour));
 }
 
+const char *posCastRightsStrs[CastRightsNB]={
+	[CastRightsNone]="-",
+	[CastRightsq]="q",
+	[CastRightsk]="k",
+	[CastRightsQ]="Q",
+	[CastRightsK]="K",
+	[CastRightsKQ]="KQ",
+	[CastRightsKk]="Kk",
+	[CastRightsKq]="Kq",
+	[CastRightsQk]="Qk",
+	[CastRightsQq]="Qq",
+	[CastRightskq]="kq",
+	[CastRightsKQk]="KQk",
+	[CastRightsKQq]="KQq",
+	[CastRightsKkq]="Kkq",
+	[CastRightsQkq]="Qkq",
+	[CastRightsKQkq]="KQkq",
+};
+const char *posCastRightsToStr(CastRights castRights) {
+	return (castRights<CastRightsNB ? posCastRightsStrs[castRights] : NULL);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////

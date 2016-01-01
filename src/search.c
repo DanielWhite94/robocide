@@ -60,7 +60,8 @@ void searchQNodeInternal(Node *node);
 
 bool searchIsTimeUp(void);
 
-void searchOutput(Node *node);
+void searchOutputDepthPre(Node *node); // Called at begining of searching a new depth.
+void searchOutputDepthPost(Node *node); // Called at end of searching a particular depth.
 
 bool searchIsZugzwang(const Node *node);
 
@@ -282,6 +283,9 @@ void searchIDLoop(void *posPtr) {
 
 	// Loop increasing search depth until we run out of 'time'.
 	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
+		// Output pre info.
+		searchOutputDepthPre(&node);
+
 		// Search
 		searchNode(&node);
 
@@ -289,8 +293,8 @@ void searchIDLoop(void *posPtr) {
 		if (node.bound==BoundNone)
 			break;
 
-		// Output info
-		searchOutput(&node);
+		// Output post info.
+		searchOutputDepthPost(&node);
 
 		// Time to end?
 		if (searchIsTimeUp())
@@ -734,6 +738,11 @@ bool searchIsTimeUp(void) {
 }
 
 void searchOutput(Node *node) {
+void searchOutputDepthPre(Node *node) {
+	uciWrite("info depth %u\n", (unsigned int)node->depth);
+}
+
+void searchOutputDepthPost(Node *node) {
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
 

@@ -129,7 +129,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit) {
 	if (pos==NULL)
 		return;
 	searchNodeCount=0;
-	searchNodeNext=~0llu; // So we never check clock unless time is specified (see below).
+	searchNodeNext=0;
 	searchStopFlag=false;
 	while (lockTryWait(searchActivity)) ; // Reset to 0.
 	searchEndTime=TimeMsInvalid;
@@ -716,7 +716,7 @@ bool searchIsTimeUp(void) {
 			// already used 12s, we aim to check again at 14s (12+(16-12)/2).
 			// We use the node counter and previous nps as a rough timer to avoid
 			// checking the real time too often.
-			TimeMs timeDelay=64*(searchEndTime-currTime); // We /128 later to avoid losing accuracy.
+			TimeMs timeDelay=64*utilMin(searchEndTime-currTime, 1000); // We /128 later to avoid losing accuracy. Also limit to 1s.
 			unsigned long long int nodeDelay=(searchNodeCount*timeDelay)/(128*(currTime-searchLimit.startTime));
 			searchNodeNext=searchNodeCount+nodeDelay;
 		} else

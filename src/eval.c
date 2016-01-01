@@ -234,6 +234,8 @@ bool evalOptionNewVPair(const char *name, VPair *score);
 
 void evalRecalc(void);
 
+void evalVerify(void);
+
 EvalMatType evalComputeMatType(const Pos *pos);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1030,6 +1032,27 @@ void evalRecalc(void) {
 
 	// Clear now-invalid material and pawn tables etc.
 	evalClear();
+
+	// Verify eval weights are all sensible and consistent.
+	evalVerify();
+}
+
+void evalVerify(void) {
+	// Check evalPawnFiles is symmetrical.
+	File file;
+	for(file=0; file<FileNB; ++file) {
+		assert(evalPawnFiles[file].mg==evalPawnFiles[fileMirror(file)].mg);
+		assert(evalPawnFiles[file].eg==evalPawnFiles[fileMirror(file)].eg);
+	}
+
+	// Check PSTs are symmetrical.
+	PieceType pieceType;
+	Sq sq;
+	for(pieceType=PieceTypePawn; pieceType<=PieceTypeKing; ++pieceType)
+		for(sq=0; sq<SqNB; ++sq) {
+			assert(evalPST[pieceType][sq].mg==evalPST[pieceType][sqMirror(sq)].mg);
+			assert(evalPST[pieceType][sq].eg==evalPST[pieceType][sqMirror(sq)].eg);
+		}
 }
 
 EvalMatType evalComputeMatType(const Pos *pos) {

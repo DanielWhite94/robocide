@@ -325,6 +325,10 @@ CastRights posGetCastRights(const Pos *pos) {
 	return pos->data->cast;
 }
 
+Sq posGetEPSq(const Pos *pos) {
+	return pos->data->epSq;
+}
+
 bool posMakeMove(Pos *pos, Move move) {
 	assert(moveIsValid(move) || move==MoveNone);
 # ifndef NDEBUG

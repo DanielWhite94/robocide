@@ -100,6 +100,7 @@ Key posGetPawnKey(const Pos *pos);
 Key posGetMatKey(const Pos *pos);
 MatInfo posGetMatInfo(const Pos *pos);
 CastRights posGetCastRights(const Pos *pos);
+Sq posGetEPSq(const Pos *pos);
 
 bool posMakeMove(Pos *pos, Move move);
 bool posCanMakeMove(const Pos *pos, Move move); // Returns the same result as posMakeMove() but does not actually make the move on the board.

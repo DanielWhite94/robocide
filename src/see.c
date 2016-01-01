@@ -28,7 +28,7 @@ BB seeAttacksTo(const Pos *pos, Sq sq, BB occ);
 
 int see(const Pos *pos, Sq fromSq, Sq toSq) {
 	PieceType attackerType=pieceGetType(posGetPieceOnSq(pos, fromSq));
-	Piece victimType=pieceGetType(posGetPieceOnSq(pos, toSq));
+	PieceType victimType=pieceGetType(posGetPieceOnSq(pos, toSq));
 	Colour stm=posGetSTM(pos);
 	assert(pieceTypeIsValid(attackerType));
 	assert(pieceTypeIsValid(victimType));

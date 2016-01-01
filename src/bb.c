@@ -101,11 +101,15 @@ BB bbRank(Rank rank) {
 }
 
 unsigned int bbPopCount(BB bb) {
-	bb=bb-((bb>>1) & 0x5555555555555555llu);
-	bb=(bb&0x3333333333333333llu)+((bb>>2) & 0x3333333333333333llu);
-	bb=(bb+(bb>>4)) & 0x0f0f0f0f0f0f0f0fllu;
-	bb=(bb*0x0101010101010101llu)>>56;
-	return (unsigned int)bb;
+#	ifdef BUILTINS
+		return __builtin_popcountll(bb);
+#	else
+		bb=bb-((bb>>1) & 0x5555555555555555llu);
+		bb=(bb&0x3333333333333333llu)+((bb>>2) & 0x3333333333333333llu);
+		bb=(bb+(bb>>4)) & 0x0f0f0f0f0f0f0f0fllu;
+		bb=(bb*0x0101010101010101llu)>>56;
+		return (unsigned int)bb;
+#	endif
 }
 
 Sq bbScanReset(BB *bb) {
@@ -118,7 +122,11 @@ Sq bbScanReset(BB *bb) {
 
 Sq bbScanForward(BB bb) {
 	assert(bb!=BBNone);
-	return BBScanForwardTable[((bb^(bb-1))*0x03f79d71b4cb0a89llu)>>58];
+#	ifdef BUILTINS
+		return __builtin_ctzll(bb);
+#	else
+		return BBScanForwardTable[((bb^(bb-1))*0x03f79d71b4cb0a89llu)>>58];
+#	endif
 }
 
 BB bbNorth(BB bb, unsigned int n) {

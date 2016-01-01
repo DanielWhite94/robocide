@@ -1,13 +1,14 @@
 TARGET = robocide
 CC = gcc
-CFLAGS = -pthread -lm -Wall -O3 -flto -Wno-unused-local-typedefs
+CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs
+LFLAGS = -lm
 CFLAGSDEBUG = -DNDEBUG
 
 .PHONY: default all debug tune clean
 
 default: $(TARGET)
 all: default
-debug: CFLAGSDEBUG := 
+debug: CFLAGSDEBUG :=
 tune: CFLAGS += -DTUNE
 debug: default
 tune: default
@@ -21,7 +22,7 @@ HEADERS = $(wildcard *.h)
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) $(CFLAGS) $(CFLAGSDEBUG) -o $@
+	$(CC) $(OBJECTS) $(CFLAGS) $(CFLAGSDEBUG) -o $@ $(LFLAGS)
 
 clean:
 	@rm -f *.o

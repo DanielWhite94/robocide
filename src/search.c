@@ -38,6 +38,7 @@ unsigned long long int searchNodeNext; // Node count at which we should next che
 bool searchStopFlag;
 Lock *searchActivity=NULL; // Once reached depth limit, search will wait for this before printing bestmove command.
 TimeMs searchEndTime;
+TimeMs searchNextRegularOutputTime;
 SearchLimit searchLimit;
 unsigned int searchDate; // Incremented after each searchThink() call.
 
@@ -60,6 +61,7 @@ void searchQNodeInternal(Node *node);
 
 bool searchIsTimeUp(void);
 
+void searchOutputRegular(void); // Regular infomation such as hashfull and nps.
 void searchOutputDepthPre(Node *node); // Called at begining of searching a new depth.
 void searchOutputDepthPost(Node *node); // Called at end of searching a particular depth.
 
@@ -134,6 +136,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit) {
 	searchStopFlag=false;
 	while (lockTryWait(searchActivity)) ; // Reset to 0.
 	searchEndTime=TimeMsInvalid;
+	searchNextRegularOutputTime=0;
 	searchLimit=*limit;
 	searchDate=(searchDate+1)%DateMax;
 
@@ -713,6 +716,12 @@ bool searchIsTimeUp(void) {
 		if (currTime>=searchEndTime)
 			goto timeup;
 
+		// Print regular debugging information every so often.
+		if (currTime>=searchNextRegularOutputTime) {
+			searchOutputRegular();
+			searchNextRegularOutputTime=currTime+1000;
+		}
+
 		// Update searchNodeNext to check again in the future.
 		if (currTime>searchLimit.startTime) {
 			// Aim to check again 50% through our remaining time for this move.
@@ -737,7 +746,14 @@ bool searchIsTimeUp(void) {
 	return true;
 }
 
-void searchOutput(Node *node) {
+void searchOutputRegular(void) {
+	TimeMs time=timeGet()-searchLimit.startTime;
+	uciWrite("info nodes %llu time %llu", (unsigned long long int)searchNodeCount, (unsigned long long int)time);
+	if (time>0)
+		uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
+	uciWrite(" hashfull %u\n", ttFull());
+}
+
 void searchOutputDepthPre(Node *node) {
 	uciWrite("info depth %u\n", (unsigned int)node->depth);
 }

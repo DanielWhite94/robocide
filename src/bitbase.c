@@ -130,7 +130,7 @@ void bitbaseGen(void) {
 								continue;
 
 							// Try to compute result and update change flag if successful.
-							BitBaseResult result=bitbaseComputeDynamicResult(array, pawnSq, wKingSq, stm, bKingSq);
+							BitBaseResultFull result=bitbaseComputeDynamicResult(array, pawnSq, wKingSq, stm, bKingSq);
 							change|=((array[index]=result)!=BitBaseResultFullUnknown);
 						}
 			} while(change);
@@ -193,7 +193,7 @@ BitBaseResultFull bitbaseComputeStaticResult(Sq pawnSq, Sq wKingSq, Colour stm, 
 
 	// If 'pawn' is on 8th rank, win (we have already shown that it cannot be captured).
 	if (sqRank(pawnSq)==Rank8)
-		return BitBaseResultWin;
+		return BitBaseResultFullWin;
 
 	// If no moves available for stm, draw (stalemate).
 	if (stm==ColourWhite) {

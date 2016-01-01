@@ -181,6 +181,24 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 	htableRelease(tt, key);
 }
 
+unsigned int ttFull(void) {
+	unsigned total=0;
+
+	unsigned checked=0;
+	size_t index;
+	for(index=0;checked<1000;++index) {
+		TTCluster *cluster=htableGrab(tt, index);
+
+		unsigned entry;
+		for(entry=0; entry<ttClusterSize && checked<1000; ++entry,++checked)
+			total+=(!ttEntryUnused(&cluster->entries[entry]));
+
+		htableRelease(tt, index);
+	}
+
+	return total;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////

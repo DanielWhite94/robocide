@@ -17,4 +17,6 @@ bool ttRead(const Pos *pos, Depth ply, Move *move, Depth *depth, Score *score, B
 Move ttReadMove(const Pos *pos); // Either returns move or MoveInvalid if no match found.
 void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bound bound);
 
+unsigned int ttFull(void); // Used entries per 1000.
+
 #endif

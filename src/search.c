@@ -39,6 +39,7 @@ bool searchStopFlag;
 Lock *searchActivity=NULL; // Once reached depth limit, search will wait for this before printing bestmove command.
 TimeMs searchEndTime;
 TimeMs searchNextRegularOutputTime;
+bool searchShowCurrmove;
 SearchLimit searchLimit;
 unsigned int searchDate; // Incremented after each searchThink() call.
 
@@ -133,6 +134,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit) {
 		return;
 	searchNodeCount=0;
 	searchNodeNext=0;
+	searchShowCurrmove=false;
 	searchStopFlag=false;
 	while (lockTryWait(searchActivity)) ; // Reset to 0.
 	searchEndTime=TimeMsInvalid;
@@ -286,6 +288,10 @@ void searchIDLoop(void *posPtr) {
 
 	// Loop increasing search depth until we run out of 'time'.
 	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
+		// After 1s start showing 'currmove' info.
+		if (timeGet()>=searchLimit.startTime+1000)
+			searchShowCurrmove=true;
+
 		// Output pre info.
 		searchOutputDepthPre(&node);
 
@@ -495,10 +501,21 @@ void searchNodeInternal(Node *node) {
 	child.alpha=-node->beta;
 	child.beta=-alpha;
 	Move move;
+	unsigned moveNumber=0;
 	while((move=movesNext(&moves))!=MoveInvalid) {
+		// Find move string for UCI output.
+		char moveStr[8]; // Only used if root node.
+		if (searchShowCurrmove && node->ply==0)
+			posMoveToStr(node->pos, move, moveStr); // Must do this before making the move.
+
 		// Make move (might leave us in check, if so skip).
 		if (!posMakeMove(node->pos, move))
 			continue;
+		++moveNumber;
+
+		// 'currmove' UCI output.
+		if (searchShowCurrmove && node->ply==0)
+			uciWrite("info depth %u currmove %s currmovenumber %u\n", node->depth, moveStr, moveNumber);
 
 		// PVS search
 		child.inCheck=posIsSTMInCheck(node->pos);

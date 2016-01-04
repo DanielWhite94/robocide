@@ -726,8 +726,6 @@ bool searchIsTimeUp(void) {
 
 	// Time to check the real clock?
 	if (searchNodeCount>=searchNodeNext) {
-		assert(searchEndTime!=TimeMsInvalid);
-
 		// Is time up? (want to return asap).
 		TimeMs currTime=timeGet();
 		if (currTime>=searchEndTime)

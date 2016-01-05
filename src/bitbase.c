@@ -150,6 +150,37 @@ void bitbaseGen(void) {
 				}
 		}
 
+	// Verify counts.
+#	ifndef NDEBUG
+	unsigned countTotal=0, countWin=0, countDraw=0, countInvalid=0, countUnknown=0;
+	for(pawnFile=FileA;pawnFile<=FileD;++pawnFile)
+		for(pawnRank=Rank2;pawnRank<=Rank7;++pawnRank)
+			for(wKingSq=0;wKingSq<SqNB;++wKingSq)
+				for(stm=0;stm<ColourNB;++stm)
+					for(bKingSq=0;bKingSq<SqNB;++bKingSq) {
+						unsigned int fullIndex=bitbaseIndexFull(pawnFile, pawnRank, wKingSq, stm, bKingSq);
+						switch(array[fullIndex]) {
+							case BitBaseResultFullWin:
+								++countWin;
+							break;
+							case BitBaseResultFullDraw:
+								++countDraw;
+							break;
+							case BitBaseResultFullInvalid:
+								++countInvalid;
+							break;
+							case BitBaseResultFullUnknown:
+								++countUnknown;
+							break;
+						}
+						++countTotal;
+					}
+	assert(countTotal==196608);
+	assert(countWin==111282);
+	assert(countInvalid==30932);
+	assert(countDraw+countUnknown==54394);
+#	endif
+
 	// Free working array.
 	free(array);
 }

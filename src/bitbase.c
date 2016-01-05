@@ -353,3 +353,4 @@ unsigned int bitbaseIndexFull(File pawnFile, Rank pawnRank, Sq wKingSq, Colour s
 	assert(sqIsValid(bKingSq));
 	return (((pawnFile*RankNB+pawnRank)*SqNB+wKingSq)*ColourNB+stm)*SqNB+bKingSq;
 }
+

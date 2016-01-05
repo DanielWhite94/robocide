@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bitbase.h"
 #include "eval.h"
 #include "perft.h"
 #include "pos.h"
@@ -211,6 +212,23 @@ void uciLoop(void)
 			posDraw(pos);
 			uciWrite("Eval: %icp\n", (int)evaluate(pos));
 			uciWrite("MatType: %s\n", evalMatTypeToStr(evalGetMatType(pos)));
+		} else if (utilStrEqual(part, "bitbase")) {
+			if (evalGetMatType(pos)==EvalMatTypeKPvK) {
+				uciWrite("BitBase:\n");
+				Moves moves;
+				movesInit(&moves, pos, 0, MoveTypeAny);
+				Move move;
+				while((move=movesNext(&moves))!=MoveInvalid) {
+					char str[8];
+					posMoveToStr(pos, move, str);
+					if (!posMakeMove(pos, move))
+						continue;
+					uciWrite("  %6s %s\n", str, (bitbaseProbe(pos)==BitBaseResultWin ? "win" : "draw"));
+					posUndoMove(pos);
+				}
+				uciWrite("Result: %s\n", (bitbaseProbe(pos)==BitBaseResultWin ? "win" : "draw"));
+			} else
+				uciWrite("Error: Position must be KPvK.\n");
 		} else if (utilStrEqual(part, "perft")) {
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
 				continue;

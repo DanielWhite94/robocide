@@ -204,6 +204,8 @@ uint8_t evalWeightEGFactors[128];
 // Private prototypes.
 ////////////////////////////////////////////////////////////////////////////////
 
+Score evaluateInternal(const Pos *pos);
+
 VPair evaluateDefault(EvalData *data);
 VPair evaluateKPvK(EvalData *data);
 
@@ -323,40 +325,19 @@ void evalQuit(void) {
 }
 
 Score evaluate(const Pos *pos) {
-	// Init data struct.
-	EvalData data={.pos=pos};
-
-	// Evaluation function depends on material combination.
-	evalGetMatData(pos, &data.matData);
-
-	// Evaluate.
-	VPair score=data.matData.function(&data);
-
-	// Material combination offset.
-	evalVPairAddTo(&score, &data.matData.offset);
-
-	// Tempo bonus.
-	if (posGetSTM(pos)==ColourWhite)
-		evalVPairAddTo(&score, &data.matData.tempo);
-	else
-		evalVPairSubFrom(&score, &data.matData.tempo);
-
-	// Interpolate score based on phase of the game and special material combination considerations.
-	Score scalarScore=evalInterpolate(&data, &score);
-
-	// Drag score towards 0 as we approach 50-move rule
-	unsigned int halfMoves=posGetHalfMoveNumber(data.pos);
-	assert(halfMoves<128);
-	scalarScore=(scalarScore*evalHalfMoveFactors[halfMoves])/256;
-
-	// Add score offset
-	scalarScore+=data.matData.scoreOffset;
-
-	// Adjust for side to move
-	if (posGetSTM(data.pos)==ColourBlack)
-		scalarScore=-scalarScore;
-
-	return scalarScore;
+	Score score=evaluateInternal(pos);
+#	ifndef NDEBUG
+	Pos *scratchPos=posCopy(pos);
+	posMirror(scratchPos);
+	Score scoreM=evaluateInternal(scratchPos);
+	posFlip(scratchPos);
+	Score scoreFM=evaluateInternal(scratchPos);
+	posMirror(scratchPos);
+	Score scoreF=evaluateInternal(scratchPos);
+	posFree(scratchPos);
+	assert(scoreM==score && scoreFM==score && scoreF==score);
+#	endif
+	return score;
 }
 
 void evalClear(void) {
@@ -404,6 +385,43 @@ const char *evalMatTypeToStr(EvalMatType matType) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
+
+Score evaluateInternal(const Pos *pos) {
+	// Init data struct.
+	EvalData data={.pos=pos};
+
+	// Evaluation function depends on material combination.
+	evalGetMatData(pos, &data.matData);
+
+	// Evaluate.
+	VPair score=data.matData.function(&data);
+
+	// Material combination offset.
+	evalVPairAddTo(&score, &data.matData.offset);
+
+	// Tempo bonus.
+	if (posGetSTM(pos)==ColourWhite)
+		evalVPairAddTo(&score, &data.matData.tempo);
+	else
+		evalVPairSubFrom(&score, &data.matData.tempo);
+
+	// Interpolate score based on phase of the game and special material combination considerations.
+	Score scalarScore=evalInterpolate(&data, &score);
+
+	// Drag score towards 0 as we approach 50-move rule
+	unsigned int halfMoves=posGetHalfMoveNumber(data.pos);
+	assert(halfMoves<128);
+	scalarScore=(scalarScore*evalHalfMoveFactors[halfMoves])/256;
+
+	// Add score offset
+	scalarScore+=data.matData.scoreOffset;
+
+	// Adjust for side to move
+	if (posGetSTM(data.pos)==ColourBlack)
+		scalarScore=-scalarScore;
+
+	return scalarScore;
+}
 
 VPair evaluateDefault(EvalData *data) {
 	// Init.

@@ -909,6 +909,87 @@ const char *posCastRightsToStr(CastRights castRights) {
 	return (castRights<CastRightsNB ? posCastRightsStrs[castRights] : NULL);
 }
 
+void posMirror(Pos *pos) {
+	// Create mirrored board and remove pieces from given Pos.
+	Piece board[SqNB];
+	Sq sq;
+	for(sq=0;sq<SqNB;++sq) {
+		board[sq]=posGetPieceOnSq(pos, sqMirror(sq));
+		if (board[sq]!=PieceNone)
+			posPieceRemove(pos, sqMirror(sq));
+	}
+
+	// Add pieces from mirrored board.
+	for(sq=0;sq<SqNB;++sq) {
+		if (board[sq]!=PieceNone)
+			posPieceAdd(pos, board[sq], sq);
+	}
+
+	// Mirror other fields.
+	if (pos->data->epSq!=SqInvalid)
+		pos->data->epSq=sqMirror(pos->data->epSq);
+	if (pos->data->capSq!=SqInvalid)
+		pos->data->capSq=sqMirror(pos->data->capSq);
+	CastRights cast=CastRightsNone;
+	if (pos->data->cast & CastRightsK)
+		cast|=CastRightsQ;
+	if (pos->data->cast & CastRightsQ)
+		cast|=CastRightsK;
+	if (pos->data->cast & CastRightsk)
+		cast|=CastRightsq;
+	if (pos->data->cast & CastRightsq)
+		cast|=CastRightsk;
+	pos->data->cast=cast; // Not techinically correct under standard chess rules, but ensures king mobility evaluation is consistent.
+
+	// Update keys.
+	pos->data->key=posComputeKey(pos);
+	pos->pawnKey=posComputePawnKey(pos);
+	pos->matKey=posComputeMatKey(pos);
+}
+
+void posFlip(Pos *pos) {
+	// Create flipped board and remove pieces from given Pos.
+	Piece board[SqNB];
+	Sq sq;
+	for(sq=0;sq<SqNB;++sq) {
+		board[sq]=posGetPieceOnSq(pos, sqFlip(sq));
+		if (board[sq]!=PieceNone) {
+			PieceType pieceType=pieceGetType(board[sq]);
+			Colour pieceColour=pieceGetColour(board[sq]);
+			board[sq]=pieceMake(pieceType, colourSwap(pieceColour));
+			posPieceRemove(pos, sqFlip(sq));
+		}
+	}
+
+	// Add pieces from flipped board.
+	for(sq=0;sq<SqNB;++sq) {
+		if (board[sq]!=PieceNone)
+			posPieceAdd(pos, board[sq], sq);
+	}
+
+	// Flip other fields.
+	pos->stm=colourSwap(pos->stm);
+	if (pos->data->epSq!=SqInvalid)
+		pos->data->epSq=sqMirror(pos->data->epSq);
+	if (pos->data->capSq!=SqInvalid)
+		pos->data->capSq=sqMirror(pos->data->capSq);
+	CastRights cast=CastRightsNone;
+	if (pos->data->cast & CastRightsK)
+		cast|=CastRightsk;
+	if (pos->data->cast & CastRightsQ)
+		cast|=CastRightsq;
+	if (pos->data->cast & CastRightsk)
+		cast|=CastRightsK;
+	if (pos->data->cast & CastRightsq)
+		cast|=CastRightsQ;
+	pos->data->cast=cast;
+
+	// Update keys.
+	pos->data->key=posComputeKey(pos);
+	pos->pawnKey=posComputePawnKey(pos);
+	pos->matKey=posComputeMatKey(pos);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////

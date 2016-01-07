@@ -138,4 +138,7 @@ MatInfo matInfoMakeMaskColour(Colour colour);
 
 const char *posCastRightsToStr(CastRights castRights); // NOT thread-safe.
 
+void posMirror(Pos *pos);
+void posFlip(Pos *pos);
+
 #endif

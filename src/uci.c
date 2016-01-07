@@ -255,7 +255,10 @@ void uciLoop(void)
 			uciWrite("id name robocide\nid author Daniel White\n");
 			uciOptionPrint();
 			uciWrite("uciok\n");
-		}
+		} else if (utilStrEqual(part, "mirror"))
+			posMirror(pos);
+		else if (utilStrEqual(part, "flip"))
+			posFlip(pos);
 	}
 
 	// Clean up.

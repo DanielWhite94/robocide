@@ -187,11 +187,9 @@ typedef enum {
 	PawnTypeStandard=0,
 	PawnTypeShiftDoubled=0,
 	PawnTypeShiftIsolated=1,
-	PawnTypeShiftBlocked=2,
-	PawnTypeShiftPassed=3,
+	PawnTypeShiftPassed=2,
 	PawnTypeDoubled=(1u<<PawnTypeShiftDoubled),
 	PawnTypeIsolated=(1u<<PawnTypeShiftIsolated),
-	PawnTypeBlocked=(1u<<PawnTypeShiftBlocked),
 	PawnTypePassed=(1u<<PawnTypeShiftPassed),
 	PawnTypeNB=16,
 } PawnType;
@@ -754,15 +752,21 @@ void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData) {
 
 	// We are finished with Entry, release lock.
 	htableRelease(evalPawnTable, key);
+
+	// Compute terms which depend on other (non-pawn) aspects of the position, hence cannot be hashed.
+	BB occ=posGetBBAll(pos);
+	BB blocked[ColourNB];
+	blocked[ColourWhite]=(pawnData->pawns[ColourWhite] & bbSouthOne(occ));
+	blocked[ColourBlack]=(pawnData->pawns[ColourBlack] & bbNorthOne(occ));
+	evalVPairAddMulTo(&pawnData->score, &evalPawnBlocked, bbPopCount(blocked[ColourWhite])-bbPopCount(blocked[ColourBlack]));
 }
 
 void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	// Init.
 	pawnData->score=VPairZero;
-	BB occ=posGetBBAll(pos);
 	BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], attacks[ColourNB];
 	BB attacksFill[ColourNB], doubled[ColourNB], isolated[ColourNB];
-	BB blocked[ColourNB], influence[ColourNB], fill[ColourNB];
+	BB influence[ColourNB], fill[ColourNB];
 	pawns[ColourWhite]=pawnData->pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn);
 	pawns[ColourBlack]=pawnData->pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
 	frontSpan[ColourWhite]=bbNorthOne(bbNorthFill(pawns[ColourWhite])); // All squares infront of pawns of given colour.
@@ -777,8 +781,6 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	doubled[ColourBlack]=(pawns[ColourBlack] & rearSpan[ColourBlack]);
 	isolated[ColourWhite]=(pawns[ColourWhite] & ~attacksFill[ColourWhite]);
 	isolated[ColourBlack]=(pawns[ColourBlack] & ~attacksFill[ColourBlack]);
-	blocked[ColourWhite]=(pawns[ColourWhite] & bbSouthOne(occ));
-	blocked[ColourBlack]=(pawns[ColourBlack] & bbNorthOne(occ));
 	influence[ColourWhite]=(frontSpan[ColourWhite] | bbWingify(frontSpan[ColourWhite])); // Squares which colour in question may attack or move to, now or in the future.
 	influence[ColourBlack]=(frontSpan[ColourBlack] | bbWingify(frontSpan[ColourBlack]));
 	pawnData->passed[ColourWhite]=(pawns[ColourWhite] & ~(doubled[ColourWhite] | influence[ColourBlack]));
@@ -797,7 +799,6 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 		for(;sq<sqEnd;++sq) {
 			PawnType type=((((doubled[colour]>>*sq)&1)<<PawnTypeShiftDoubled) |
 			               (((isolated[colour]>>*sq)&1)<<PawnTypeShiftIsolated) |
-			               (((blocked[colour]>>*sq)&1)<<PawnTypeShiftBlocked) |
 			               (((pawnData->passed[colour]>>*sq)&1)<<PawnTypeShiftPassed));
 			assert(type>=0 && type<PawnTypeNB);
 			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][*sq]);
@@ -988,7 +989,6 @@ void evalRecalc(void) {
 	for(type=0;type<PawnTypeNB;++type) {
 		bool isDoubled=((type & PawnTypeDoubled)!=0);
 		bool isIsolated=((type & PawnTypeIsolated)!=0);
-		bool isBlocked=((type & PawnTypeBlocked)!=0);
 		bool isPassed=((type & PawnTypePassed)!=0);
 		for(sq=0;sq<SqNB;++sq) {
 			// Calculate score for white.
@@ -999,8 +999,6 @@ void evalRecalc(void) {
 				evalVPairAddTo(score, &evalPawnDoubled);
 			if (isIsolated)
 				evalVPairAddTo(score, &evalPawnIsolated);
-			if (isBlocked)
-				evalVPairAddTo(score, &evalPawnBlocked);
 			if (isPassed) {
 				// Generate passed pawn score from quadratic coefficients.
 				Rank rank=sqRank(sq);

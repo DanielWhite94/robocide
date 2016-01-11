@@ -920,10 +920,9 @@ void posMirror(Pos *pos) {
 	}
 
 	// Add pieces from mirrored board.
-	for(sq=0;sq<SqNB;++sq) {
+	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
 			posPieceAdd(pos, board[sq], sq);
-	}
 
 	// Mirror other fields.
 	if (pos->data->epSq!=SqInvalid)
@@ -962,10 +961,9 @@ void posFlip(Pos *pos) {
 	}
 
 	// Add pieces from flipped board.
-	for(sq=0;sq<SqNB;++sq) {
+	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
 			posPieceAdd(pos, board[sq], sq);
-	}
 
 	// Flip other fields.
 	pos->stm=colourSwap(pos->stm);

@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "attacks.h"
 #include "bb.h"
 #include "bitbase.h"
 #include "colour.h"
@@ -818,7 +817,7 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 
 	// Bishop mobility.
 	if (type==PieceTypeBishopL || type==PieceTypeBishopD) {
-		BB attacks=attacksBishop(sq, posGetBBAll(pos));
+		BB attacks=posGetAttacksSq(pos, sq);
 		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks));
 	}
 
@@ -827,7 +826,7 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 		BB rankBB=bbRank(sqRank(sq));
 
 		// Mobility.
-		BB attacks=attacksRook(sq, posGetBBAll(pos));
+		BB attacks=posGetAttacksSq(pos, sq);
 		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFileFill(bb)));
 		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & rankBB));
 

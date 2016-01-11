@@ -1182,7 +1182,6 @@ void posGenPseudoNormal(Moves *moves, BB allowed) {
 	const Pos *pos=movesGetPos(moves);
 	Colour stm=posGetSTM(pos);
 	allowed&=~posGetBBColour(pos, stm); // Don't want to self-capture.
-	BB occ=posGetBBAll(pos);
 
 	// Loop over each piece type.
 	PieceType type;
@@ -1193,7 +1192,7 @@ void posGenPseudoNormal(Moves *moves, BB allowed) {
 		const Sq *endSq=posGetPieceListEnd(pos, piece);
 		for(;sq<endSq;++sq) {
 			// Calculate attack set.
-			BB set=(attacksPiece(piece, *sq, occ) & allowed);
+			BB set=(posGetAttacksSq(pos, *sq) & allowed);
 
 			// Loop over destination squares and add as individual moves.
 			while(set)
@@ -1704,12 +1703,11 @@ bool posLegalMoveExistsPiece(const Pos *pos, PieceType type, BB allowed) {
 	assert(pieceTypeIsValid(type) && type!=PieceTypePawn);
 
 	Colour stm=posGetSTM(pos);
-	BB occ=posGetBBAll(pos);
 	Piece piece=pieceMake(type, stm);
 	BB set=posGetBBPiece(pos, piece);
 	while(set) {
 		Sq fromSq=bbScanReset(&set);
-		BB attacks=(attacksPieceType(type, fromSq, occ) & allowed);
+		BB attacks=(posGetAttacksSq(pos, fromSq) & allowed);
 		while(attacks) {
 			Sq toSq=bbScanReset(&attacks);
 			Move move=moveMake(fromSq, toSq, piece);

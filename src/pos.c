@@ -1310,13 +1310,13 @@ bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq 
 	if (x1==x2 || y1==y2) { // Horizontal/vertical.
 		BB ray=(attacksRook(victimSq, occ) & beyond);
 		if (ray & (posGetBBPiece(pos, pieceMake(PieceTypeRook, atkColour)) |
-							 posGetBBPiece(pos, pieceMake(PieceTypeQueen, atkColour))))
+		           posGetBBPiece(pos, pieceMake(PieceTypeQueen, atkColour))))
 			return true;
 	} else if (x1+y1==x2+y2 || y1-x1==y2-x2) { // Major/minor diagonal.
 		BB ray=(attacksBishop(victimSq, occ) & beyond);
 		if (ray & (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, atkColour)) |
-							 posGetBBPiece(pos, pieceMake(PieceTypeBishopD, atkColour)) |
-							 posGetBBPiece(pos, pieceMake(PieceTypeQueen, atkColour))))
+		           posGetBBPiece(pos, pieceMake(PieceTypeBishopD, atkColour)) |
+		           posGetBBPiece(pos, pieceMake(PieceTypeQueen, atkColour))))
 			return true;
 	}
 

@@ -10,6 +10,9 @@
 #include "util.h"
 
 typedef struct {
+	BB attacksSq[SqNB];
+	BB attacksColour[ColourNB];
+	BB attacksAll;
 	Move lastMove;
 	unsigned int halfMoveNumber;
 	Sq epSq;
@@ -362,6 +365,12 @@ bool posMakeMove(Pos *pos, Move move) {
 	pos->data->capSq=toSq;
 	pos->fullMoveNumber+=(pos->stm==ColourBlack); // Inc after black's move.
 	pos->stm=colourSwap(pos->stm);
+	Sq sq;
+	for(sq=0;sq<SqNB;++sq)
+		pos->data->attacksSq[sq]=BBAll;
+	pos->data->attacksColour[ColourWhite]=BBAll;
+	pos->data->attacksColour[ColourBlack]=BBAll;
+	pos->data->attacksAll=BBAll;
 
 	if (move!=MoveNone) {
 		Piece fromPiece=posGetPieceOnSq(pos, fromSq);
@@ -945,6 +954,13 @@ void posMirror(Pos *pos) {
 	pos->data->key=posComputeKey(pos);
 	pos->pawnKey=posComputePawnKey(pos);
 	pos->matKey=posComputeMatKey(pos);
+
+	// Reset attacks.
+	for(sq=0;sq<SqNB;++sq)
+		pos->data->attacksSq[sq]=BBAll;
+	pos->data->attacksColour[ColourWhite]=BBAll;
+	pos->data->attacksColour[ColourBlack]=BBAll;
+	pos->data->attacksAll=BBAll;
 }
 
 void posFlip(Pos *pos) {
@@ -988,6 +1004,68 @@ void posFlip(Pos *pos) {
 	pos->data->key=posComputeKey(pos);
 	pos->pawnKey=posComputePawnKey(pos);
 	pos->matKey=posComputeMatKey(pos);
+
+	// Reset attacks.
+	for(sq=0;sq<SqNB;++sq)
+		pos->data->attacksSq[sq]=BBAll;
+	pos->data->attacksColour[ColourWhite]=BBAll;
+	pos->data->attacksColour[ColourBlack]=BBAll;
+	pos->data->attacksAll=BBAll;
+}
+
+BB posGetAttacksSq(const Pos *pos, Sq sq) {
+	assert(posGetPieceOnSq(pos, sq)!=PieceNone);
+	// ++posGetAttacksSqTotal;
+
+	// If we do not already have the value computed, do so.
+	if (pos->data->attacksSq[sq]==BBAll) {
+		Pos *posMutable=(Pos *)pos;
+		Piece piece=posGetPieceOnSq(pos, sq);
+		BB occ=posGetBBAll(pos);
+		posMutable->data->attacksSq[sq]=attacksPiece(piece, sq, occ);
+	}
+
+	// Return computed value.
+	return pos->data->attacksSq[sq];
+}
+
+BB posGetAttacksColour(const Pos *pos, Colour colour) {
+	assert(colourIsValid(colour));
+
+	// If we do not already have the value computed, do so.
+	if (pos->data->attacksColour[colour]==BBAll) {
+		Pos *posMutable=(Pos *)pos;
+		posMutable->data->attacksColour[colour]=BBNone;
+
+		BB pawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colour));
+		posMutable->data->attacksColour[colour]|=bbWingify(bbForwardOne(pawns, colour));
+
+		Piece piece=pieceMake(PieceTypeKnight, colour);
+		Piece pieceEnd=pieceMake(PieceTypeKing, colour);
+		for(; piece<=pieceEnd; ++piece) {
+			const Sq *sq=posGetPieceListStart(pos, piece);
+			const Sq *sqEnd=posGetPieceListEnd(pos, piece);
+			for(; sq<sqEnd; ++sq) {
+				posMutable->data->attacksColour[colour]|=posGetAttacksSq(pos, *sq);
+			}
+		}
+	}
+
+	// Return computed value.
+	return pos->data->attacksColour[colour];
+}
+
+BB posGetAttacksAll(const Pos *pos) {
+	// If we do not already have the value computed, do so.
+	if (pos->data->attacksAll==BBAll) {
+		Pos *posMutable=(Pos *)pos;
+		BB attacksWhite=posGetAttacksColour(pos, ColourWhite);
+		BB attacksBlack=posGetAttacksColour(pos, ColourBlack);
+		posMutable->data->attacksAll=attacksWhite|attacksBlack;
+	}
+
+	// Return computed value.
+	return pos->data->attacksAll;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1014,6 +1092,12 @@ void posClean(Pos *pos) {
 	pos->data->capPiece=PieceNone;
 	pos->data->capSq=SqInvalid;
 	pos->data->key=0;
+	Sq sq;
+	for(sq=0;sq<SqNB;++sq)
+		pos->data->attacksSq[sq]=BBAll;
+	pos->data->attacksColour[ColourWhite]=BBAll;
+	pos->data->attacksColour[ColourBlack]=BBAll;
+	pos->data->attacksAll=BBAll;
 }
 
 void posPieceAdd(Pos *pos, Piece piece, Sq sq) {
@@ -1457,6 +1541,52 @@ bool posIsConsistent(const Pos *pos) {
 	if (matKey!=trueMatKey) {
 		sprintf(error, "Current mat key is %016"PRIxKey" while true key is %016"PRIxKey".\n",
 						matKey, trueMatKey);
+		goto Error;
+	}
+
+	// Test attacks arrays are not invalid.
+	BB trueAttacksColour[ColourNB];
+	trueAttacksColour[ColourWhite]=BBNone;
+	trueAttacksColour[ColourBlack]=BBNone;
+	BB trueAttacksAll=BBNone;
+	for(sq=0;sq<SqNB;++sq) {
+		// Calculate true attacks.
+		Piece piece=posGetPieceOnSq(pos, sq);
+		BB trueAttacks=BBNone;
+		if (piece!=PieceNone) {
+			trueAttacks=attacksPiece(piece, sq, posGetBBAll(pos));
+			trueAttacksColour[pieceGetColour(piece)]|=trueAttacks;
+			trueAttacksAll|=trueAttacks;
+		}
+
+		// If nothing cached for this sq, nothing to validate.
+		BB cachedAttacks=pos->data->attacksSq[sq];
+		if (cachedAttacks==BBAll)
+			continue;
+
+		// If cached set is not invalid but no piece on this sq, error.
+		if (piece==PieceNone) {
+			sprintf(error, "%c%c empty but attacksSq[%c%c] not BBAll.", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)), fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
+			goto Error;
+		}
+
+		// Check equality.
+		if (cachedAttacks!=trueAttacks) {
+			sprintf(error, "attacksSq[%c%c] incorrect.\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
+			goto Error;
+		}
+	}
+
+	Colour colour;
+	for(colour=0;colour<ColourNB;++colour) {
+		if (pos->data->attacksColour[colour]!=BBAll && pos->data->attacksColour[colour]!=trueAttacksColour[colour]) {
+			sprintf(error, "attacksColour[%s] incorrect.\n", colourToStr(colour));
+			goto Error;
+		}
+	}
+
+	if (pos->data->attacksAll!=BBAll && pos->data->attacksAll!=trueAttacksAll) {
+		sprintf(error, "attacksAll incorrect.\n");
 		goto Error;
 	}
 

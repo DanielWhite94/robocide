@@ -141,4 +141,9 @@ const char *posCastRightsToStr(CastRights castRights); // NOT thread-safe.
 void posMirror(Pos *pos);
 void posFlip(Pos *pos);
 
+// These three functions all take a const Pos * argument, but actually they subtly do modify it (caching the result). Having const in the prototype allows them to be called from many more functions.
+BB posGetAttacksSq(const Pos *pos, Sq sq);
+BB posGetAttacksColour(const Pos *pos, Colour colour);
+BB posGetAttacksAll(const Pos *pos);
+
 #endif

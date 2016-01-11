@@ -948,7 +948,7 @@ bool searchInteriorRecogBlocked(Node *node) {
 	BB set=blockers;
 	while(set) {
 		Sq sq=bbScanReset(&set);
-		defAttacks|=attacksPiece(posGetPieceOnSq(pos, sq), sq, occ);
+		defAttacks|=posGetAttacksSq(pos, sq);
 	}
 
 	// King fill.
@@ -967,7 +967,7 @@ bool searchInteriorRecogBlocked(Node *node) {
 	BB safe=~(occ | atkInfluence);
 	while(mobile) {
 		Sq sq=bbScanReset(&mobile);
-		BB attacks=attacksPiece(posGetPieceOnSq(pos, sq), sq, occ);
+		BB attacks=posGetAttacksSq(pos, sq);
 		if ((attacks & safe)!=BBNone)
 			return true;
 	}

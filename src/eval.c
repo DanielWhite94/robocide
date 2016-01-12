@@ -611,7 +611,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 							         mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBBishopL,1)) || // KBBvKB (bishop pair).
 							         mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBBishopD,1)) ||
 							         mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWBishopL,1)) ||
-							         mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWBishopL,1)) ||
+							         mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWBishopD,1)) ||
 							         mat==(M(PieceWBishopL,2)|M(PieceBBishopD,1)) ||  // KBBvKB (no bishop pair).
 							         mat==(M(PieceWBishopD,2)|M(PieceBBishopL,1)) ||
 							         mat==(M(PieceBBishopL,2)|M(PieceWBishopD,1)) ||

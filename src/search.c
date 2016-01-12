@@ -821,7 +821,48 @@ void searchOutputDepthPost(Node *node) {
 }
 
 bool searchIsZugzwang(const Node *node) {
-	return (node->inCheck || !posHasPieces(node->pos, posGetSTM(node->pos)));
+	Colour stm=posGetSTM(node->pos);
+
+	// If stm is in check or has no non-pawn pieces, could be zugzwang.
+	if (node->inCheck || !posHasPieces(node->pos, stm))
+		return true;
+
+	// Test stm has sufficient mobility.
+	const unsigned mobilityLimit=4;
+	unsigned mobility=0;
+	BB occ=posGetBBAll(node->pos);
+	BB notFriendly=~posGetBBColour(node->pos, stm);
+	BB opp=posGetBBColour(node->pos, colourSwap(stm));
+
+	// Forward pawn moves.
+	BB pawns=posGetBBPiece(node->pos, pieceMake(PieceTypePawn, stm));
+	BB pawnsForward=bbForwardOne(pawns, stm);
+	BB pawnMoves=pawnsForward & ~occ;
+	mobility+=bbPopCount(pawnMoves);
+	if (mobility>mobilityLimit)
+		return false;
+
+	// Pawn captures.
+	BB pawnAtks=bbWingify(pawnsForward) & opp;
+	mobility+=bbPopCount(pawnAtks);
+	if (mobility>mobilityLimit)
+		return false;
+
+	// Pieces.
+	Piece piece=pieceMake(PieceTypeKnight, stm);
+	Piece endPiece=pieceMake(PieceTypeKing, stm);
+	for(; piece<endPiece; ++piece) {
+		const Sq *sq=posGetPieceListStart(node->pos, piece);
+		const Sq *sqEnd=posGetPieceListEnd(node->pos, piece);
+		for(; sq<sqEnd; ++sq) {
+			BB attacks=attacksPiece(piece, *sq, occ) & notFriendly;
+			mobility+=bbPopCount(attacks);
+			if (mobility>mobilityLimit)
+				return false;
+		}
+	}
+
+	return true;
 }
 
 void searchNodePreCheck(Node *node) {

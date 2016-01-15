@@ -142,6 +142,9 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit) {
 	searchLimit=*limit;
 	searchDate=(searchDate+1)%DateMax;
 
+	if (searchLimit.nodes==0)
+		searchLimit.nodes=~0; // To avoid an extra searchLimit.nodes!=0 check in searchIsTimeUp().
+
 	// Decide how to use our time.
 	TimeMs searchTime=TimeMsInvalid;
 	if (searchLimit.totalTime!=TimeMsInvalid || searchLimit.incTime!=TimeMsInvalid) {
@@ -719,7 +722,7 @@ bool searchIsTimeUp(void) {
 		return true;
 
 	// Check node count.
-	if (searchLimit.nodes!=0 && searchNodeCount>=searchLimit.nodes)
+	if (searchNodeCount>=searchLimit.nodes)
 		goto timeup;
 
 	// Time to check the real clock?

@@ -510,6 +510,7 @@ void searchNodeInternal(Node *node) {
 			posMoveToStr(node->pos, move, moveStr); // Must do this before making the move.
 
 		// Make move (might leave us in check, if so skip).
+		MoveType moveType=posMoveGetType(node->pos, move);
 		if (!posMakeMove(node->pos, move))
 			continue;
 		++moveNumber;
@@ -518,9 +519,17 @@ void searchNodeInternal(Node *node) {
 		if (searchShowCurrmove && node->ply==0)
 			uciWrite("info depth %u currmove %s currmovenumber %u\n", node->depth, moveStr, moveNumber);
 
-		// PVS search
+		// Calculate child values.
 		child.inCheck=posIsSTMInCheck(node->pos);
-		child.depth=node->depth-!child.inCheck; // Check extension.
+
+		// Calculate search depth.
+		int extension=0, reduction=0;
+		extension+=child.inCheck; // Check extension;
+		if (extension==0 && !node->inCheck && !child.inCheck && !searchNodeIsPV(node) && node->depth>=3 && moveType==MoveTypeQuiet && moveNumber>4)
+			reduction+=1; // Late-move-reductions.
+		child.depth=node->depth-1+extension-reduction;
+
+		// PVS search
 		Score score;
 		if (alpha>node->alpha) {
 			// We have found a good move, try zero window search.
@@ -530,6 +539,7 @@ void searchNodeInternal(Node *node) {
 			// Research?
 			if (score>alpha && score<node->beta) {
 				child.alpha=-node->beta;
+				child.depth=node->depth-1+extension;
 				score=-searchNode(&child);
 				child.alpha=child.beta-1;
 			}

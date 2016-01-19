@@ -19,6 +19,7 @@ typedef enum {
 	SqA8,SqB8,SqC8,SqD8,SqE8,SqF8,SqG8,SqH8,
 	SqNB, SqInvalid=127
 } Sq;
+#define SqBit 7
 
 bool sqIsValid(Sq sq);
 

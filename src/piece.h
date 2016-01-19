@@ -40,6 +40,7 @@ typedef enum {
 	PieceBKing=(8|PieceTypeKing),
 	PieceNB=2*8
 } Piece;
+#define PieceBit 4
 
 bool pieceTypeIsValid(PieceType type);
 bool pieceIsValid(Piece piece);

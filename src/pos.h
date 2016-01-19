@@ -41,6 +41,7 @@ typedef enum {
 	CastRightsKQkq=CastRightsKQ | CastRightskq,
 	CastRightsNB=16
 } CastRights;
+#define CastRightsBit 4
 
 typedef uint64_t MatInfo; // Holds info on number of pieces.
 

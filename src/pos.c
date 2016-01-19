@@ -9,14 +9,19 @@
 #include "uci.h"
 #include "util.h"
 
+STATICASSERT(MoveBit<=16);
+STATICASSERT(PieceBit<=4);
+STATICASSERT(SqBit<=8);
+STATICASSERT(CastRightsBit<=8);
 typedef struct {
-	Move lastMove;
-	unsigned int halfMoveNumber;
-	Sq epSq;
-	CastRights cast;
-	Piece movePiece, capPiece;
-	Sq capSq;
 	Key key;
+	uint16_t lastMove;
+	uint16_t halfMoveNumber;
+	uint8_t epSq;
+	uint8_t capSq;
+	uint8_t cast;
+	uint8_t movePiece:4;
+	uint8_t capPiece:4;
 } PosData;
 
 struct Pos {

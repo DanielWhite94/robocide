@@ -21,6 +21,10 @@ typedef int32_t Value;
 typedef struct { Value mg, eg; } VPair;
 const VPair VPairZero={0,0};
 
+typedef int16_t Value16;
+typedef struct { Value16 mg, eg; } VPair16;
+const VPair16 VPair16Zero={0,0};
+
 typedef struct EvalData EvalData;
 
 typedef struct {
@@ -227,9 +231,14 @@ VPair evalVPairAdd(const VPair *a, const VPair *b);
 VPair evalVPairSub(const VPair *a, const VPair *b);
 VPair evalVPairNegation(const VPair *a);
 
+void evalVPairAddVPair16To(VPair *a, const VPair16 *b);
+void evalVPairSubVPair16From(VPair *a, const VPair16 *b);
+
 #ifdef TUNE
 void evalSetValue(void *varPtr, int value);
 bool evalOptionNewVPair(const char *name, VPair *score);
+void evalSetValue16(void *varPtr, int value);
+bool evalOptionNewVPair16(const char *name, VPair16 *score);
 #endif
 
 void evalRecalc(void);
@@ -918,6 +927,16 @@ VPair evalVPairNegation(const VPair *a) {
 	return result;
 }
 
+void evalVPairAddVPair16To(VPair *a, const VPair16 *b) {
+	a->mg+=b->mg;
+	a->eg+=b->eg;
+}
+
+void evalVPairSubVPair16From(VPair *a, const VPair16 *b) {
+	a->mg-=b->mg;
+	a->eg-=b->eg;
+}
+
 #ifdef TUNE
 void evalSetValue(void *varPtr, int value) {
 	// Set value.
@@ -957,6 +976,34 @@ bool evalOptionNewVPair(const char *name, VPair *score) {
 	success&=uciOptionNewSpin(fullName, &evalSetValue, &score->mg, min, max, score->mg);
 	sprintf(fullName, "%sEG", name);
 	success&=uciOptionNewSpin(fullName, &evalSetValue, &score->eg, min, max, score->eg);
+
+	free(fullName);
+	return success;
+}
+
+void evalSetValue16(void *varPtr, int value) {
+	// Set value.
+	Value16 *var=(Value16 *)varPtr;
+	*var=value;
+
+	// Recalculate dervied values (such as passed pawn table).
+	evalRecalc();
+}
+
+bool evalOptionNewVPair16(const char *name, VPair16 *score) {
+	// Allocate string to hold name with 'MG'/'EG' appended
+	size_t nameLen=strlen(name);
+	char *fullName=malloc(nameLen+2+1);
+	if (fullName==NULL)
+		return false;
+
+	// Add option for each of mg/eg
+	bool success=true;
+	const Value16 min=INT16_MIN, max=INT16_MAX;
+	sprintf(fullName, "%sMG", name);
+	success&=uciOptionNewSpin(fullName, &evalSetValue16, &score->mg, min, max, score->mg);
+	sprintf(fullName, "%sEG", name);
+	success&=uciOptionNewSpin(fullName, &evalSetValue16, &score->eg, min, max, score->eg);
 
 	free(fullName);
 	return success;

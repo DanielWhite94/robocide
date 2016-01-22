@@ -13,6 +13,7 @@ typedef enum {
 	EvalMatTypeKBPvK, // Lone king against pawns, and bishops of a single colour, each of any number.
 	EvalMatTypeNB
 } EvalMatType;
+#define EvalMatTypeBit 3
 
 void evalInit(void);
 void evalQuit(void);

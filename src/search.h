@@ -27,7 +27,8 @@ void searchInit(void);
 void searchQuit(void);
 
 void searchThink(const Pos *pos, const SearchLimit *limit, bool output);
-void searchStop(void);
+void searchStop(void); // Instruct search to stop as soon as possible and wait for it to finish.
+void searchWaitStop(void); // Wait for search to finish (but do not instruct it to finish immediately).
 
 void searchClear(void); // Clear any data search has collected (e.g. history tables).
 

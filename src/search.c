@@ -176,6 +176,10 @@ void searchStop(void) {
 	lockPost(searchActivity);
 
 	// Wait until actually finished.
+	searchWaitStop();
+}
+
+void searchWaitStop(void) {
 	threadWaitReady(searchThread);
 }
 

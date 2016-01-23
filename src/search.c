@@ -183,6 +183,20 @@ void searchWaitStop(void) {
 	threadWaitReady(searchThread);
 }
 
+unsigned long long int searchBenchmark(const Pos *pos, Depth depth) {
+	// Set search limit to given depth.
+	SearchLimit limit;
+	searchLimitInit(&limit, 0);
+	searchLimitSetDepth(&limit, depth);
+
+	// Search and wait to complete.
+	searchThink(pos, &limit, false);
+	searchWaitStop();
+
+	// Return node count.
+	return searchNodeCount;
+}
+
 void searchClear(void) {
 	// Clear history tables.
 	historyClear();

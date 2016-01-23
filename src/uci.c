@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "benchmark.h"
 #include "bitbase.h"
 #include "eval.h"
 #include "perft.h"
@@ -162,7 +163,7 @@ void uciLoop(void)
 			}
 
 			// Search.
-			searchThink(pos, &limit);
+			searchThink(pos, &limit, true);
 		} else if (utilStrEqual(part, "position")) {
 			// Get position (either 'startpos' or FEN string).
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
@@ -259,6 +260,8 @@ void uciLoop(void)
 			posMirror(pos);
 		else if (utilStrEqual(part, "flip"))
 			posFlip(pos);
+		else if (utilStrEqual(part, "benchmark"))
+			printf("nodes = %llu\n", benchmark());
 	}
 
 	// Clean up.

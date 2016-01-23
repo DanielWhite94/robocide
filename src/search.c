@@ -42,6 +42,7 @@ TimeMs searchNextRegularOutputTime;
 bool searchShowCurrmove;
 SearchLimit searchLimit;
 unsigned int searchDate; // Incremented after each searchThink() call.
+bool searchOutput;
 
 TUNECONST int searchNullReduction=1;
 TUNECONST int searchIIDMin=2;
@@ -124,7 +125,7 @@ void searchQuit(void) {
 	lockFree(searchActivity);
 }
 
-void searchThink(const Pos *srcPos, const SearchLimit *limit) {
+void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	// Make sure we are not already searching.
 	searchStop();
 
@@ -141,6 +142,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit) {
 	searchNextRegularOutputTime=0;
 	searchLimit=*limit;
 	searchDate=(searchDate+1)%DateMax;
+	searchOutput=output;
 
 	if (searchLimit.nodes==0)
 		searchLimit.nodes=~0; // To avoid an extra searchLimit.nodes!=0 check in searchIsTimeUp().
@@ -290,7 +292,7 @@ void searchIDLoop(void *posPtr) {
 	// Loop increasing search depth until we run out of 'time'.
 	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
 		// After 1s start showing 'currmove' info.
-		if (timeGet()>=searchLimit.startTime+1000)
+		if (searchOutput && timeGet()>=searchLimit.startTime+1000)
 			searchShowCurrmove=true;
 
 		// Output pre info.
@@ -331,18 +333,20 @@ void searchIDLoop(void *posPtr) {
 	while(searchLimit.infinite)
 		lockWait(searchActivity);
 
-	// Send best move (and potentially ponder move) to GUI.
-	char str[8];
-	posMoveToStr(node.pos, bestMove, str);
-	if (moveIsValid(ponderMove)) {
-		char str2[8];
-		posMakeMove(node.pos, bestMove);
-		posMoveToStr(node.pos, ponderMove, str2);
-		posUndoMove(node.pos);
-		uciWrite("bestmove %s ponder %s\n", str, str2);
+	if (searchOutput) {
+		// Send best move (and potentially ponder move) to GUI.
+		char str[8];
+		posMoveToStr(node.pos, bestMove, str);
+		if (moveIsValid(ponderMove)) {
+			char str2[8];
+			posMakeMove(node.pos, bestMove);
+			posMoveToStr(node.pos, ponderMove, str2);
+			posUndoMove(node.pos);
+			uciWrite("bestmove %s ponder %s\n", str, str2);
+		}
+		else
+			uciWrite("bestmove %s\n", str);
 	}
-	else
-		uciWrite("bestmove %s\n", str);
 
 	// Free memory.
 	posFree(node.pos);
@@ -773,6 +777,9 @@ bool searchIsTimeUp(void) {
 }
 
 void searchOutputRegular(void) {
+	if (!searchOutput)
+		return;
+
 	TimeMs time=timeGet()-searchLimit.startTime;
 	uciWrite("info nodes %llu time %llu", (unsigned long long int)searchNodeCount, (unsigned long long int)time);
 	if (time>0)
@@ -781,12 +788,18 @@ void searchOutputRegular(void) {
 }
 
 void searchOutputDepthPre(Node *node) {
+	if (!searchOutput)
+		return;
+
 	uciWrite("info depth %u\n", (unsigned int)node->depth);
 }
 
 void searchOutputDepthPost(Node *node) {
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
+
+	if (!searchOutput)
+		return;
 
 	// Various bits of data
 	TimeMs time=timeGet()-searchLimit.startTime;

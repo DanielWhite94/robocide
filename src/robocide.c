@@ -11,7 +11,7 @@
 #include "tt.h"
 #include "uci.h"
 
-int main() {
+int main(int argc, char **argv) {
 	bbInit();
 	attacksInit();
 	bitbaseInit();

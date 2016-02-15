@@ -6,7 +6,7 @@
 #include "eval.h"
 #include "history.h"
 #include "killers.h"
-#include "robocide.h"
+#include "main.h"
 #include "score.h"
 #include "search.h"
 #include "see.h"

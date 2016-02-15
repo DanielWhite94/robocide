@@ -6,7 +6,7 @@
 #include "bb.h"
 #include "bitbase.h"
 #include "colour.h"
-#include "robocide.h"
+#include "main.h"
 #include "square.h"
 #include "util.h"
 

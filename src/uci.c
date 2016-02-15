@@ -8,7 +8,7 @@
 #include "eval.h"
 #include "perft.h"
 #include "pos.h"
-#include "robocide.h"
+#include "main.h"
 #include "moves.h"
 #include "search.h"
 #include "see.h"

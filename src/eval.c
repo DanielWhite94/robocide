@@ -11,7 +11,7 @@
 #include "colour.h"
 #include "eval.h"
 #include "htable.h"
-#include "robocide.h"
+#include "main.h"
 #include "piece.h"
 #include "square.h"
 #include "tune.h"

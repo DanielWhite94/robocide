@@ -317,7 +317,7 @@ Key posGetMatKey(const Pos *pos) {
 
 MatInfo posGetMatInfo(const Pos *pos) {
 	// Grab piece offsets and subtract 'base' to give literal piece counts.
-	const MatInfo *pieceListNext=((MatInfo *)pos->pieceListNext);
+	const MatInfo *pieceListNext=((const MatInfo *)pos->pieceListNext);
 	MatInfo white=pieceListNext[ColourWhite]-0x7060504030201000llu;
 	MatInfo black=pieceListNext[ColourBlack]-0xF0E0D0C0B0A09080llu;
 

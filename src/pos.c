@@ -262,6 +262,9 @@ void posDraw(const Pos *pos) {
 	uciWrite("Base hash key: %016"PRIxKey"\n", posGetKey(pos));
 	uciWrite("Pawn hash key: %016"PRIxKey"\n", posGetPawnKey(pos));
 	uciWrite("Material hash key: %016"PRIxKey"\n", posGetMatKey(pos));
+	char fen[128];
+	posGetFEN(pos, fen);
+	uciWrite("FEN string: %s\n", fen);
 }
 
 Colour posGetSTM(const Pos *pos) {

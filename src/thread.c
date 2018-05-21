@@ -87,10 +87,6 @@ void threadRun(Thread *thread, void (*function)(void *userData), void *userData)
 	lockPost(thread->runFlag);
 }
 
-bool threadIsReady(Thread *thread) {
-	return (lockGetValue(thread->lock)>0);
-}
-
 void threadWaitReady(Thread *thread) {
 	// Simply wait for lock (i.e. thread is free), then restore.
 	lockWait(thread->lock);
@@ -129,13 +125,6 @@ void lockPost(Lock *lock) {
 
 bool lockTryWait(Lock *lock) {
 	return (sem_trywait(&lock->lock)==0);
-}
-
-unsigned int lockGetValue(Lock *lock) {
-	int ret;
-	if (sem_getvalue(&lock->lock, &ret)==0)
-		return (ret>=0 ? ret : 0); // POSIX allows ret to be negative but we don't rely on it.
-	return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

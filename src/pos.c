@@ -303,6 +303,10 @@ unsigned int posGetHalfMoveNumber(const Pos *pos) {
 	return pos->data->halfMoveNumber;
 }
 
+unsigned int posGetFullMoveNumber(const Pos *pos) {
+	return pos->fullMoveNumber;
+}
+
 Key posGetKey(const Pos *pos) {
 	return pos->data->key;
 }

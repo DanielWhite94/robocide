@@ -198,7 +198,7 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	// Parse FEN.
 	Fen fen;
 	if (string==NULL) {
-		if (!fenRead(&fen, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"))
+		if (!fenRead(&fen, posStartFEN))
 			return false;
 	} else if (!fenRead(&fen, string))
 		return false;

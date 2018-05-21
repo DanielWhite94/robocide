@@ -31,7 +31,7 @@ typedef struct {
 #define ttClusterSize (4u)
 typedef struct {
 	TTEntry entries[ttClusterSize];
-}TTCluster;
+} TTCluster;
 
 HTable *tt=NULL;
 
@@ -213,12 +213,12 @@ bool ttEntryUnused(const TTEntry *entry) {
 }
 
 unsigned int ttEntryFitness(unsigned int age, Depth depth, bool exact) {
-  // Evaluate how 'fit' an entry is to be replaced.
-  // Based on the following factors, in order:
-  // * Match/unused - if entry is a match or unused it is immediately chosen.
-  // * Age - prefer replacing older entries over new ones.
-  // * Depth - prefer replacing shallower entries over deeper ones.
-  // * Bound - prefer exact bounds to upper- or lower-bounds.
+	// Evaluate how 'fit' an entry is to be replaced.
+	// Based on the following factors, in order:
+	// * Match/unused - if entry is a match or unused it is immediately chosen.
+	// * Age - prefer replacing older entries over new ones.
+	// * Depth - prefer replacing shallower entries over deeper ones.
+	// * Bound - prefer exact bounds to upper- or lower-bounds.
 	assert(depthIsValid(depth));
 	assert(exact==0 || exact==1);
 	return 2*DepthMax*age+2*(DepthMax-1-depth)+(1-exact);

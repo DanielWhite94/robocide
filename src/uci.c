@@ -64,7 +64,7 @@ typedef struct {
 UciOption *uciOptions=NULL;
 size_t uciOptionCount=0;
 
-const char uciBoolToString[2][8]={[false]="false", [true]="true"};
+const char *uciBoolToString[2]={[false]="false", [true]="true"};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.
@@ -87,8 +87,7 @@ bool uciStringToBool(const char *string);
 // Public functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-void uciLoop(void)
-{
+void uciLoop(void) {
 	// Turn off output buffering (saves us having to call fflush() after every
 	// output).
 	if (setvbuf(stdout, NULL, _IOLBF, 0)!=0)

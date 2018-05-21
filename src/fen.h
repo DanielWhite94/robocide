@@ -19,4 +19,6 @@ typedef struct {
 bool fenRead(Fen *data, const char *string);
 void fenWrite(Fen *data, char string[static 128]);
 
+void fenFromPos(Fen *data, const Pos *pos);
+
 #endif

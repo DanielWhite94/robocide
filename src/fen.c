@@ -164,3 +164,17 @@ void fenWrite(Fen *data, char string[static 128]) {
 	sprintf(tempStr, " %i %i", data->halfMoveNumber, data->fullMoveNumber);
 	strcat(string, tempStr);
 }
+
+void fenFromPos(Fen *data, const Pos *pos) {
+	assert(data!=NULL);
+	assert(pos!=NULL);
+
+	Sq sq;
+	for(sq=0; sq<SqNB; ++sq)
+		data->array[sq]=posGetPieceOnSq(pos, sq);
+	data->stm=posGetSTM(pos);
+	data->castRights=posGetCastRights(pos);
+	data->epSq=posGetEPSq(pos);
+	data->halfMoveNumber=posGetHalfMoveNumber(pos);
+	data->fullMoveNumber=posGetFullMoveNumber(pos);
+}

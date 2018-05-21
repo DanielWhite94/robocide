@@ -376,9 +376,6 @@ void searchIDLoop(void *userData) {
 			uciWrite("bestmove %s\n", str);
 	}
 
-	// Free memory.
-	posFree(node.pos);
-
 	// Age history table.
 	historyAge();
 

@@ -140,16 +140,18 @@ void posInit(void) {
 }
 
 Pos *posNew(const char *gfen) {
+	const size_t initialPosDataSize=64;
+
 	// Create clean position.
 	Pos *pos=malloc(sizeof(Pos));
-	PosData *posData=malloc(sizeof(PosData));
+	PosData *posData=malloc(initialPosDataSize*sizeof(PosData));
 	if (pos==NULL || posData==NULL) {
 		free(pos);
 		free(posData);
 		return NULL;
 	}
 	pos->dataStart=posData;
-	pos->dataEnd=posData+1;
+	pos->dataEnd=posData+initialPosDataSize;
 
 	// If no FEN given use initial position.
 	const char *fen=(gfen!=NULL ? gfen : posStartFEN);
@@ -190,21 +192,30 @@ bool posCopy(Pos *dest, const Pos *src) {
 	assert(src!=NULL);
 
 	// Allocate more memory if needed
-	size_t dataSize=(src->dataEnd-src->dataStart);
-	PosData *newPosData=realloc(dest->dataStart, dataSize*sizeof(PosData));
-	if (newPosData==NULL) {
-		free(newPosData);
-		return false;
+	size_t srcDataSize=(src->dataEnd-src->dataStart);
+	size_t destDataSize=(dest->dataEnd-dest->dataStart);
+	size_t newDataSize;
+	PosData *newPosData;
+	if (srcDataSize>destDataSize) {
+		newDataSize=srcDataSize;
+		newPosData=realloc(dest->dataStart, newDataSize*sizeof(PosData));
+		if (newPosData==NULL) {
+			free(newPosData);
+			return false;
+		}
+	} else {
+		newDataSize=destDataSize;
+		newPosData=dest->dataStart;
 	}
 
 	// Set data
 	*dest=*src;
 
 	dest->dataStart=newPosData;
-	dest->dataEnd=newPosData+dataSize;
-	size_t dataLen=(src->data-src->dataStart);
-	dest->data=newPosData+dataLen;
-	memcpy(dest->dataStart, src->dataStart, (dataLen+1)*sizeof(PosData));
+	dest->dataEnd=newPosData+newDataSize;
+	size_t srcDataLen=(src->data-src->dataStart);
+	dest->data=newPosData+srcDataLen;
+	memcpy(dest->dataStart, src->dataStart, (srcDataLen+1)*sizeof(PosData));
 
 	assert(posIsConsistent(dest));
 

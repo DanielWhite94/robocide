@@ -11,9 +11,6 @@
 #define STATICASSERT2(pre,post) STATICASSERT3(pre,post)
 #define STATICASSERT(cond) typedef struct { int static_assertion_failed : !!(cond); } STATICASSERT2(static_assertion_failed_,__COUNTER__)
 
-uint64_t utilNextPowTwo64(uint64_t x);
-bool utilIsPowTwo64(uint64_t x);
-
 bool utilStrEqual(const char *a, const char *b);
 
 void utilRandSeed(uint64_t seed);

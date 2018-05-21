@@ -163,6 +163,21 @@ Pos *posNew(const char *gfen) {
 	return pos;
 }
 
+Pos *posNewFromPos(const Pos *src) {
+	assert(src!=NULL);
+
+	Pos *pos=posNew(NULL);
+	if (pos==NULL)
+		return NULL;
+
+	if (!posCopy(pos, src)) {
+		posFree(pos);
+		return NULL;
+	}
+
+	return pos;
+}
+
 void posFree(Pos *pos) {
 	if (pos==NULL)
 		return;
@@ -170,28 +185,30 @@ void posFree(Pos *pos) {
 	free(pos);
 }
 
-Pos *posCopy(const Pos *src) {
-	// Allocate memory
-	Pos *pos=malloc(sizeof(Pos));
+bool posCopy(Pos *dest, const Pos *src) {
+	assert(dest!=NULL);
+	assert(src!=NULL);
+
+	// Allocate more memory if needed
 	size_t dataSize=(src->dataEnd-src->dataStart);
-	PosData *posData=malloc(dataSize*sizeof(PosData));
-	if (pos==NULL || posData==NULL) {
-		free(pos);
-		free(posData);
-		return NULL;
+	PosData *newPosData=realloc(dest->dataStart, dataSize*sizeof(PosData));
+	if (newPosData==NULL) {
+		free(newPosData);
+		return false;
 	}
 
 	// Set data
-	*pos=*src;
-	pos->dataStart=posData;
-	pos->dataEnd=posData+dataSize;
+	*dest=*src;
+
+	dest->dataStart=newPosData;
+	dest->dataEnd=newPosData+dataSize;
 	size_t dataLen=(src->data-src->dataStart);
-	pos->data=posData+dataLen;
-	memcpy(pos->dataStart, src->dataStart, (dataLen+1)*sizeof(PosData));
+	dest->data=newPosData+dataLen;
+	memcpy(dest->dataStart, src->dataStart, (dataLen+1)*sizeof(PosData));
 
-	assert(posIsConsistent(pos));
+	assert(posIsConsistent(dest));
 
-	return pos;
+	return true;
 }
 
 bool posSetToFEN(Pos *pos, const char *string) {

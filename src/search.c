@@ -37,6 +37,7 @@ unsigned long long int searchNodeCount; // Number of nodes entered since beginni
 unsigned long long int searchNodeNext; // Node count at which we should next check the time.
 bool searchStopFlag;
 Lock *searchActivity=NULL; // Once reached depth limit, search will wait for this before printing bestmove command.
+Pos *searchPos=NULL;
 TimeMs searchEndTime;
 TimeMs searchNextRegularOutputTime;
 bool searchShowCurrmove;
@@ -102,6 +103,11 @@ void searchInit(void) {
 	if (searchActivity==NULL)
 		mainFatalError("Error: Could not init lock for search.\n");
 
+	// Create position
+	searchPos=posNew(NULL);
+	if (searchPos==NULL)
+		mainFatalError("Error: Could not create position for search.\n");
+
 	// Set all structures to clean state.
 	searchClear();
 
@@ -120,6 +126,9 @@ void searchQuit(void) {
 	// If searching, signal to stop and wait until done.
 	searchStop();
 
+	// Free position
+	posFree(searchPos);
+
 	// Free the worker thread and lock;
 	threadFree(searchThread);
 	lockFree(searchActivity);
@@ -130,8 +139,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	searchStop();
 
 	// Prepare for search.
-	Pos *pos=posCopy(srcPos);
-	if (pos==NULL)
+	if (!posCopy(searchPos, srcPos))
 		return;
 	searchNodeCount=0;
 	searchNodeNext=1;
@@ -166,7 +174,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 		searchEndTime=searchLimit.startTime+searchTime;
 
 	// Set away worker
-	threadRun(searchThread, &searchIDLoop, (void *)pos);
+	threadRun(searchThread, &searchIDLoop, NULL);
 }
 
 void searchStop(void) {
@@ -298,10 +306,12 @@ void searchLimitAddMove(SearchLimit *limit, Move move) {
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-void searchIDLoop(void *posPtr) {
+void searchIDLoop(void *userData) {
+	assert(userData==NULL);
+
 	// Make node structure for root node.
 	Node node;
-	node.pos=(Pos *)posPtr;
+	node.pos=searchPos;
 	node.ply=0;
 	node.alpha=-ScoreInf;
 	node.beta=ScoreInf;

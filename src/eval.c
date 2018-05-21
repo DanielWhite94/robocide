@@ -334,7 +334,7 @@ void evalQuit(void) {
 Score evaluate(const Pos *pos) {
 	Score score=evaluateInternal(pos);
 #	ifndef NDEBUG
-	Pos *scratchPos=posCopy(pos);
+	Pos *scratchPos=posNewFromPos(pos);
 	posMirror(scratchPos);
 	Score scoreM=evaluateInternal(scratchPos);
 	posFlip(scratchPos);

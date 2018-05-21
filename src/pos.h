@@ -73,9 +73,10 @@ typedef uint64_t Key;
 void posInit(void);
 
 Pos *posNew(const char *fen); // If fen is NULL uses standard initial position.
+Pos *posNewFromPos(const Pos *src);
 void posFree(Pos *pos);
 
-Pos *posCopy(const Pos *src);
+bool posCopy(Pos *dest, const Pos *src);
 
 bool posSetToFEN(Pos *pos, const char *string); // If fails pos is unchanged.
 void posGetFEN(const Pos *pos, char string[static 128]);

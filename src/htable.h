@@ -4,9 +4,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define HTableKeySize 32 // Only lower 32 bits are used, limiting maximum number of entries
+#define HTableMaxEntryCount ((1llu)<<(HTableKeySize))
+
 typedef struct HTable HTable;
 
-HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb); // entrySize must be a power of two, sizeMb>0.
+HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb);
 void htableFree(HTable *table);
 
 bool htableResize(HTable *table, unsigned int sizeMb); // SizeMb>0.

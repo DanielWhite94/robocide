@@ -36,7 +36,9 @@ typedef struct {
 HTable *tt=NULL;
 
 const size_t ttDefaultSizeMb=16;
-const size_t ttMaxSizeMb=1024*1024; // 1tb.
+#define ttMaxClusters HTableMaxEntryCount // 2^32
+#define ttMaxEntries (ttMaxClusters*ttClusterSize) // 2^34
+const size_t ttMaxSizeMb=(ttMaxClusters*sizeof(TTCluster))/(1024*1024); // 192gb
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.

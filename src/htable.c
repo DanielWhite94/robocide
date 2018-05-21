@@ -7,7 +7,7 @@
 
 struct HTable {
 	size_t entrySize;
-	uint64_t mask;
+	size_t entryCount;
 	void *nullEntry;
 	void *entries;
 };
@@ -16,7 +16,7 @@ struct HTable {
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-size_t htableSize(const HTable *table); // number of entries.
+size_t htableGetEntryCount(const HTable *table);
 
 void *htableIndexToEntry(HTable *table, uint64_t index);
 void *htableKeyToEntry(HTable *table, uint64_t key);
@@ -27,7 +27,6 @@ void *htableKeyToEntry(HTable *table, uint64_t key);
 
 HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb) {
 	// Sanity checks.
-	assert(utilIsPowTwo64(sizeof(entrySize)));
 	assert(sizeMb>0);
 
 	// Allocate memory.
@@ -41,7 +40,7 @@ HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb) 
 
 	// Set state.
 	table->entrySize=entrySize;
-	table->mask=0;
+	table->entryCount=0;
 	table->nullEntry=nullEntryMem;
 	memcpy(table->nullEntry, nullEntry, entrySize);
 	table->entries=NULL;
@@ -63,24 +62,31 @@ void htableFree(HTable *table) {
 
 bool htableResize(HTable *table, unsigned int sizeMb) {
 	// Sanity checks.
+	assert(table!=NULL);
 	assert(sizeMb>0);
 
-	// Calculate greatest power of two number of entries we can fit in sizeMb.
-	uint64_t entries=(((uint64_t)sizeMb)*1024llu*1024llu)/table->entrySize;
-	entries=utilNextPowTwo64(entries+1)/2;
+	// Calculate greatest number of entries we can fit in sizeMb (limited by 32 bit key).
+	uint64_t entryCount=(((uint64_t)sizeMb)*1024llu*1024llu)/table->entrySize;
+	if (entryCount>HTableMaxEntryCount)
+		entryCount=HTableMaxEntryCount;
 
 	// Attempt to allocate table.
-	while(entries>0) {
-		void *ptr=realloc(table->entries, entries*table->entrySize);
+	while(entryCount>0) {
+		// Attempt to resize.
+		void *ptr=realloc(table->entries, entryCount*table->entrySize);
 		if (ptr!=NULL) {
-			// Success.
+			// Success - update and clear as indexing scheme will be different.
 			table->entries=ptr;
-			table->mask=entries-1;
+			table->entryCount=entryCount;
 			htableClear(table);
+
 			return true;
 		}
-		entries/=2;
+
+		// Try again with half as many entries.
+		entryCount/=2;
 	}
+
 	return false;
 }
 
@@ -89,8 +95,8 @@ void htableResizeInterface(void *table, int sizeMb) {
 }
 
 void htableClear(HTable *table) {
-	size_t i, size=htableSize(table);
-	for(i=0;i<size;++i)
+	size_t i, entryCount=htableGetEntryCount(table);
+	for(i=0;i<entryCount;++i)
 		memcpy(htableIndexToEntry(table, i), table->nullEntry, table->entrySize);
 }
 
@@ -110,15 +116,17 @@ void htableRelease(HTable *table, uint64_t key) {
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-size_t htableSize(const HTable *table) {
-	return (table->mask+1);
+size_t htableGetEntryCount(const HTable *table) {
+	return table->entryCount;
 }
 
 void *htableIndexToEntry(HTable *table, uint64_t index) {
-	assert(index<htableSize(table));
+	assert(index<htableGetEntryCount(table));
 	return ((void *)(((char *)table->entries)+(index*table->entrySize)));
 }
 
 void *htableKeyToEntry(HTable *table, uint64_t key) {
-	return htableIndexToEntry(table, key & table->mask);
+	key=((key & 0xFFFFFFFFllu)*table->entryCount)>>32;
+	assert(key<htableGetEntryCount(table));
+	return htableIndexToEntry(table, key);
 }

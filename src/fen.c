@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -97,4 +98,69 @@ bool fenRead(Fen *data, const char *string) {
 		data->fullMoveNumber=atoi(fields[5]);
 
 	return true;
+}
+
+void fenWrite(Fen *data, char string[static 128]) {
+	assert(data!=NULL);
+
+	char tempStr[64];
+	string[0]='\0';
+
+	// 1. Piece placement.
+	int x, y;
+	for(y=7; y>=0; --y) {
+		int gap=0;
+		for(x=0; x<8; ++x) {
+			Sq sq=sqMake(x, y);
+			if (data->array[sq]==PieceNone) {
+				++gap;
+				continue;
+			}
+
+			if (gap>0) {
+				sprintf(tempStr, "%i", gap);
+				strcat(string, tempStr);
+				gap=0;
+			}
+
+			sprintf(tempStr, "%c", pieceToChar(data->array[sq]));
+			strcat(string, tempStr);
+		}
+
+		if (gap>0) {
+			sprintf(tempStr, "%i", gap);
+			strcat(string, tempStr);
+		}
+
+		if (y!=0)
+			strcat(string, "/");
+	}
+
+	// 2. Active colour.
+	strcat(string, (data->stm==ColourWhite ? " w" : " b"));
+
+	// 3. Castling availability.
+	strcat(string, " ");
+	if (data->castRights!=CastRightsNone) {
+		if (data->castRights & CastRightsK)
+			strcat(string, "K");
+		if (data->castRights & CastRightsQ)
+			strcat(string, "Q");
+		if (data->castRights & CastRightsk)
+			strcat(string, "k");
+		if (data->castRights & CastRightsq)
+			strcat(string, "q");
+	} else
+		strcat(string, "-");
+
+	// 4. En passent target square.
+	if (data->epSq!=SqInvalid) {
+		sprintf(tempStr, " %c%c", fileToChar(sqFile(data->epSq)), rankToChar(sqRank(data->epSq)));
+		strcat(string, tempStr);
+	} else
+		strcat(string, " -");
+
+	// 5 & 6. Halfmove and fullmove numbers.
+	sprintf(tempStr, " %i %i", data->halfMoveNumber, data->fullMoveNumber);
+	strcat(string, tempStr);
 }

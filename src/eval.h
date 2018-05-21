@@ -24,6 +24,6 @@ void evalClear(void); // Clear all saved data (called when we receive 'ucinewgam
 
 EvalMatType evalGetMatType(const Pos *pos);
 
-const char *evalMatTypeToStr(EvalMatType matType); // NOT thread-safe.
+const char *evalMatTypeToStr(EvalMatType matType);
 
 #endif

@@ -224,6 +224,14 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	return true;
 }
 
+void posGetFEN(const Pos *pos, char string[static 128]) {
+	assert(pos!=NULL);
+
+	Fen fenData;
+	fenFromPos(&fenData, pos);
+	fenWrite(&fenData, string);
+}
+
 void posDraw(const Pos *pos) {
 	// Header.
 	uciWrite("Position:\n");

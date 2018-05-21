@@ -78,6 +78,7 @@ void posFree(Pos *pos);
 Pos *posCopy(const Pos *src);
 
 bool posSetToFEN(Pos *pos, const char *string); // If fails pos is unchanged.
+void posGetFEN(const Pos *pos, char string[static 128]);
 
 void posDraw(const Pos *pos);
 

@@ -16,13 +16,12 @@ STATICASSERT(DepthBit<=8);
 STATICASSERT(BoundBit<=2);
 STATICASSERT(DateBit<=6);
 typedef struct {
-	uint32_t keyUpper;
+	uint16_t keyUpper;
 	uint16_t move;
 	int16_t score;
 	uint8_t depth;
 	uint8_t bound:2;
 	uint8_t date:6; // Search date at the time the entry was last read/written, used to calculate entry age.
-	uint16_t padding;
 } TTEntry;
 
 // Group ttClusterSize number of entries into each 'bin'.
@@ -150,7 +149,7 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 		// instead been written to this unused entry).
 		if (ttEntryMatch(pos, entry) || ttEntryUnused(entry)) {
 			// Set key (in case entry was previously unused).
-			entry->keyUpper=(key>>32);
+			entry->keyUpper=(key>>48);
 
 			// Update entry date (to reset age to 0).
 			entry->date=searchGetDate();
@@ -179,7 +178,7 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 	}
 
 	// Replace entry.
-	replace->keyUpper=(key>>32);
+	replace->keyUpper=(key>>48);
 	replace->move=move;
 	replace->score=ttScoreIn(score, ply);
 	replace->depth=depth;
@@ -213,7 +212,7 @@ unsigned int ttFull(void) {
 
 bool ttEntryMatch(const Pos *pos, const TTEntry *entry) {
 	// Key match and move psueudo-legal?
-	return (entry->keyUpper==(posGetKey(pos)>>32) && posMoveIsPseudoLegal(pos, entry->move));
+	return (entry->keyUpper==(posGetKey(pos)>>48) && posMoveIsPseudoLegal(pos, entry->move));
 }
 
 bool ttEntryUnused(const TTEntry *entry) {

@@ -46,9 +46,13 @@ const size_t ttMaxSizeMb=(ttMaxClusters*sizeof(TTCluster))/(1024*1024); // 192gb
 
 bool ttEntryMatch(const Pos *pos, const TTEntry *entry);
 bool ttEntryUnused(const TTEntry *entry);
+
 unsigned int ttEntryFitness(unsigned int age, Depth depth, bool exact);
+
 Score ttScoreOut(Score score, Depth ply);
 Score ttScoreIn(Score score, Depth ply);
+
+HTableKey ttHTableKeyFromPos(const Pos *pos);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
@@ -86,8 +90,8 @@ void ttClear(void) {
 
 bool ttRead(const Pos *pos, Depth ply, Move *move, Depth *depth, Score *score, Bound *bound) {
 	// Grab cluster.
-	uint64_t key=posGetKey(pos);
-	TTCluster *cluster=htableGrab(tt, key);
+	HTableKey hTableKey=ttHTableKeyFromPos(pos);
+	TTCluster *cluster=htableGrab(tt, hTableKey);
 
 	// Loop over entries in cluster looking for a match.
 	unsigned int i;
@@ -103,13 +107,13 @@ bool ttRead(const Pos *pos, Depth ply, Move *move, Depth *depth, Score *score, B
 			*score=ttScoreOut(entry->score, ply);
 			*bound=entry->bound;
 
-			htableRelease(tt, key);
+			htableRelease(tt, hTableKey);
 
 			return true;
 		}
 
 	// No match.
-	htableRelease(tt, key);
+	htableRelease(tt, hTableKey);
 	return false;
 }
 
@@ -130,9 +134,11 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 	assert(scoreIsValid(score));
 	assert(bound!=BoundNone);
 
-	// Grab cluster.
 	uint64_t key=posGetKey(pos);
-	TTCluster *cluster=htableGrab(tt, key);
+
+	// Grab cluster.
+	HTableKey hTableKey=ttHTableKeyFromPos(pos);
+	TTCluster *cluster=htableGrab(tt, hTableKey);
 
 	// Find entry to overwrite.
 	TTEntry *entry, *replace=cluster->entries;
@@ -160,7 +166,7 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 				entry->bound=bound;
 			}
 
-			htableRelease(tt, key);
+			htableRelease(tt, hTableKey);
 			return;
 		}
 
@@ -180,7 +186,7 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 	replace->bound=bound;
 	replace->date=searchGetDate();
 
-	htableRelease(tt, key);
+	htableRelease(tt, hTableKey);
 }
 
 unsigned int ttFull(void) {
@@ -240,4 +246,11 @@ Score ttScoreIn(Score score, Depth ply) {
 		return (score>0 ? score+ply : score-ply); // Adjust to distance from this node [to mate].
 	else
 		return score;
+}
+
+HTableKey ttHTableKeyFromPos(const Pos *pos) {
+	assert(pos!=NULL);
+
+	STATICASSERT(HTableKeySize==32);
+	return posGetKey(pos)&0xFFFFFFFFu; // Use lower 32 bits
 }

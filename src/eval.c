@@ -213,9 +213,11 @@ VPair evaluateKPvK(EvalData *data);
 
 void evalGetMatData(const Pos *pos, EvalMatData *matData);
 void evalComputeMatData(const Pos *pos, EvalMatData *matData);
+HTableKey evalGetMatDataHTableKeyFromPos(const Pos *pos);
 
 void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData);
 void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData);
+HTableKey evalGetPawnDataHTableKeyFromPos(const Pos *pos);
 
 VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour);
 
@@ -362,8 +364,8 @@ void evalClear(void) {
 
 EvalMatType evalGetMatType(const Pos *pos) {
 	// Grab hash entry for this position key
-	uint64_t key=(uint64_t)posGetMatKey(pos);
-	EvalMatData *entry=htableGrab(evalMatTable, key);
+	HTableKey hTableKey=evalGetMatDataHTableKeyFromPos(pos);
+	EvalMatData *entry=htableGrab(evalMatTable, hTableKey);
 
 	// If not a match clear entry
 	MatInfo mat=posGetMatInfo(pos);
@@ -381,7 +383,7 @@ EvalMatType evalGetMatType(const Pos *pos) {
 	EvalMatType type=entry->type;
 
 	// We are finished with Entry, release lock
-	htableRelease(evalMatTable, key);
+	htableRelease(evalMatTable, hTableKey);
 
 	return type;
 }
@@ -497,8 +499,8 @@ VPair evaluateKPvK(EvalData *data) {
 
 void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 	// Grab hash entry for this position key.
-	uint64_t key=(uint64_t)posGetMatKey(pos);
-	EvalMatData *entry=htableGrab(evalMatTable, key);
+	HTableKey hTableKey=evalGetMatDataHTableKeyFromPos(pos);
+	EvalMatData *entry=htableGrab(evalMatTable, hTableKey);
 
 	// If not a match clear entry
 	MatInfo mat=posGetMatInfo(pos);
@@ -518,7 +520,7 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 	*matData=*entry;
 
 	// We are finished with entry, release lock.
-	htableRelease(evalMatTable, key);
+	htableRelease(evalMatTable, hTableKey);
 }
 
 void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
@@ -749,10 +751,17 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 #	undef M
 }
 
+HTableKey evalGetMatDataHTableKeyFromPos(const Pos *pos) {
+	assert(pos!=NULL);
+
+	STATICASSERT(HTableKeySize==32);
+	return posGetMatKey(pos)&0xFFFFFFFFu; // Use lower 32 bits
+}
+
 void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData) {
 	// Grab hash entry for this position key.
-	uint64_t key=(uint64_t)posGetPawnKey(pos);
-	EvalPawnData *entry=htableGrab(evalPawnTable, key);
+	HTableKey hTableKey=evalGetPawnDataHTableKeyFromPos(pos);
+	EvalPawnData *entry=htableGrab(evalPawnTable, hTableKey);
 
 	// If not a match recompute data.
 	if (entry->pawns[ColourWhite]!=posGetBBPiece(pos, PieceWPawn) ||
@@ -763,7 +772,7 @@ void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData) {
 	*pawnData=*entry;
 
 	// We are finished with Entry, release lock.
-	htableRelease(evalPawnTable, key);
+	htableRelease(evalPawnTable, hTableKey);
 
 	// Compute terms which depend on other (non-pawn) aspects of the position, hence cannot be hashed.
 	BB occ=posGetBBAll(pos);
@@ -816,6 +825,13 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][*sq]);
 		}
 	}
+}
+
+HTableKey evalGetPawnDataHTableKeyFromPos(const Pos *pos) {
+	assert(pos!=NULL);
+
+	STATICASSERT(HTableKeySize==32);
+	return posGetPawnKey(pos)&0xFFFFFFFFu;
 }
 
 VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {

@@ -19,7 +19,7 @@ struct HTable {
 size_t htableGetEntryCount(const HTable *table);
 
 void *htableIndexToEntry(HTable *table, uint64_t index);
-void *htableKeyToEntry(HTable *table, uint64_t key);
+void *htableKeyToEntry(HTable *table, HTableKey key);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -104,11 +104,15 @@ void htableClearInterface(void *table) {
 	htableClear(table);
 }
 
-void *htableGrab(HTable *table, uint64_t key) {
+void *htableGrab(HTable *table, HTableKey key) {
+	assert(key<HTableMaxEntryCount);
+
 	return htableKeyToEntry(table, key);
 }
 
-void htableRelease(HTable *table, uint64_t key) {
+void htableRelease(HTable *table, HTableKey key) {
+	assert(key<HTableMaxEntryCount);
+
 	// No-op (exists in case locks are added later)
 }
 
@@ -125,8 +129,11 @@ void *htableIndexToEntry(HTable *table, uint64_t index) {
 	return ((void *)(((char *)table->entries)+(index*table->entrySize)));
 }
 
-void *htableKeyToEntry(HTable *table, uint64_t key) {
-	key=((key & 0xFFFFFFFFllu)*table->entryCount)>>32;
-	assert(key<htableGetEntryCount(table));
-	return htableIndexToEntry(table, key);
+void *htableKeyToEntry(HTable *table, HTableKey key) {
+	assert(key<HTableMaxEntryCount);
+
+	uint64_t index=(((uint64_t)key)*table->entryCount)>>32;
+	assert(index<htableGetEntryCount(table));
+
+	return htableIndexToEntry(table, index);
 }

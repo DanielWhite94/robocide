@@ -22,7 +22,7 @@ typedef struct {
 	uint8_t depth;
 	uint8_t bound:2;
 	uint8_t date:6; // Search date at the time the entry was last read/written, used to calculate entry age.
-	uint8_t padding;
+	uint16_t padding;
 } TTEntry;
 
 // Group ttClusterSize number of entries into each 'bin'.

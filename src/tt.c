@@ -193,8 +193,8 @@ unsigned int ttFull(void) {
 	unsigned total=0;
 
 	unsigned checked=0;
-	size_t index;
-	for(index=0;checked<1000;++index) {
+	size_t index, indexDelta=ttMaxClusters/1000;
+	for(index=0;checked<1000;index+=indexDelta) {
 		TTCluster *cluster=htableGrab(tt, index);
 
 		unsigned entry;

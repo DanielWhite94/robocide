@@ -348,10 +348,13 @@ Score evaluate(const Pos *pos) {
 }
 
 void evalClear(void) {
+	// Clear hash tables.
 	htableClear(evalPawnTable);
 	htableClear(evalMatTable);
-	// Ensure mat!=entry->mat for all positions.
-	// Only entry where this is not the case after clearing is entry with key 0.
+
+	// The material table uses mat!=entry->mat to indicate an unused/uncalculated entry.
+	// The only entry where this is not the case after clearing above, is the entry with key 0,
+	// so fix this now as a special case.
 	EvalMatData *entry=htableGrab(evalMatTable, 0);
 	entry->mat=1;
 	htableRelease(evalMatTable, 0);

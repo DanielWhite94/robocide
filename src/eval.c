@@ -33,7 +33,7 @@ typedef struct {
 } EvalPawnData;
 HTable *evalPawnTable=NULL;
 const size_t evalPawnTableDefaultSizeMb=1;
-const size_t evalPawnTableMaxSizeMb=1024*1024; // 1tb
+#define evalPawnTableMaxSizeMb ((HTableMaxEntryCount*sizeof(EvalPawnData))/(1024*1024)) // 256gb
 
 typedef struct {
 	MatInfo mat;
@@ -45,7 +45,7 @@ typedef struct {
 } EvalMatData;
 HTable *evalMatTable=NULL;
 const size_t evalMatTableDefaultSizeMb=1;
-const size_t evalMatTableMaxSizeMb=1024*1024; // 1tb
+#define evalMatTableMaxSizeMb ((HTableMaxEntryCount*sizeof(EvalMatData))/(1024*1024)) // 192gb
 
 struct EvalData {
 	const Pos *pos;

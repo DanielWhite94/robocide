@@ -6,7 +6,7 @@
 #include "util.h"
 
 // Move is 16 bits composed of the following (from MSB to LSB):
-// 4 bits - To-piece (the to-piece is the piece found on the to-sq after the move is made).
+// 4 bits - To-piece (the to-piece is the piece found on the to-sq after the move is made - i.e. the moving piece or promotion piece).
 // 6 bits - From square.
 // 6 bits - To square.
 // Castling is represented soley by the king movement.

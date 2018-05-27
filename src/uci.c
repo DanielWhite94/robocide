@@ -210,7 +210,12 @@ void uciLoop(void) {
 			break;
 		else if (utilStrEqual(part, "disp")) {
 			posDraw(pos);
-			uciWrite("Eval: %icp\n", (int)evaluate(pos));
+
+			Score evalScore=evaluate(pos);
+			char evalStr[32];
+			scoreToStr(evalScore, BoundExact, evalStr);
+			uciWrite("Eval: %s (raw score %i)\n", evalStr, (int)evalScore);
+
 			uciWrite("MatType: %s\n", evalMatTypeToStr(evalGetMatType(pos)));
 		} else if (utilStrEqual(part, "bitbase")) {
 			if (evalGetMatType(pos)==EvalMatTypeKPvK) {

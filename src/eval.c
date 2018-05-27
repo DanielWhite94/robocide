@@ -219,7 +219,8 @@ void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData);
 void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData);
 HTableKey evalGetPawnDataHTableKeyFromPos(const Pos *pos);
 
-VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour);
+VPair evaluateDefaultGlobal(EvalData *data);
+VPair evaluateDefaultPiece(EvalData *data, PieceType type, Sq sq, Colour colour);
 VPair evaluateDefaultKing(EvalData *data, Colour colour);
 
 Score evalInterpolate(const EvalData *data, const VPair *score);
@@ -437,13 +438,10 @@ Score evaluateInternal(const Pos *pos) {
 }
 
 VPair evaluateDefault(EvalData *data) {
-	// Init.
-	VPair score=VPairZero;
 	const Pos *pos=data->pos;
 
-	// Pawns (special case).
-	evalGetPawnData(pos, &data->pawnData);
-	evalVPairAddTo(&score, &data->pawnData.score);
+	// 'Global' calculations (includes pawns)
+	VPair score=evaluateDefaultGlobal(data);
 
 	// Knights, bishops, rooks and queens
 	PieceType type;
@@ -456,7 +454,7 @@ VPair evaluateDefault(EvalData *data) {
 		sq=posGetPieceListStart(pos, piece);
 		sqEnd=posGetPieceListEnd(pos, piece);
 		for(;sq<sqEnd;++sq) {
-			VPair pieceScore=evalPiece(data, type, *sq, ColourWhite);
+			VPair pieceScore=evaluateDefaultPiece(data, type, *sq, ColourWhite);
 			evalVPairAddTo(&score, &pieceScore);
 		}
 
@@ -465,7 +463,7 @@ VPair evaluateDefault(EvalData *data) {
 		sq=posGetPieceListStart(pos, piece);
 		sqEnd=posGetPieceListEnd(pos, piece);
 		for(;sq<sqEnd;++sq) {
-			VPair pieceScore=evalPiece(data, type, *sq, ColourBlack);
+			VPair pieceScore=evaluateDefaultPiece(data, type, *sq, ColourBlack);
 			evalVPairSubFrom(&score, &pieceScore);
 		}
 	}
@@ -476,10 +474,6 @@ VPair evaluateDefault(EvalData *data) {
 
 	VPair kingScoreBlack=evaluateDefaultKing(data, ColourBlack);
 	evalVPairSubFrom(&score, &kingScoreBlack);
-
-	// King castling 'mobility'.
-	CastRights castRights=posGetCastRights(pos);
-	evalVPairAddTo(&score, &evalKingCastlingMobility[castRights]);
 
 	return score;
 }
@@ -842,54 +836,72 @@ HTableKey evalGetPawnDataHTableKeyFromPos(const Pos *pos) {
 	return posGetPawnKey(pos)&0xFFFFFFFFu;
 }
 
-VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
-	// Init.
-	VPair score=VPairZero;
-	const Pos *pos=data->pos;
-	Sq adjSq=sqNormalise(sq, colour);
-	BB bb=bbSq(sq);
+VPair evaluateDefaultGlobal(EvalData *data) {
+	assert(data!=NULL);
 
-	// PST.
+	const Pos *pos=data->pos;
+	VPair score=VPairZero;
+
+	// Pawns
+	evalGetPawnData(pos, &data->pawnData);
+	evalVPairAddTo(&score, &data->pawnData.score);
+
+	// Rook stuff
+	for(Colour colour=ColourWhite; colour<=ColourBlack; ++colour,evalVPairNegate(&score)) {
+		BB rooks=posGetBBPiece(pos, pieceMake(PieceTypeRook, colour));
+		if (rooks==BBNone)
+			continue;
+
+		// Rooks on open and semi-open files.
+		evalVPairAddMulTo(&score, &evalRookOpenFile, bbPopCount(rooks & data->pawnData.openFiles));
+		evalVPairAddMulTo(&score, &evalRookSemiOpenFile, bbPopCount(rooks & data->pawnData.semiOpenFiles[colour]));
+
+		// Any rooks on 7th rank?
+		BB rank7=bbRank(colour==ColourWhite ? Rank7 : Rank2);
+		BB oppPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colourSwap(colour)));
+		if ((oppPawns & rank7) || sqRank(sqNormalise(posGetKingSq(pos, colourSwap(colour)), colour))==Rank8)
+			evalVPairAddMulTo(&score, &evalRookOn7th, bbPopCount(rooks & rank7));
+
+		// Any rooks trapped on edge of back rank by own king?
+		BB kingBB=posGetBBPiece(pos, pieceMake(PieceTypeKing, colour));
+		if (colour==ColourWhite) {
+			if (((rooks & (bbSq(SqG1) | bbSq(SqH1))) && (kingBB & (bbSq(SqF1) | bbSq(SqG1)))) ||
+			    ((rooks & (bbSq(SqA1) | bbSq(SqB1))) && (kingBB & (bbSq(SqB1) | bbSq(SqC1)))))
+				evalVPairAddTo(&score, &evalRookTrapped);
+		} else {
+			if (((rooks & (bbSq(SqG8) | bbSq(SqH8))) && (kingBB & (bbSq(SqF8) | bbSq(SqG8)))) ||
+			    ((rooks & (bbSq(SqA8) | bbSq(SqB8))) && (kingBB & (bbSq(SqB8) | bbSq(SqC8)))))
+				evalVPairAddTo(&score, &evalRookTrapped);
+		}
+	}
+
+	// King castling 'mobility'.
+	CastRights castRights=posGetCastRights(pos);
+	evalVPairAddTo(&score, &evalKingCastlingMobility[castRights]);
+
+	return score;
+}
+
+VPair evaluateDefaultPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
+	assert(data!=NULL);
+
+	VPair score=VPairZero;
+
+	// PST
+	Sq adjSq=sqNormalise(sq, colour);
 	evalVPairAddTo(&score, &evalPST[type][adjSq]);
 
-	// Bishop mobility.
+	// Bishop mobility
 	if (pieceTypeIsBishop(type)) {
-		BB attacks=attacksBishop(sq, posGetBBAll(pos));
+		BB attacks=attacksBishop(sq, posGetBBAll(data->pos));
 		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks));
 	}
 
-	// Rooks.
+	// Rook mobility
 	if (type==PieceTypeRook) {
-		BB rankBB=bbRank(sqRank(sq));
-
-		// Mobility.
-		BB attacks=attacksRook(sq, posGetBBAll(pos));
-		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFileFill(bb)));
-		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & rankBB));
-
-		// Open and semi-open files.
-		if (bb & data->pawnData.openFiles)
-			evalVPairAddTo(&score, &evalRookOpenFile);
-		else if (bb & data->pawnData.semiOpenFiles[colour])
-			evalVPairAddTo(&score, &evalRookSemiOpenFile);
-
-		// Rook on 7th.
-		BB oppPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colourSwap(colour)));
-		Sq adjOppKingSq=sqNormalise(posGetKingSq(pos, colourSwap(colour)), colour);
-		if (sqRank(adjSq)==Rank7 && ((rankBB & oppPawns) || sqRank(adjOppKingSq)==Rank8))
-			evalVPairAddTo(&score, &evalRookOn7th);
-
-		// Trapped.
-		BB kingBB=posGetBBPiece(pos, pieceMake(PieceTypeKing, colour));
-		if (colour==ColourWhite) {
-			if (((bb & (bbSq(SqG1) | bbSq(SqH1))) && (kingBB & (bbSq(SqF1) | bbSq(SqG1)))) ||
-			    ((bb & (bbSq(SqA1) | bbSq(SqB1))) && (kingBB & (bbSq(SqB1) | bbSq(SqC1)))))
-				evalVPairAddTo(&score, &evalRookTrapped);
-		} else {
-			if (((bb & (bbSq(SqG8) | bbSq(SqH8))) && (kingBB & (bbSq(SqF8) | bbSq(SqG8)))) ||
-			    ((bb & (bbSq(SqA8) | bbSq(SqB8))) && (kingBB & (bbSq(SqB8) | bbSq(SqC8)))))
-				evalVPairAddTo(&score, &evalRookTrapped);
-		}
+		BB attacks=attacksRook(sq, posGetBBAll(data->pos));
+		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(sq))));
+		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(sq))));
 	}
 
 	return score;

@@ -29,6 +29,7 @@ Rank sqRank(Sq sq);
 
 Sq sqMirror(Sq sq);
 Sq sqFlip(Sq sq);
+Sq sqNormalise(Sq sq, Colour colour); // If colour is white then return sq unchanged, otherwise call sqFlip on it first.
 Sq sqNorth(Sq sq, unsigned int n); // The following routines all assume sq will not fall off
 Sq sqSouth(Sq sq, unsigned int n); // the end of the board as a result of the operation.
 Sq sqWestOne(Sq sq);

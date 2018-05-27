@@ -838,7 +838,7 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 	// Init.
 	VPair score=VPairZero;
 	const Pos *pos=data->pos;
-	Sq adjSq=(colour==ColourWhite ? sq : sqFlip(sq));
+	Sq adjSq=sqNormalise(sq, colour);
 	BB bb=bbSq(sq);
 
 	// PST.
@@ -867,7 +867,7 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 
 		// Rook on 7th.
 		BB oppPawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colourSwap(colour)));
-		Sq adjOppKingSq=(colour==ColourWhite ? posGetKingSq(pos, ColourBlack) : sqFlip(posGetKingSq(pos, ColourWhite)));
+		Sq adjOppKingSq=sqNormalise(posGetKingSq(pos, colourSwap(colour)), colour);
 		if (sqRank(adjSq)==Rank7 && ((rankBB & oppPawns) || sqRank(adjOppKingSq)==Rank8))
 			evalVPairAddTo(&score, &evalRookOn7th);
 

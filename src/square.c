@@ -32,6 +32,10 @@ Sq sqFlip(Sq sq) {
 	return (sq^56);
 }
 
+Sq sqNormalise(Sq sq, Colour colour) {
+	return (colour==ColourWhite ? sq : sqFlip(sq));
+}
+
 Sq sqNorth(Sq sq, unsigned int n) {
 	assert(sqIsValid(sq));
 	assert(sqRank(sq)<8-n);

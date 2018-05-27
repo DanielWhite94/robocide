@@ -37,7 +37,7 @@ HTable *tt=NULL;
 const size_t ttDefaultSizeMb=16;
 #define ttMaxClusters HTableMaxEntryCount // 2^32
 #define ttMaxEntries (ttMaxClusters*ttClusterSize) // 2^34
-const size_t ttMaxSizeMb=(ttMaxClusters*sizeof(TTCluster))/(1024*1024); // 192gb
+const size_t ttMaxSizeMb=(ttMaxClusters*sizeof(TTCluster))/(1024*1024); // 128gb
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.

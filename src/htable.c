@@ -105,14 +105,10 @@ void htableClearInterface(void *table) {
 }
 
 void *htableGrab(HTable *table, HTableKey key) {
-	assert(key<HTableMaxEntryCount);
-
 	return htableKeyToEntry(table, key);
 }
 
 void htableRelease(HTable *table, HTableKey key) {
-	assert(key<HTableMaxEntryCount);
-
 	// No-op (exists in case locks are added later)
 }
 
@@ -130,8 +126,6 @@ void *htableIndexToEntry(HTable *table, uint64_t index) {
 }
 
 void *htableKeyToEntry(HTable *table, HTableKey key) {
-	assert(key<HTableMaxEntryCount);
-
 	uint64_t index=(((uint64_t)key)*table->entryCount)>>32;
 	assert(index<htableGetEntryCount(table));
 

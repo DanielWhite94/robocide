@@ -135,7 +135,7 @@ void searchQuit(void) {
 }
 
 void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
-	// Make sure we are not already searching.
+	// Make sure we are not already searching (and if we are, set stop flag and wait until finished).
 	searchStop();
 
 	// Prepare for search.
@@ -152,10 +152,10 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	searchDate=(searchDate+1)%DateMax;
 	searchOutput=output;
 
+	// Decide how to use our time.
 	if (searchLimit.nodes==0)
 		searchLimit.nodes=~0; // To avoid an extra searchLimit.nodes!=0 check in searchIsTimeUp().
 
-	// Decide how to use our time.
 	TimeMs searchTime=TimeMsInvalid;
 	if (searchLimit.totalTime!=TimeMsInvalid || searchLimit.incTime!=TimeMsInvalid) {
 		if (searchLimit.totalTime==TimeMsInvalid)
@@ -371,8 +371,7 @@ void searchIDLoop(void *userData) {
 			posMoveToStr(node.pos, ponderMove, str2);
 			posUndoMove(node.pos);
 			uciWrite("bestmove %s ponder %s\n", str, str2);
-		}
-		else
+		} else
 			uciWrite("bestmove %s\n", str);
 	}
 

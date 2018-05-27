@@ -20,6 +20,10 @@ bool pieceIsValid(Piece piece) {
 					(piece>=PieceBPawn && piece<=PieceBKing));
 }
 
+bool pieceTypeIsBishop(PieceType type) {
+	return (type==PieceTypeBishopL || type==PieceTypeBishopD);
+}
+
 Colour pieceGetColour(Piece piece) {
 	assert(pieceIsValid(piece));
 	return (piece>>3);

@@ -45,6 +45,8 @@ typedef enum {
 bool pieceTypeIsValid(PieceType type);
 bool pieceIsValid(Piece piece);
 
+bool pieceTypeIsBishop(PieceType type);
+
 Colour pieceGetColour(Piece piece);
 PieceType pieceGetType(Piece piece);
 

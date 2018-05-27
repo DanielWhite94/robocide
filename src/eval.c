@@ -845,7 +845,7 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 	evalVPairAddTo(&score, &evalPST[type][adjSq]);
 
 	// Bishop mobility.
-	if (type==PieceTypeBishopL || type==PieceTypeBishopD) {
+	if (pieceTypeIsBishop(type)) {
 		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks));
 	}

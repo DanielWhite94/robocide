@@ -662,14 +662,6 @@ bool posIsSTMInCheck(const Pos *pos) {
 	return posIsSqAttackedByColour(pos, posGetKingSq(pos, pos->stm), colourSwap(pos->stm));
 }
 
-bool posIsXSTMInCheck(const Pos *pos) {
-	Move move=pos->data->lastMove; // We need to know if last move was castling.
-	return (posIsSqAttackedByColour(pos, posGetKingSq(pos, colourSwap(pos->stm)), pos->stm) ||
-	        (moveIsCastling(move) &&
-	         (posIsSqAttackedByColour(pos, moveGetFromSq(move), pos->stm) ||
-		      posIsSqAttackedByColour(pos, (moveGetToSq(move)+moveGetFromSq(move))/2, pos->stm))));
-}
-
 bool posIsDraw(const Pos *pos, unsigned int ply) {
 	// False positives are bad, false negatives are OK.
 

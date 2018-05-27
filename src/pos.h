@@ -116,7 +116,6 @@ Move posGenLegalMove(const Pos *pos, MoveType type);
 bool posIsSqAttackedByColour(const Pos *pos, Sq sq, Colour colour);
 
 bool posIsSTMInCheck(const Pos *pos);
-bool posIsXSTMInCheck(const Pos *pos);
 
 bool posIsDraw(const Pos *pos, unsigned int ply);
 bool posIsMate(const Pos *pos);

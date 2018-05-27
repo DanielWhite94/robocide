@@ -905,9 +905,9 @@ VPair evaluateDefaultKing(EvalData *data, Colour colour) {
 
 	// Pawn shield.
 	BB pawns=posGetBBPiece(data->pos, pieceMake(PieceTypePawn, colour));
-	BB kingSpan=(bbWestOne(kingBB) | kingBB | bbEastOne(kingBB));
+	BB kingSpan=bbForwardOne((bbWestOne(kingBB) | kingBB | bbEastOne(kingBB)), colour);
 
-	BB shieldClose=(pawns & bbForwardOne(kingSpan, colour));
+	BB shieldClose=(pawns & kingSpan);
 	evalVPairAddMulTo(&score, &evalKingShieldClose, bbPopCount(shieldClose));
 
 	BB shieldFar=(pawns & bbForwardOne(kingSpan, colour));

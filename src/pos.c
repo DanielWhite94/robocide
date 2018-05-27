@@ -15,13 +15,14 @@ STATICASSERT(SqBit<=8);
 STATICASSERT(CastRightsBit<=8);
 typedef struct {
 	Key key;
-	uint16_t lastMove;
-	uint16_t halfMoveNumber;
-	uint8_t epSq;
-	uint8_t capSq;
-	uint8_t cast;
-	uint8_t movePiece:4;
-	uint8_t capPiece:4;
+	uint64_t lastMove:16;
+	uint64_t lastMoveWasPromo:1;
+	uint64_t halfMoveNumber:15;
+	uint64_t epSq:7;
+	uint64_t capSq:7;
+	uint64_t cast:4;
+	uint64_t capPiece:4;
+	uint64_t padding:10;
 } PosData;
 
 struct Pos {
@@ -401,11 +402,11 @@ bool posMakeMove(Pos *pos, Move move) {
 	Sq fromSq=moveGetFromSq(move);
 	Sq toSq=moveGetToSq(move);
 	pos->data->lastMove=move;
+	pos->data->lastMoveWasPromo=false;
 	pos->data->halfMoveNumber=(pos->data-1)->halfMoveNumber+1;
 	pos->data->epSq=SqInvalid;
 	pos->data->key=(pos->data-1)->key^posKeySTM^posKeyEP[(pos->data-1)->epSq];
 	pos->data->cast=(pos->data-1)->cast;
-	pos->data->movePiece=PieceNone;
 	pos->data->capPiece=posGetPieceOnSq(pos, toSq);
 	pos->data->capSq=toSq;
 	pos->fullMoveNumber+=(pos->stm==ColourBlack); // Inc after black's move.
@@ -413,7 +414,6 @@ bool posMakeMove(Pos *pos, Move move) {
 
 	if (move!=MoveNone) {
 		Piece fromPiece=posGetPieceOnSq(pos, fromSq);
-		pos->data->movePiece=fromPiece;
 
 		// Update castling rights
 		pos->data->cast&=posCastlingUpdate[fromSq] & posCastlingUpdate[toSq];
@@ -437,9 +437,10 @@ bool posMakeMove(Pos *pos, Move move) {
 
 				// Move the pawn, potentially promoting.
 				Piece toPiece=moveGetToPiece(move);
-				if (toPiece!=fromPiece)
+				if (toPiece!=fromPiece) {
+					pos->data->lastMoveWasPromo=true;
 					posPieceMoveChange(pos, fromSq, toSq, toPiece);
-				else
+				} else
 					posPieceMove(pos, fromSq, toSq);
 
 				// Pawn moves reset 50 move counter.
@@ -574,11 +575,10 @@ void posUndoMove(Pos *pos) {
 		Sq toSq=moveGetToSq(move);
 		Piece toPiece=moveGetToPiece(move);
 
-		// Move piece back.
-		if (toPiece!=pos->data->movePiece) {
-			assert(pieceGetType(pos->data->movePiece)==PieceTypePawn);
-			posPieceMoveChange(pos, toSq, fromSq, pos->data->movePiece);
-		} else
+		// Move piece back (potentially un-promoting).
+		if (pos->data->lastMoveWasPromo)
+			posPieceMoveChange(pos, toSq, fromSq, pieceMake(PieceTypePawn, pos->stm));
+		else
 			posPieceMove(pos, toSq, fromSq);
 
 		// Replace any captured piece.
@@ -1053,10 +1053,10 @@ void posClean(Pos *pos) {
 	pos->matKey=0;
 	pos->data=pos->dataStart;
 	pos->data->lastMove=MoveInvalid;
+	pos->data->lastMoveWasPromo=false;
 	pos->data->halfMoveNumber=0;
 	pos->data->epSq=SqInvalid;
 	pos->data->cast=CastRightsNone;
-	pos->data->movePiece=PieceNone;
 	pos->data->capPiece=PieceNone;
 	pos->data->capSq=SqInvalid;
 	pos->data->key=0;

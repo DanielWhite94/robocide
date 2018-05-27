@@ -29,8 +29,8 @@ typedef struct {
 } UciOptionCheck;
 
 typedef struct {
-	void(*function)(void *userData, int value);
-	int initial, min, max;
+	void(*function)(void *userData, long long int value);
+	long long int initial, min, max;
 } UciOptionSpin;
 
 typedef struct {
@@ -305,7 +305,7 @@ bool uciOptionNewCheck(const char *name, void(*function)(void *userData, bool va
 	return true;
 }
 
-bool uciOptionNewSpin(const char *name, void(*function)(void *userData, int value), void *userData, int min, int max, int initial) {
+bool uciOptionNewSpin(const char *name, void(*function)(void *userData, long long int value), void *userData, long long int min, long long int max, long long int initial) {
 	// Allocate any memory needed.
 	char *nameMem=malloc(strlen(name)+1);
 	if (nameMem==NULL)
@@ -506,10 +506,10 @@ void uciParseSetOption(char *string) {
 		break;
 		case UciOptionTypeSpin:
 			if (value!=NULL) {
-				int intValue=atoi(value);
-				intValue=utilMax(intValue, option->o.spin.min);
-				intValue=utilMin(intValue, option->o.spin.max);
-				(*option->o.spin.function)(option->userData, intValue);
+				long long int spinValue=atoll(value);
+				spinValue=utilMax(spinValue, option->o.spin.min);
+				spinValue=utilMin(spinValue, option->o.spin.max);
+				(*option->o.spin.function)(option->userData, spinValue);
 			}
 		break;
 		case UciOptionTypeCombo:
@@ -541,7 +541,7 @@ void uciOptionPrint(void) {
 				uciWrite("option name %s type check default %s\n", option->name, uciBoolToString[option->o.check.initial]);
 			break;
 			case UciOptionTypeSpin:
-				uciWrite("option name %s type spin default %i min %i max %i\n", option->name, option->o.spin.initial, option->o.spin.min, option->o.spin.max);
+				uciWrite("option name %s type spin default %lli min %lli max %lli\n", option->name, option->o.spin.initial, option->o.spin.min, option->o.spin.max);
 			break;
 			case UciOptionTypeCombo:
 				uciWrite("option name %s type combo default %s", option->name, option->o.combo.initial);

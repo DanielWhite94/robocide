@@ -14,7 +14,7 @@ HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb);
 void htableFree(HTable *table);
 
 bool htableResize(HTable *table, unsigned int sizeMb); // SizeMb>0.
-void htableResizeInterface(void *table, int sizeMb); // Interface for UCI spin option code.
+void htableResizeInterface(void *table, long long int sizeMb); // Interface for UCI spin option code.
 
 void htableClear(HTable *table);
 void htableClearInterface(void *table); // Interface for UCI button option code.

@@ -90,7 +90,7 @@ bool htableResize(HTable *table, unsigned int sizeMb) {
 	return false;
 }
 
-void htableResizeInterface(void *table, int sizeMb) {
+void htableResizeInterface(void *table, long long int sizeMb) {
 	htableResize(table, sizeMb);
 }
 

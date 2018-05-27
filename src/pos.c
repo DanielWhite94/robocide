@@ -446,7 +446,7 @@ bool posMakeMove(Pos *pos, Move move) {
 				pos->data->halfMoveNumber=0;
 
 				// If double pawn move check set EP capture square (for next move).
-				if (abs(sqRank(toSq)-sqRank(fromSq))==2) {
+				if (abs(((int)sqRank(toSq))-((int)sqRank(fromSq)))==2) {
 					Sq epSq=toSq^8;
 					if (posIsEPCap(pos, epSq))
 						pos->data->epSq=epSq;
@@ -1552,8 +1552,8 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 	Sq fromSq=moveGetFromSq(move);
 	Piece fromPiece=posGetPieceOnSq(pos, fromSq);
 	BB occ=posGetBBAll(pos);
-	unsigned int dX=abs(sqFile(fromSq)-sqFile(toSq));
-	int dY=abs(sqRank(fromSq)-sqRank(toSq));
+	unsigned int dX=abs(((int)sqFile(fromSq))-((int)sqFile(toSq)));
+	int dY=abs(((int)sqRank(fromSq))-((int)sqRank(toSq)));
 	switch(pieceGetType(fromPiece)) {
 		case PieceTypePawn: {
 			// Moving pawn of correct colour?

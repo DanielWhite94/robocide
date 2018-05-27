@@ -62,8 +62,7 @@ void bbInit(void) {
 #	undef TOSQ
 
 	// BBPawnSq array.
-	File f1, f2;
-	Rank r1, r2;
+	int f1, f2, r1, r2;
 	for(r1=Rank1;r1<=Rank8;++r1)
 		for(f1=FileA;f1<=FileH;++f1) {
 			sqA=sqMake(f1,r1);

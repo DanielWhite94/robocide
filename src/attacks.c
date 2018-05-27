@@ -13,8 +13,8 @@ void attacksInit(void) {
 		attacksArrayKnight[from]=BBNone;
 		attacksArrayKing[from]=BBNone;
 		for(to=0;to<SqNB;++to) {
-			int dX=abs(sqFile(from)-sqFile(to));
-			int dY=abs(sqRank(from)-sqRank(to));
+			int dX=abs(((int)sqFile(from))-((int)sqFile(to)));
+			int dY=abs(((int)sqRank(from))-((int)sqRank(to)));
 			if ((dX==1 && dY==2) || (dX==2 && dY==1))
 				attacksArrayKnight[from]|=bbSq(to);
 			if (dX<=1 && dY<=1 && (dX!=0 || dY!=0))

@@ -69,11 +69,15 @@ Colour moveGetColour(Move move) {
 
 bool moveIsCastling(Move move) {
 	assert(moveIsValid(move));
-	return (moveGetToPieceType(move)==PieceTypeKing && abs(sqFile(moveGetToSq(move))-sqFile(moveGetFromSq(move)))==2);
+	int toFile=sqFile(moveGetToSq(move));
+	int fromFile=sqFile(moveGetFromSq(move));
+	return (moveGetToPieceType(move)==PieceTypeKing && abs(toFile-fromFile)==2);
 }
 
 bool moveIsDP(Move move) {
 	assert(moveIsValid(move));
-	return (moveGetToPieceType(move)==PieceTypePawn && abs(sqRank(moveGetToSq(move))-sqRank(moveGetFromSq(move)))==2);
+	int toRank=sqRank(moveGetToSq(move));
+	int fromRank=sqRank(moveGetFromSq(move));
+	return (moveGetToPieceType(move)==PieceTypePawn && abs(toRank-fromRank)==2);
 }
 

@@ -8,7 +8,6 @@
 struct HTable {
 	size_t entrySize;
 	size_t entryCount;
-	void *nullEntry;
 	void *entries;
 };
 
@@ -25,24 +24,20 @@ void *htableKeyToEntry(HTable *table, HTableKey key);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb) {
+HTable *htableNew(size_t entrySize, unsigned int sizeMb) {
 	// Sanity checks.
 	assert(sizeMb>0);
 
 	// Allocate memory.
 	HTable *table=malloc(sizeof(HTable));
-	void *nullEntryMem=malloc(entrySize);
-	if (table==NULL || nullEntryMem==NULL) {
+	if (table==NULL) {
 		free(table);
-		free(nullEntryMem);
 		return NULL;
 	}
 
 	// Set state.
 	table->entrySize=entrySize;
 	table->entryCount=0;
-	table->nullEntry=nullEntryMem;
-	memcpy(table->nullEntry, nullEntry, entrySize);
 	table->entries=NULL;
 
 	// Set to desired size.
@@ -55,7 +50,6 @@ HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb) 
 }
 
 void htableFree(HTable *table) {
-	free(table->nullEntry);
 	free(table->entries);
 	free(table);
 }
@@ -95,9 +89,7 @@ void htableResizeInterface(void *table, long long int sizeMb) {
 }
 
 void htableClear(HTable *table) {
-	size_t i, entryCount=htableGetEntryCount(table);
-	for(i=0;i<entryCount;++i)
-		memcpy(htableIndexToEntry(table, i), table->nullEntry, table->entrySize);
+	memset(table->entries, 0, table->entryCount*table->entrySize);
 }
 
 void htableClearInterface(void *table) {

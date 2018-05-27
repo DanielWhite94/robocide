@@ -257,18 +257,14 @@ EvalMatType evalComputeMatType(const Pos *pos);
 
 void evalInit(void) {
 	// Setup pawn hash table.
-	EvalPawnData nullEntryPawn;
-	nullEntryPawn.pawns[ColourWhite]=nullEntryPawn.pawns[ColourBlack]=BBAll; // No position can have pawns on all squares.
-	evalPawnTable=htableNew(sizeof(EvalPawnData), &nullEntryPawn, evalPawnTableDefaultSizeMb);
+	evalPawnTable=htableNew(sizeof(EvalPawnData), evalPawnTableDefaultSizeMb);
 	if (evalPawnTable==NULL)
 		mainFatalError("Error: Could not allocate pawn hash table.\n");
 	uciOptionNewSpin("PawnHash", &htableResizeInterface, evalPawnTable, 1, evalPawnTableMaxSizeMb, evalPawnTableDefaultSizeMb);
 	uciOptionNewButton("Clear PawnHash", &htableClearInterface, evalPawnTable);
 
 	// Setup mat hash table.
-	EvalMatData nullEntryMat;
-	nullEntryMat.mat=(matInfoMake(PieceWKing, 0)|matInfoMake(PieceBKing, 0)); // No position can have 0 pieces (kings are always required)
-	evalMatTable=htableNew(sizeof(EvalMatData), &nullEntryMat, evalMatTableDefaultSizeMb);
+	evalMatTable=htableNew(sizeof(EvalMatData), evalMatTableDefaultSizeMb);
 	if (evalMatTable==NULL)
 		mainFatalError("Error: Could not allocate mat hash table.\n");
 	uciOptionNewSpin("MatHash", &htableResizeInterface, evalMatTable, 1, evalMatTableMaxSizeMb, evalMatTableDefaultSizeMb);

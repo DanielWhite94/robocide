@@ -10,7 +10,7 @@ typedef uint32_t HTableKey;
 
 typedef struct HTable HTable;
 
-HTable *htableNew(size_t entrySize, const void *nullEntry, unsigned int sizeMb);
+HTable *htableNew(size_t entrySize, unsigned int sizeMb);
 void htableFree(HTable *table);
 
 bool htableResize(HTable *table, unsigned int sizeMb); // SizeMb>0.

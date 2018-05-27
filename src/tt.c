@@ -59,17 +59,7 @@ HTableKey ttHTableKeyFromPos(const Pos *pos);
 
 void ttInit(void) {
 	// Setup tt as a HTable.
-	TTCluster nullEntry;
-	unsigned int i;
-	for(i=0;i<ttClusterSize;++i) {
-		nullEntry.entries[i].keyUpper=0;
-		nullEntry.entries[i].move=MoveInvalid;
-		nullEntry.entries[i].score=ScoreInvalid;
-		nullEntry.entries[i].depth=0;
-		nullEntry.entries[i].bound=BoundNone;
-		nullEntry.entries[i].date=DateMax-1;
-	}
-	tt=htableNew(sizeof(TTCluster), &nullEntry, ttDefaultSizeMb);
+	tt=htableNew(sizeof(TTCluster), ttDefaultSizeMb);
 	if (tt==NULL)
 		mainFatalError("Error: Could not allocate transposition table.\n");
 

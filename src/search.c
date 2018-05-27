@@ -55,6 +55,8 @@ bool searchPonder=true;
 // Private prototypes.
 ////////////////////////////////////////////////////////////////////////////////
 
+void searchThinkClear(void);
+
 void searchIDLoop(void *posPtr);
 
 Score searchNode(Node *node);
@@ -111,6 +113,9 @@ void searchInit(void) {
 	// Set all structures to clean state.
 	searchClear();
 
+	// Set searchThink fields for first search
+	searchThinkClear();
+
 	// Init pondering option.
 	uciOptionNewCheck("Ponder", &searchInterfacePonder, NULL, searchPonder);
 
@@ -138,19 +143,22 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	// Make sure we are not already searching (and if we are, set stop flag and wait until finished).
 	searchStop();
 
+	// Sanity checks
+	assert(searchNodeCount==0);
+	assert(searchNodeNext==1);
+	assert(searchShowCurrmove==false);
+	assert(searchEndTime==TimeMsInvalid);
+	assert(searchNextRegularOutputTime==0);
+
 	// Prepare for search.
 	if (!posCopy(searchPos, srcPos))
 		return;
-	searchNodeCount=0;
-	searchNodeNext=1;
-	searchShowCurrmove=false;
+
 	searchStopFlag=false;
-	while (lockTryWait(searchActivity)) ; // Reset to 0.
-	searchEndTime=TimeMsInvalid;
-	searchNextRegularOutputTime=0;
 	searchLimit=*limit;
-	searchDate=(searchDate+1)%DateMax;
 	searchOutput=output;
+
+	while (lockTryWait(searchActivity)) ; // Reset to 0.
 
 	// Decide how to use our time.
 	if (searchLimit.nodes==0)
@@ -306,6 +314,15 @@ void searchLimitAddMove(SearchLimit *limit, Move move) {
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////
 
+void searchThinkClear(void) {
+	searchNodeCount=0;
+	searchNodeNext=1;
+	searchShowCurrmove=false;
+	searchEndTime=TimeMsInvalid;
+	searchNextRegularOutputTime=0;
+	searchDate=(searchDate+1)%DateMax;
+}
+
 void searchIDLoop(void *userData) {
 	assert(userData==NULL);
 
@@ -380,6 +397,9 @@ void searchIDLoop(void *userData) {
 
 	// Clear killers (do here to avoid having to spend time at start of next search).
 	killersClear();
+
+	// Reset searchThink fields for next search
+	searchThinkClear();
 }
 
 Score searchNode(Node *node) {

@@ -903,6 +903,10 @@ VPair evaluateDefaultKing(EvalData *data, Colour colour) {
 
 	VPair score=VPairZero;
 
+	// PST
+	Sq adjSq=sqNormalise(kingSq, colour);
+	evalVPairAddTo(&score, &evalPST[PieceTypeKing][adjSq]);
+
 	// Pawn shield.
 	BB pawns=posGetBBPiece(data->pos, pieceMake(PieceTypePawn, colour));
 	BB kingSpan=bbForwardOne((bbWestOne(kingBB) | kingBB | bbEastOne(kingBB)), colour);

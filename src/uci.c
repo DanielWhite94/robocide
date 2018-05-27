@@ -259,8 +259,12 @@ void uciLoop(void) {
 			posMirror(pos);
 		else if (utilStrEqual(part, "flip"))
 			posFlip(pos);
-		else if (utilStrEqual(part, "benchmark"))
-			printf("nodes = %llu\n", benchmark());
+		else if (utilStrEqual(part, "benchmark")) {
+			TimeMs t=timeGet();
+			unsigned long long int nodes=benchmark();
+			t=timeGet()-t;
+			printf("took %llu.%03llus, %llu nodes\n", t/1000, t%1000, nodes);
+		}
 	}
 
 	// Clean up.

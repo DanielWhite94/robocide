@@ -200,41 +200,40 @@ BitBaseResultFull bitbaseComputeStaticResult(Sq pawnSq, Sq wKingSq, Colour stm, 
 	BB bKingBB=bbSq(bKingSq);
 	BB pawnBB=bbSq(pawnSq);
 	BB occ=(pawnBB | wKingBB | bKingBB);
+	Rank pawnRank=sqRank(pawnSq);
 
 	// If any pieces occupy the same square, or the side not on move is in check, invalid position.
 	if (pawnSq==wKingSq || pawnSq==bKingSq || wKingSq==bKingSq || // Pieces overlap.
-	    sqRank(pawnSq)==Rank1 || // Pawn on rank 1.
-	    (wKingAtks & bKingBB)!=BBNone || // Kings are adjacent.
-	    (stm==ColourWhite && (pawnAtks & bKingBB)!=BBNone)) // White to move, black king attacked by pawn.
+	    pawnRank==Rank1 || // Pawn on rank 1.
+	    (wKingAtks & bKingBB) || // Kings are adjacent.
+	    (stm==ColourWhite && (pawnAtks & bKingBB))) // White to move, black king attacked by pawn.
 		return BitBaseResultFullInvalid;
 
 	// If pawn can promote without capture, win.
-	if (sqRank(pawnSq)==Rank7 && stm==ColourWhite) {
-		Sq promoSq=sqNorth(pawnSq,1);
-		if (promoSq!=wKingSq && promoSq!=bKingSq && // Promotion square empty.
-		    ((bbSq(promoSq) & bKingAtks)==BBNone || (bbSq(promoSq) & wKingAtks)!=BBNone)) // Promotion square is safe.
+	if (pawnRank==Rank7 && stm==ColourWhite) {
+		BB promoBB=bbNorthOne(pawnBB);
+		if (!(promoBB & occ) && // Promotion square empty.
+		    (!(promoBB & bKingAtks) || (promoBB & wKingAtks))) // Promotion square is safe.
 			return BitBaseResultFullWin;
 	}
 
 	// If black can capture pawn, draw.
-	bool pawnAttacked=((bKingAtks & pawnBB)!=BBNone);
-	bool pawnDefended=((wKingAtks & pawnBB)!=BBNone);
-	if (stm==ColourBlack && pawnAttacked && !pawnDefended)
-	    return BitBaseResultFullDraw;
+	if (stm==ColourBlack && (bKingAtks & pawnBB) && !(wKingAtks & pawnBB))
+		return BitBaseResultFullDraw;
 
 	// If 'pawn' is on 8th rank, win (we have already shown that it cannot be captured).
-	if (sqRank(pawnSq)==Rank8)
+	if (pawnRank==Rank8)
 		return BitBaseResultFullWin;
 
 	// If no moves available for stm, draw (stalemate).
 	if (stm==ColourWhite) {
 		BB safe=~(bKingAtks | occ);
-		if ((wKingAtks & safe)==BBNone && // No king moves.
-		    (sqNorth(pawnSq,1)==wKingSq || sqNorth(pawnSq,1)==bKingSq)) // No pawn moves.
+		if (!(wKingAtks & safe) && // No king moves.
+		    (bbNorthOne(pawnBB) & occ)) // No pawn moves.
 			return BitBaseResultFullDraw;
 	} else {
 		BB safe=~(wKingAtks | pawnAtks | occ); // We already check if black can capture pawn, hence assume defended.
-		if ((bKingAtks & safe)==BBNone)
+		if (!(bKingAtks & safe))
 			return BitBaseResultFullDraw;
 	}
 

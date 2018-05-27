@@ -380,9 +380,10 @@ Sq posGetEPSq(const Pos *pos) {
 
 bool posMakeMove(Pos *pos, Move move) {
 	assert(moveIsValid(move) || move==MoveNone);
-# ifndef NDEBUG
-	bool canMakeMoveResult=posCanMakeMove(pos, move);
-# endif
+
+	// Does this move leave us in check?
+	if (!posCanMakeMove(pos, move))
+		return false;
 
 	// Use next data entry.
 	if (pos->data+1>=pos->dataEnd) {
@@ -476,19 +477,11 @@ bool posMakeMove(Pos *pos, Move move) {
 			break;
 		}
 
-		// Does move leave STM in check?
-		if (posIsXSTMInCheck(pos)) {
-			posUndoMove(pos);
-			assert(!canMakeMoveResult);
-			return false;
-		}
-
 		// Update key.
 		pos->data->key^=posKeyCastling[pos->data->cast^(pos->data-1)->cast]^posKeyEP[pos->data->epSq];
 	}
 
 	assert(posIsConsistent(pos));
-	assert(canMakeMoveResult);
 
 	return true;
 }

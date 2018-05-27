@@ -220,6 +220,7 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData);
 HTableKey evalGetPawnDataHTableKeyFromPos(const Pos *pos);
 
 VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour);
+VPair evaluateDefaultKing(EvalData *data, Colour colour);
 
 Score evalInterpolate(const EvalData *data, const VPair *score);
 
@@ -444,9 +445,9 @@ VPair evaluateDefault(EvalData *data) {
 	evalGetPawnData(pos, &data->pawnData);
 	evalVPairAddTo(&score, &data->pawnData.score);
 
-	// All pieces.
+	// Knights, bishops, rooks and queens
 	PieceType type;
-	for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
+	for(type=PieceTypeKnight;type<=PieceTypeQueen;++type) {
 		Piece piece;
 		const Sq *sq, *sqEnd;
 
@@ -468,6 +469,13 @@ VPair evaluateDefault(EvalData *data) {
 			evalVPairSubFrom(&score, &pieceScore);
 		}
 	}
+
+	// Kings
+	VPair kingScoreWhite=evaluateDefaultKing(data, ColourWhite);
+	evalVPairAddTo(&score, &kingScoreWhite);
+
+	VPair kingScoreBlack=evaluateDefaultKing(data, ColourBlack);
+	evalVPairSubFrom(&score, &kingScoreBlack);
 
 	// King castling 'mobility'.
 	CastRights castRights=posGetCastRights(pos);
@@ -884,16 +892,26 @@ VPair evalPiece(EvalData *data, PieceType type, Sq sq, Colour colour) {
 		}
 	}
 
-	// Kings.
-	if (type==PieceTypeKing) {
-		// Pawn shield.
-		BB pawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colour));
-		BB set=bbForwardOne(bbWestOne(bb) | bb | bbEastOne(bb), colour);
-		BB shieldClose=(pawns & set);
-		BB shieldFar=(pawns & bbForwardOne(set, colour));
-		evalVPairAddMulTo(&score, &evalKingShieldClose, bbPopCount(shieldClose));
-		evalVPairAddMulTo(&score, &evalKingShieldFar, bbPopCount(shieldFar));
-	}
+	return score;
+}
+
+VPair evaluateDefaultKing(EvalData *data, Colour colour) {
+	assert(data!=NULL);
+
+	Sq kingSq=posGetKingSq(data->pos, colour);
+	BB kingBB=bbSq(kingSq);
+
+	VPair score=VPairZero;
+
+	// Pawn shield.
+	BB pawns=posGetBBPiece(data->pos, pieceMake(PieceTypePawn, colour));
+	BB kingSpan=(bbWestOne(kingBB) | kingBB | bbEastOne(kingBB));
+
+	BB shieldClose=(pawns & bbForwardOne(kingSpan, colour));
+	evalVPairAddMulTo(&score, &evalKingShieldClose, bbPopCount(shieldClose));
+
+	BB shieldFar=(pawns & bbForwardOne(kingSpan, colour));
+	evalVPairAddMulTo(&score, &evalKingShieldFar, bbPopCount(shieldFar));
 
 	return score;
 }

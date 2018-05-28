@@ -20,6 +20,8 @@ typedef enum {
 	SqNB, SqInvalid=127
 } Sq;
 #define SqBit 7
+#define SqFileMask (((1u)<<FileBit)-1)
+#define SqRankMask ((((1u)<<RankBit)-1)<<FileBit)
 
 bool sqIsValid(Sq sq);
 

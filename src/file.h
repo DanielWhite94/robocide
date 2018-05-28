@@ -5,6 +5,7 @@
 
 // Files are guaranteed to be consecutive starting from 0.
 typedef enum { FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH, FileNB } File;
+#define FileBit 3
 
 bool fileIsValid(File file);
 

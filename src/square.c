@@ -11,27 +11,27 @@ bool sqIsValid(Sq sq) {
 Sq sqMake(File file, Rank rank) {
 	assert(fileIsValid(file));
 	assert(rankIsValid(rank));
-	return (rank<<3)+file;
+	return (rank<<FileBit)+file;
 }
 
 File sqFile(Sq sq) {
 	assert(sqIsValid(sq));
-	return (sq&7);
+	return (sq&SqFileMask);
 }
 
 Rank sqRank(Sq sq) {
 	assert(sqIsValid(sq));
-	return (sq>>3);
+	return (sq>>FileBit);
 }
 
 Sq sqMirror(Sq sq) {
 	assert(sqIsValid(sq));
-	return (sq^7);
+	return (sq^SqFileMask);
 }
 
 Sq sqFlip(Sq sq) {
 	assert(sqIsValid(sq));
-	return (sq^56);
+	return (sq^SqRankMask);
 }
 
 Sq sqNormalise(Sq sq, Colour colour) {

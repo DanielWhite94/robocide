@@ -90,6 +90,7 @@ TUNECONST VPair evalRookOn7th={50,100};
 TUNECONST VPair evalRookTrapped={-400,0};
 TUNECONST VPair evalKingShieldClose={150,0};
 TUNECONST VPair evalKingShieldFar={50,0};
+TUNECONST VPair evalKingNearPasserFactor={0,200};
 TUNECONST VPair evalKingCastlingMobilityNone={0,0};
 TUNECONST VPair evalKingCastlingMobilityK={100,0};
 TUNECONST VPair evalKingCastlingMobilityQ={100,0};
@@ -202,6 +203,8 @@ VPair evalKingCastlingMobility[CastRightsNB];
 int evalHalfMoveFactors[128];
 uint8_t evalWeightEGFactors[128];
 
+VPair evalKingNearPasser[8];
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.
 ////////////////////////////////////////////////////////////////////////////////
@@ -312,6 +315,7 @@ void evalInit(void) {
 	evalOptionNewVPair("RookTrapped", &evalRookTrapped);
 	evalOptionNewVPair("KingShieldClose", &evalKingShieldClose);
 	evalOptionNewVPair("KingShieldFar", &evalKingShieldFar);
+	evalOptionNewVPair("KingNearPasser", &evalKingNearPasserFactor);
 	evalOptionNewVPair("KingCastlingMobilityNone", &evalKingCastlingMobilityNone);
 	evalOptionNewVPair("KingCastlingMobilityK", &evalKingCastlingMobilityK);
 	evalOptionNewVPair("KingCastlingMobilityQ", &evalKingCastlingMobilityQ);
@@ -925,6 +929,15 @@ VPair evaluateDefaultKing(EvalData *data, Colour colour) {
 	BB shieldFar=(pawns & bbForwardOne(kingSpan, colour));
 	evalVPairAddMulTo(&score, &evalKingShieldFar, bbPopCount(shieldFar));
 
+	// Distance to enemy passed pawns
+	BB oppPassers=data->pawnData.passed[colourSwap(colour)];
+	while(oppPassers) {
+		Sq passerSq=bbScanReset(&oppPassers);
+		unsigned distance=sqDist(kingSq, passerSq);
+		assert(distance>=1 && distance<=7);
+		evalVPairAdd(&score, &evalKingNearPasser[distance]);
+	}
+
 	return score;
 }
 
@@ -1107,6 +1120,19 @@ void evalRecalc(void) {
 			evalPawnValue[ColourBlack][type][sqFlip(sq)]=VPairZero;
 			evalVPairSubFrom(&evalPawnValue[ColourBlack][type][sqFlip(sq)], score);
 		}
+	}
+
+	// King near passer table
+	int dist;
+	for(dist=1; dist<=7; ++dist) {
+		double normDist=(7-dist)/6.0;
+		assert(normDist>=0.0 && normDist<=1.0);
+		double normDist2=pow(normDist, 2.0);
+
+		double scoreMg=normDist2*evalKingNearPasserFactor.mg;
+		double scoreEg=normDist2*evalKingNearPasserFactor.eg;
+		evalKingNearPasser[dist].mg=floor(scoreMg);
+		evalKingNearPasser[dist].eg=floor(scoreEg);
 	}
 
 	// Calculate factor for number of half moves since capture/pawn move.

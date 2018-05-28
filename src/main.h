@@ -3,6 +3,6 @@
 
 #include <stdarg.h>
 
-void mainFatalError(const char *format, ...);
+void mainFatalError(const char *format, ...) __attribute__ ((noreturn));
 
 #endif

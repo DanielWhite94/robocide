@@ -1,8 +1,16 @@
 #ifndef EVAL_H
 #define EVAL_H
 
+#include <stdint.h>
+
+typedef int32_t Value;
+typedef struct { Value mg, eg; } VPair;
+extern const VPair VPairZero;
+
+#include "piece.h"
 #include "pos.h"
 #include "score.h"
+#include "square.h"
 
 typedef enum {
 	EvalMatTypeInvalid,
@@ -25,5 +33,15 @@ void evalClear(void); // Clear all saved data (called when we receive 'ucinewgam
 EvalMatType evalGetMatType(const Pos *pos);
 
 const char *evalMatTypeToStr(EvalMatType matType);
+
+void evalVPairAddTo(VPair *a, const VPair *b);
+void evalVPairSubFrom(VPair *a, const VPair *b);
+void evalVPairAddMulTo(VPair *a, const VPair *b, int c);
+void evalVPairSubMulFrom(VPair *a, const VPair *b, int c);
+void evalVPairNegate(VPair *a);
+
+VPair evalVPairAdd(const VPair *a, const VPair *b);
+VPair evalVPairSub(const VPair *a, const VPair *b);
+VPair evalVPairNegation(const VPair *a);
 
 #endif

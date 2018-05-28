@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <math.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,13 +11,9 @@
 #include "eval.h"
 #include "htable.h"
 #include "main.h"
-#include "piece.h"
-#include "square.h"
 #include "tune.h"
 #include "uci.h"
 
-typedef int32_t Value;
-typedef struct { Value mg, eg; } VPair;
 const VPair VPairZero={0,0};
 
 typedef int16_t Value16;
@@ -230,16 +225,6 @@ VPair evaluateDefaultKing(EvalData *data, Colour colour);
 
 Score evalInterpolate(const EvalData *data, const VPair *score);
 
-void evalVPairAddTo(VPair *a, const VPair *b);
-void evalVPairSubFrom(VPair *a, const VPair *b);
-void evalVPairAddMulTo(VPair *a, const VPair *b, int c);
-void evalVPairSubMulFrom(VPair *a, const VPair *b, int c);
-void evalVPairNegate(VPair *a);
-
-VPair evalVPairAdd(const VPair *a, const VPair *b);
-VPair evalVPairSub(const VPair *a, const VPair *b);
-VPair evalVPairNegation(const VPair *a);
-
 void evalVPairAddVPair16To(VPair *a, const VPair16 *b);
 void evalVPairSubVPair16From(VPair *a, const VPair16 *b);
 
@@ -396,6 +381,49 @@ const char *evalMatTypeStrs[EvalMatTypeNB]={[EvalMatTypeInvalid]="invalid", [Eva
 const char *evalMatTypeToStr(EvalMatType matType) {
 	assert(matType<EvalMatTypeNB);
 	return evalMatTypeStrs[matType];
+}
+
+void evalVPairAddTo(VPair *a, const VPair *b) {
+	a->mg+=b->mg;
+	a->eg+=b->eg;
+}
+
+void evalVPairSubFrom(VPair *a, const VPair *b) {
+	a->mg-=b->mg;
+	a->eg-=b->eg;
+}
+
+void evalVPairAddMulTo(VPair *a, const VPair *b, int c) {
+	a->mg+=b->mg*c;
+	a->eg+=b->eg*c;
+}
+
+void evalVPairSubMulFrom(VPair *a, const VPair *b, int c) {
+	a->mg-=b->mg*c;
+	a->eg-=b->eg*c;
+}
+
+void evalVPairNegate(VPair *a) {
+	a->mg=-a->mg;
+	a->eg=-a->eg;
+}
+
+VPair evalVPairAdd(const VPair *a, const VPair *b) {
+	VPair result=*a;
+	evalVPairAddTo(&result, b);
+	return result;
+}
+
+VPair evalVPairSub(const VPair *a, const VPair *b) {
+	VPair result=*a;
+	evalVPairSubFrom(&result, b);
+	return result;
+}
+
+VPair evalVPairNegation(const VPair *a) {
+	VPair result=*a;
+	evalVPairNegate(&result);
+	return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -949,49 +977,6 @@ VPair evaluateDefaultKing(EvalData *data, Colour colour) {
 Score evalInterpolate(const EvalData *data, const VPair *score) {
 	// Interpolate and also scale to centi-pawns
 	return ((data->matData.weightMG*score->mg+data->matData.weightEG*score->eg)*100)/(evalMaterial[PieceTypePawn].mg*256);
-}
-
-void evalVPairAddTo(VPair *a, const VPair *b) {
-	a->mg+=b->mg;
-	a->eg+=b->eg;
-}
-
-void evalVPairSubFrom(VPair *a, const VPair *b) {
-	a->mg-=b->mg;
-	a->eg-=b->eg;
-}
-
-void evalVPairAddMulTo(VPair *a, const VPair *b, int c) {
-	a->mg+=b->mg*c;
-	a->eg+=b->eg*c;
-}
-
-void evalVPairSubMulFrom(VPair *a, const VPair *b, int c) {
-	a->mg-=b->mg*c;
-	a->eg-=b->eg*c;
-}
-
-void evalVPairNegate(VPair *a) {
-	a->mg=-a->mg;
-	a->eg=-a->eg;
-}
-
-VPair evalVPairAdd(const VPair *a, const VPair *b) {
-	VPair result=*a;
-	evalVPairAddTo(&result, b);
-	return result;
-}
-
-VPair evalVPairSub(const VPair *a, const VPair *b) {
-	VPair result=*a;
-	evalVPairSubFrom(&result, b);
-	return result;
-}
-
-VPair evalVPairNegation(const VPair *a) {
-	VPair result=*a;
-	evalVPairNegate(&result);
-	return result;
 }
 
 void evalVPairAddVPair16To(VPair *a, const VPair16 *b) {

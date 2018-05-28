@@ -39,4 +39,6 @@ Sq sqBackwardOne(Sq sq, Colour colour);
 
 bool sqIsLight(Sq sq);
 
+unsigned sqDist(Sq a, Sq b); // Via direct king moves
+
 #endif

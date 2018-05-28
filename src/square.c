@@ -1,6 +1,8 @@
 #include <assert.h>
+#include <stdlib.h>
 
 #include "square.h"
+#include "util.h"
 
 bool sqIsValid(Sq sq) {
 	return (sq>=SqA1 && sq<=SqH8);
@@ -75,4 +77,10 @@ Sq sqBackwardOne(Sq sq, Colour colour) {
 bool sqIsLight(Sq sq) {
 	assert(sqIsValid(sq));
 	return ((sqFile(sq)^sqRank(sq))&1);
+}
+
+unsigned sqDist(Sq a, Sq b) {
+	int dx=abs(((int)sqFile(a))-((int)sqFile(b)));
+	int dy=abs(((int)sqRank(a))-((int)sqRank(b)));
+	return utilMax(dx, dy);
 }

@@ -156,6 +156,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 
 	searchStopFlag=false;
 	searchLimit=*limit;
+	searchLimit.searchMovesNext=searchLimit.searchMoves+(limit->searchMovesNext-limit->searchMoves);
 	searchOutput=output;
 
 	while (lockTryWait(searchActivity)) ; // Reset to 0.
@@ -180,6 +181,15 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 		searchTime=utilMin(searchTime, searchLimit.moveTime);
 	if (searchTime!=TimeMsInvalid)
 		searchEndTime=searchLimit.startTime+searchTime;
+
+	// If no search moves given via uci, fill with all pseudo-legal moves.
+	if (searchLimit.searchMovesNext==searchLimit.searchMoves) {
+		Moves tempMoves;
+		movesInit(&tempMoves, searchPos, 0, MoveTypeAny);
+		Move move;
+		while((move=movesNext(&tempMoves))!=MoveInvalid)
+			*searchLimit.searchMovesNext++=move;
+	}
 
 	// Set away worker
 	threadRun(searchThread, &searchIDLoop, NULL);
@@ -276,6 +286,7 @@ void searchLimitInit(SearchLimit *limit, TimeMs startTime) {
 	limit->movesToGo=0;
 	limit->depth=DepthMax-1;
 	limit->nodes=0;
+	limit->searchMovesNext=limit->searchMoves;
 }
 
 void searchLimitSetInfinite(SearchLimit *limit, bool infinite) {
@@ -307,7 +318,7 @@ void searchLimitSetMovesToGo(SearchLimit *limit, unsigned int movesToGo) {
 }
 
 void searchLimitAddMove(SearchLimit *limit, Move move) {
-	// TODO: Implement this.
+	*limit->searchMovesNext++=move;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -358,10 +369,16 @@ void searchIDLoop(void *userData) {
 			break;
 	}
 
-	// Grab best move from TT if available, otherwise choose a legal move.
+	// Grab best move from TT if available, otherwise choose a legal move from searchmoves given.
 	Move bestMove=ttReadMove(node.pos);
-	if (!moveIsValid(bestMove) || !posCanMakeMove(node.pos, bestMove))
-		bestMove=posGenLegalMove(node.pos, MoveTypeAny);
+	if (!moveIsValid(bestMove) || !posCanMakeMove(node.pos, bestMove)) {
+		Move *movePtr;
+		for(movePtr=searchLimit.searchMoves; movePtr!=searchLimit.searchMovesNext; ++movePtr)
+			if (posCanMakeMove(node.pos, *movePtr)) {
+				bestMove=*movePtr;
+				break;
+			}
+	}
 
 	// If in pondering mode try to extract ponder move.
 	Move ponderMove=MoveInvalid;
@@ -552,6 +569,16 @@ void searchNodeInternal(Node *node) {
 	Move move;
 	unsigned moveNumber=0;
 	while((move=movesNext(&moves))!=MoveInvalid) {
+		// If we are the root ensure this move is one that was specified (if any restriction given)
+		if (node->ply==0) {
+			Move *movePtr;
+			for(movePtr=searchLimit.searchMoves; movePtr!=searchLimit.searchMovesNext; ++movePtr)
+				if (move==*movePtr)
+					break;
+			if (movePtr==searchLimit.searchMovesNext)
+				continue;
+		}
+
 		// Find move string for UCI output.
 		char moveStr[8]; // Only used if root node.
 		if (searchShowCurrmove && node->ply==0)

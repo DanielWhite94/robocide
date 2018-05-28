@@ -22,6 +22,7 @@ void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type) {
 	moves->pos=pos;
 	moves->ply=ply;
 	moves->allowed=moves->needed=type;
+	moves->next=moves->list;
 }
 
 void movesRewind(Moves *moves, Move ttMove) {

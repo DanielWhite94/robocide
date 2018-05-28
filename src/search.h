@@ -21,6 +21,8 @@ typedef struct {
 	unsigned int movesToGo; // 0 implies sudden-death (assuming totalTime and/or inc time are in use).
 	Depth depth;// Depth limit. If DepthInvalid assumes no limit given. If greater than DepthMax, reduced to this.
 	unsigned long long int nodes; // Node limit. If 0 assumes no limit given.
+
+	Move searchMoves[MovesMax], *searchMovesNext;
 } SearchLimit;
 
 void searchInit(void);

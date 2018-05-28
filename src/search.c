@@ -144,7 +144,6 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	searchStop();
 
 	// Sanity checks
-	assert(searchNodeCount==0);
 	assert(searchNodeNext==1);
 	assert(searchShowCurrmove==false);
 	assert(searchEndTime==TimeMsInvalid);
@@ -155,6 +154,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 		return;
 
 	searchStopFlag=false;
+	searchNodeCount=0;
 	searchLimit=*limit;
 	searchLimit.searchMovesNext=searchLimit.searchMoves+(limit->searchMovesNext-limit->searchMoves);
 	searchOutput=output;
@@ -326,7 +326,6 @@ void searchLimitAddMove(SearchLimit *limit, Move move) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void searchThinkClear(void) {
-	searchNodeCount=0;
 	searchNodeNext=1;
 	searchShowCurrmove=false;
 	searchEndTime=TimeMsInvalid;

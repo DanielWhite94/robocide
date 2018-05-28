@@ -18,9 +18,13 @@ typedef enum {
 	PieceTypeKing,
 	PieceTypeNB
 } PieceType;
+#define PieceTypeBit 3
 
 // For each colour pieces are guaranteed to be consecutive and in the same order
 // as in the piece types above.
+#define PieceColourShift PieceTypeBit
+#define PieceColourMask ((((1u)<<ColourBit)-1)<<PieceColourShift)
+#define PieceTypeMask (((1u)<<PieceTypeBit)-1)
 STATICASSERT((PieceTypeNB<=8)); // To ensure white and black pieces don't overlap.
 typedef enum {
 	PieceNone=PieceTypeNone,
@@ -31,16 +35,16 @@ typedef enum {
 	PieceWRook=PieceTypeRook,
 	PieceWQueen=PieceTypeQueen,
 	PieceWKing=PieceTypeKing,
-	PieceBPawn=(8|PieceTypePawn),
-	PieceBKnight=(8|PieceTypeKnight),
-	PieceBBishopL=(8|PieceTypeBishopL),
-	PieceBBishopD=(8|PieceTypeBishopD),
-	PieceBRook=(8|PieceTypeRook),
-	PieceBQueen=(8|PieceTypeQueen),
-	PieceBKing=(8|PieceTypeKing),
-	PieceNB=2*8
+	PieceBPawn=(PieceColourMask|PieceTypePawn),
+	PieceBKnight=(PieceColourMask|PieceTypeKnight),
+	PieceBBishopL=(PieceColourMask|PieceTypeBishopL),
+	PieceBBishopD=(PieceColourMask|PieceTypeBishopD),
+	PieceBRook=(PieceColourMask|PieceTypeRook),
+	PieceBQueen=(PieceColourMask|PieceTypeQueen),
+	PieceBKing=(PieceColourMask|PieceTypeKing),
+	PieceNB=2*PieceColourMask
 } Piece;
-#define PieceBit 4
+#define PieceBit (PieceColourShift+ColourBit) // 4
 
 bool pieceTypeIsValid(PieceType type);
 bool pieceIsValid(Piece piece);

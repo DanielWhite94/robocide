@@ -26,18 +26,18 @@ bool pieceTypeIsBishop(PieceType type) {
 
 Colour pieceGetColour(Piece piece) {
 	assert(pieceIsValid(piece));
-	return (piece>>3);
+	return (piece>>PieceColourShift);
 }
 
 PieceType pieceGetType(Piece piece) {
 	assert(pieceIsValid(piece) || piece==PieceNone);
-	return (piece&7);
+	return (piece&PieceTypeMask);
 }
 
 Piece pieceMake(PieceType type, Colour colour) {
 	assert(pieceTypeIsValid(type));
 	assert(colourIsValid(colour));
-	return ((((Piece)colour)<<3)|((Piece)type));
+	return ((((Piece)colour)<<PieceColourShift)|((Piece)type));
 }
 
 char pieceToChar(Piece piece) {

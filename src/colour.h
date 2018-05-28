@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 typedef enum { ColourWhite, ColourBlack, ColourNB} Colour;
+#define ColourBit 1
 
 bool colourIsValid(Colour colour);
 

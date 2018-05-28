@@ -35,17 +35,21 @@ HTable *evalPawnTable=NULL;
 const size_t evalPawnTableDefaultSizeMb=1;
 #define evalPawnTableMaxSizeMb ((HTableMaxEntryCount*sizeof(EvalPawnData))/(1024*1024)) // 256gb
 
+STATICASSERT(ScoreBit<=16);
+STATICASSERT(EvalMatTypeBit<=8);
 typedef struct {
 	MatInfo mat;
-	EvalMatType type; // If this is EvalMatTypeInvalid implies not yet computed.
-	VPair (*function)(EvalData *data); // If this is NULL implies all entries below have yet to be computed.
-	VPair offset, tempo;
+	VPair offset;
+	int16_t scoreOffset;
 	uint8_t weightMG, weightEG;
-	Score scoreOffset;
+	uint8_t type; // If this is EvalMatTypeInvalid implies all fields not yet computed. Otherwise mat must also be set.
+	uint8_t computed; // True if all fields are set, not just mat and type.
+	uint8_t padding[2];
 } EvalMatData;
+
 HTable *evalMatTable=NULL;
 const size_t evalMatTableDefaultSizeMb=1;
-#define evalMatTableMaxSizeMb ((HTableMaxEntryCount*sizeof(EvalMatData))/(1024*1024)) // 192gb
+#define evalMatTableMaxSizeMb ((HTableMaxEntryCount*sizeof(EvalMatData))/(1024*1024)) // 96gb
 
 struct EvalData {
 	const Pos *pos;
@@ -96,8 +100,6 @@ TUNECONST VPair evalKingCastlingMobilityK={100,0};
 TUNECONST VPair evalKingCastlingMobilityQ={100,0};
 TUNECONST VPair evalKingCastlingMobilityKQ={200,0};
 TUNECONST VPair evalTempoDefault={35,0};
-TUNECONST VPair evalTempoKQKQ={200,200};
-TUNECONST VPair evalTempoKQQKQQ={500,500};
 TUNECONST Value evalHalfMoveFactor=2048;
 TUNECONST Value evalWeightFactor=144;
 
@@ -371,15 +373,15 @@ EvalMatType evalGetMatType(const Pos *pos) {
 
 	// If not a match clear entry
 	MatInfo mat=posGetMatInfo(pos);
-	if (entry->mat!=mat) {
-		entry->mat=mat;
+	if (entry->mat!=mat)
 		entry->type=EvalMatTypeInvalid;
-		entry->function=NULL;
-	}
 
 	// If no data already, compute
-	if (entry->type==EvalMatTypeInvalid)
+	if (entry->type==EvalMatTypeInvalid) {
+		entry->mat=mat;
 		entry->type=evalComputeMatType(pos);
+		entry->computed=false;
+	}
 
 	// Copy data to return it
 	EvalMatType type=entry->type;
@@ -408,16 +410,24 @@ Score evaluateInternal(const Pos *pos) {
 	evalGetMatData(pos, &data.matData);
 
 	// Evaluate.
-	VPair score=data.matData.function(&data);
+	VPair score;
+	switch(data.matData.type) {
+		case EvalMatTypeKPvK:
+			score=evaluateKPvK(&data);
+		break;
+		default:
+			score=evaluateDefault(&data);
+		break;
+	}
 
 	// Material combination offset.
 	evalVPairAddTo(&score, &data.matData.offset);
 
 	// Tempo bonus.
 	if (posGetSTM(pos)==ColourWhite)
-		evalVPairAddTo(&score, &data.matData.tempo);
+		evalVPairAddTo(&score, &evalTempoDefault);
 	else
-		evalVPairSubFrom(&score, &data.matData.tempo);
+		evalVPairSubFrom(&score, &evalTempoDefault);
 
 	// Interpolate score based on phase of the game and special material combination considerations.
 	Score scalarScore=evalInterpolate(&data, &score);
@@ -484,7 +494,6 @@ VPair evaluateKPvK(EvalData *data) {
 	switch(result) {
 		case BitBaseResultDraw:
 			data->matData.offset=VPairZero;
-			data->matData.tempo=VPairZero;
 			data->matData.scoreOffset=0;
 			return VPairZero;
 		break;
@@ -506,16 +515,18 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 
 	// If not a match clear entry
 	MatInfo mat=posGetMatInfo(pos);
-	if (entry->mat!=mat) {
-		entry->mat=mat;
+	if (entry->mat!=mat)
 		entry->type=EvalMatTypeInvalid;
-		entry->function=NULL;
+
+	// If no type info, compute first.
+	if (entry->type==EvalMatTypeInvalid) {
+		entry->mat=mat;
+		entry->type=evalComputeMatType(pos);
+		entry->computed=false;
 	}
 
 	// If no data already, compute.
-	if (entry->type==EvalMatTypeInvalid)
-		entry->type=evalGetMatType(pos);
-	if (entry->function==NULL)
+	if (!entry->computed)
 		evalComputeMatData(pos, entry);
 
 	// Copy data to return it.
@@ -531,9 +542,9 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 
 	// Init data.
 	assert(matData->mat==posGetMatInfo(pos));
-	matData->function=&evaluateDefault;
+	assert(matData->type!=EvalMatTypeInvalid);
+	matData->computed=true;
 	matData->offset=VPairZero;
-	matData->tempo=evalTempoDefault;
 	matData->scoreOffset=0;
 	MatInfo mat=(matData->mat & ~matInfoMakeMaskPieceType(PieceTypeKing)); // Remove kings as these as always present.
 	bool wBishopL=((mat & matInfoMakeMaskPiece(PieceWBishopL))!=0);
@@ -650,10 +661,6 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 					else if (mat==(M(PieceWQueen,1)|M(PieceBRook,1))|| // KQvKR.
 					         mat==(M(PieceBQueen,1)|M(PieceWRook,1)))
 						factor/=2;
-					else if (mat==MatInfoMaskKQvKQ) // KQvKQ.
-						matData->tempo=evalTempoKQKQ;
-					else if (mat==MatInfoMaskKQQvKQQ) // KQQvKQQ.
-						matData->tempo=evalTempoKQQKQQ;
 				} else {
 					// Mix of major and minor pieces.
 					switch(minorCount+rookCount+queenCount) {
@@ -708,8 +715,6 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 			factor/=128;
 		break;
 		case EvalMatTypeKPvK:
-			// Special evaluation function.
-			matData->function=&evaluateKPvK;
 		break;
 		case EvalMatTypeKBPvK:
 		break;

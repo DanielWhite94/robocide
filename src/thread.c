@@ -33,9 +33,9 @@ Thread *threadNew(void)
 	Lock *lock=lockNew(1);
 	Lock *runFlag=lockNew(0);
 	if (thread==NULL || lock==NULL || runFlag==NULL) {
-		free(thread);
 		lockFree(lock);
 		lockFree(runFlag);
+		free(thread);
 		return NULL;
 	}
 
@@ -47,9 +47,9 @@ Thread *threadNew(void)
 
 	// Start thread.
 	if (pthread_create(&thread->id, NULL, &threadMain, (void *)thread)!=0) {
-		free(thread);
 		lockFree(thread->lock);
 		lockFree(thread->runFlag);
+		free(thread);
 		return NULL;
 	}
 

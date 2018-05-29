@@ -71,15 +71,7 @@ bool fenRead(Fen *data, const char *string) {
 
 	// 3. Castling availability.
 	c=fields[2];
-	while(*c!=' ') // We know a space exists before the null byte.
-		switch(*c++) {
-			case 'K': data->castRights|=CastRightsK; break;
-			case 'Q': data->castRights|=CastRightsQ; break;
-			case 'k': data->castRights|=CastRightsk; break;
-			case 'q': data->castRights|=CastRightsq; break;
-			case '-': break;
-			default: return false; break;
-		}
+	data->castRights=posCastRightsFromStr(c);
 
 	// 4. En passent target square.
 	if (fields[3][0]!='\0' && fields[3][1]!='\0' && fields[3][0]!='-') {
@@ -141,17 +133,9 @@ void fenWrite(Fen *data, char string[static 128]) {
 
 	// 3. Castling availability.
 	strcat(string, " ");
-	if (data->castRights!=CastRightsNone) {
-		if (data->castRights & CastRightsK)
-			strcat(string, "K");
-		if (data->castRights & CastRightsQ)
-			strcat(string, "Q");
-		if (data->castRights & CastRightsk)
-			strcat(string, "k");
-		if (data->castRights & CastRightsq)
-			strcat(string, "q");
-	} else
-		strcat(string, "-");
+
+	posCastRightsToStr(data->castRights, tempStr);
+	strcat(string, tempStr);
 
 	// 4. En passent target square.
 	if (data->epSq!=SqInvalid) {

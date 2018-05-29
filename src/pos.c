@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -9,10 +10,16 @@
 #include "uci.h"
 #include "util.h"
 
+const CastRights CastRightsNone={
+	.rookSq[ColourWhite][CastSideA]=SqInvalid,
+	.rookSq[ColourWhite][CastSideH]=SqInvalid,
+	.rookSq[ColourBlack][CastSideA]=SqInvalid,
+	.rookSq[ColourBlack][CastSideH]=SqInvalid,
+};
+
 STATICASSERT(MoveBit<=16);
 STATICASSERT(PieceBit<=4);
 STATICASSERT(SqBit<=8);
-STATICASSERT(CastRightsBit<=8);
 typedef struct {
 	Key key;
 	uint64_t lastMove:16;
@@ -20,9 +27,9 @@ typedef struct {
 	uint64_t halfMoveNumber:15;
 	uint64_t epSq:7;
 	uint64_t capSq:7;
-	uint64_t cast:4;
 	uint64_t capPiece:4;
 	uint64_t padding:10;
+	CastRights castRights;
 } PosData;
 
 struct Pos {
@@ -40,9 +47,8 @@ struct Pos {
 
 const char *posStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-CastRights posCastlingUpdate[SqNB];
 STATICASSERT(SqNB<128 && SqInvalid<128); // For PosKeyEP array.
-Key posKeySTM, posKeyPiece[16][SqNB], posKeyEP[128], posKeyCastling[CastRightsNB];
+Key posKeySTM, posKeyPiece[16][SqNB], posKeyEP[128], posKeyCastling[128];
 Key posPawnKeyPiece[PieceNB][SqNB];
 Key posMatKey[PieceNB*16];
 
@@ -82,22 +88,13 @@ bool posLegalMoveExistsPiece(const Pos *pos, PieceType type, BB allowed);
 ////////////////////////////////////////////////////////////////////////////////
 
 void posInit(void) {
-	// Array to update castling rights in posMakeMove().
-	memset(posCastlingUpdate, CastRightsKQkq, SqNB*sizeof(CastRights));
-	posCastlingUpdate[SqA1]=~CastRightsQ;
-	posCastlingUpdate[SqA8]=~CastRightsq;
-	posCastlingUpdate[SqE1]=~CastRightsKQ;
-	posCastlingUpdate[SqE8]=~CastRightskq;
-	posCastlingUpdate[SqH1]=~CastRightsK;
-	posCastlingUpdate[SqH8]=~CastRightsk;
-
 	// Hash keys
 	utilRandSeed(1804289383);
 	posKeySTM=posRandKey();
 	memset(posKeyPiece, 0, PieceNB*SqNB*sizeof(Key));
 	memset(posPawnKeyPiece, 0, PieceNB*SqNB*sizeof(Key));
 	memset(posKeyEP, 0, 128*sizeof(Key));
-	memset(posKeyCastling, 0, CastRightsNB*sizeof(Key));
+	memset(posKeyCastling, 0, 128*sizeof(Key));
 	unsigned int i;
 	for(i=0;i<SqNB;++i) {
 		posKeyPiece[PieceWPawn][i]=posRandKey();
@@ -120,21 +117,10 @@ void posInit(void) {
 	}
 	for(i=0;i<FileNB;++i)
 		posKeyEP[sqMake(i,Rank3)]=posKeyEP[sqMake(i,Rank6)]=posRandKey();
-	posKeyCastling[CastRightsK]=posRandKey();
-	posKeyCastling[CastRightsQ]=posRandKey();
-	posKeyCastling[CastRightsk]=posRandKey();
-	posKeyCastling[CastRightsq]=posRandKey();
-	posKeyCastling[CastRightsKQ]=posKeyCastling[CastRightsK]^posKeyCastling[CastRightsQ];
-	posKeyCastling[CastRightsKk]=posKeyCastling[CastRightsK]^posKeyCastling[CastRightsk];
-	posKeyCastling[CastRightsKq]=posKeyCastling[CastRightsK]^posKeyCastling[CastRightsq];
-	posKeyCastling[CastRightsQk]=posKeyCastling[CastRightsQ]^posKeyCastling[CastRightsk];
-	posKeyCastling[CastRightsQq]=posKeyCastling[CastRightsQ]^posKeyCastling[CastRightsq];
-	posKeyCastling[CastRightskq]=posKeyCastling[CastRightsk]^posKeyCastling[CastRightsq];
-	posKeyCastling[CastRightsKQk]=posKeyCastling[CastRightsKQ]^posKeyCastling[CastRightsk];
-	posKeyCastling[CastRightsKQq]=posKeyCastling[CastRightsKQ]^posKeyCastling[CastRightsq];
-	posKeyCastling[CastRightsKkq]=posKeyCastling[CastRightsKk]^posKeyCastling[CastRightsq];
-	posKeyCastling[CastRightsQkq]=posKeyCastling[CastRightsQk]^posKeyCastling[CastRightsq];
-	posKeyCastling[CastRightsKQkq]=posKeyCastling[CastRightsKQ]^posKeyCastling[CastRightskq];
+	for(i=0; i<FileNB; ++i) {
+		posKeyCastling[sqMake(i, Rank1)]=posRandKey();
+		posKeyCastling[sqMake(i, Rank8)]=posRandKey();
+	}
 
 	posMatKey[0]=0; // For empty squares.
 	for(i=1;i<PieceNB*16;++i)
@@ -244,7 +230,7 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	pos->stm=fen.stm;
 	pos->fullMoveNumber=fen.fullMoveNumber;
 	pos->data->halfMoveNumber=fen.halfMoveNumber;
-	pos->data->cast=fen.castRights;
+	pos->data->castRights=fen.castRights;
 	if (fen.epSq!=SqInvalid && posIsEPCap(pos, fen.epSq))
 		pos->data->epSq=fen.epSq;
 	pos->data->key=posComputeKey(pos);
@@ -282,7 +268,9 @@ void posDraw(const Pos *pos) {
 
 	// Other information.
 	uciWrite("STM: %s\n", colourToStr(posGetSTM(pos)));
-	uciWrite("Castling rights: %s\n", posCastRightsToStr(posGetCastRights(pos)));
+	char castRightsStr[8];
+	posCastRightsToStr(posGetCastRights(pos), castRightsStr);
+	uciWrite("Castling rights: %s\n", castRightsStr);
 	if (pos->data->epSq!=SqInvalid)
 		uciWrite("EP-sq: %c%c\n", fileToChar(sqFile(pos->data->epSq)), rankToChar(sqRank(pos->data->epSq)));
 	else
@@ -373,7 +361,7 @@ MatInfo posGetMatInfo(const Pos *pos) {
 }
 
 CastRights posGetCastRights(const Pos *pos) {
-	return pos->data->cast;
+	return pos->data->castRights;
 }
 
 Sq posGetEPSq(const Pos *pos) {
@@ -413,7 +401,7 @@ bool posMakeMove(Pos *pos, Move move) {
 	pos->data->halfMoveNumber=(pos->data-1)->halfMoveNumber+1;
 	pos->data->epSq=SqInvalid;
 	pos->data->key=(pos->data-1)->key^posKeySTM^posKeyEP[(pos->data-1)->epSq];
-	pos->data->cast=(pos->data-1)->cast;
+	pos->data->castRights=(pos->data-1)->castRights;
 	pos->data->capPiece=posGetPieceOnSq(pos, toSq);
 	pos->data->capSq=toSq;
 	pos->fullMoveNumber+=(pos->stm==ColourBlack); // Inc after black's move.
@@ -423,7 +411,14 @@ bool posMakeMove(Pos *pos, Move move) {
 		Piece fromPiece=posGetPieceOnSq(pos, fromSq);
 
 		// Update castling rights
-		pos->data->cast&=posCastlingUpdate[fromSq] & posCastlingUpdate[toSq];
+		if (pos->data->castRights.rookSq[colourSwap(pos->stm)][CastSideA]==fromSq || pieceGetType(fromPiece)==PieceTypeKing)
+			pos->data->castRights.rookSq[colourSwap(pos->stm)][CastSideA]=SqInvalid;
+		if (pos->data->castRights.rookSq[colourSwap(pos->stm)][CastSideH]==fromSq || pieceGetType(fromPiece)==PieceTypeKing)
+			pos->data->castRights.rookSq[colourSwap(pos->stm)][CastSideH]=SqInvalid;
+		if (pos->data->castRights.rookSq[pos->stm][CastSideA]==toSq)
+			pos->data->castRights.rookSq[pos->stm][CastSideA]=SqInvalid;
+		if (pos->data->castRights.rookSq[pos->stm][CastSideH]==toSq)
+			pos->data->castRights.rookSq[pos->stm][CastSideH]=SqInvalid;
 
 		switch(pieceGetType(fromPiece)) {
 			case PieceTypePawn: {
@@ -484,7 +479,13 @@ bool posMakeMove(Pos *pos, Move move) {
 		}
 
 		// Update key.
-		pos->data->key^=posKeyCastling[pos->data->cast^(pos->data-1)->cast]^posKeyEP[pos->data->epSq];
+		pos->data->key^=posKeyEP[pos->data->epSq];
+		unsigned i, j;
+		for(i=ColourWhite; i<=ColourBlack; ++i)
+			for(j=CastSideA; j<=CastSideH; ++j) {
+				pos->data->key^=posKeyCastling[(pos->data-1)->castRights.rookSq[i][j]];
+				pos->data->key^=posKeyCastling[pos->data->castRights.rookSq[i][j]];
+			}
 	}
 
 	assert(posIsConsistent(pos));
@@ -926,26 +927,68 @@ MatInfo matInfoMakeMaskColour(Colour colour) {
            matInfoMakeMaskPiece(pieceMake(PieceTypeKing, colour));
 }
 
-const char *posCastRightsStrs[CastRightsNB]={
-	[CastRightsNone]="-",
-	[CastRightsq]="q",
-	[CastRightsk]="k",
-	[CastRightsQ]="Q",
-	[CastRightsK]="K",
-	[CastRightsKQ]="KQ",
-	[CastRightsKk]="Kk",
-	[CastRightsKq]="Kq",
-	[CastRightsQk]="Qk",
-	[CastRightsQq]="Qq",
-	[CastRightskq]="kq",
-	[CastRightsKQk]="KQk",
-	[CastRightsKQq]="KQq",
-	[CastRightsKkq]="Kkq",
-	[CastRightsQkq]="Qkq",
-	[CastRightsKQkq]="KQkq",
-};
-const char *posCastRightsToStr(CastRights castRights) {
-	return (castRights<CastRightsNB ? posCastRightsStrs[castRights] : NULL);
+void posCastRightsToStr(CastRights castRights, char str[static 8]) {
+	char temp[4];
+	str[0]='\0';
+	if (uciGetChess960()) {
+		Colour colour;
+		CastSide castSide;
+		for(colour=ColourWhite; colour<=ColourBlack; ++colour) {
+			for(castSide=CastSideA; castSide<=CastSideH; ++castSide) {
+				Sq sq=castRights.rookSq[ColourWhite][CastSideA];
+				if (sq!=SqInvalid) {
+					char c=fileToChar(sqFile(sq));
+					if (colour==ColourWhite)
+						c=toupper(c);
+					sprintf(temp, "%c", c);
+					strcat(str, temp);
+				}
+			}
+		}
+	} else {
+		if (castRights.rookSq[ColourWhite][CastSideH]!=SqInvalid)
+			strcat(str, "K");
+		if (castRights.rookSq[ColourWhite][CastSideA]!=SqInvalid)
+			strcat(str, "Q");
+		if (castRights.rookSq[ColourBlack][CastSideH]!=SqInvalid)
+			strcat(str, "k");
+		if (castRights.rookSq[ColourBlack][CastSideA]!=SqInvalid)
+			strcat(str, "q");
+	}
+
+	if (str[0]=='\0')
+		strcat(str, "-");
+}
+
+CastRights posCastRightsFromStr(const char *str) {
+	CastRights castRights;
+	castRights.rookSq[ColourWhite][CastSideA]=SqInvalid;
+	castRights.rookSq[ColourWhite][CastSideH]=SqInvalid;
+	castRights.rookSq[ColourBlack][CastSideA]=SqInvalid;
+	castRights.rookSq[ColourBlack][CastSideH]=SqInvalid;
+
+	const char *c=str;
+	if (uciGetChess960()) {
+		CastSide nextCastSide[ColourNB]={[ColourWhite]=CastSideA, [ColourBlack]=CastSideA};
+		while(1) {
+			if (*c>='A' && *c<='H')
+				castRights.rookSq[ColourWhite][nextCastSide[ColourWhite]++]=sqMake(fileFromChar(tolower(*c)), Rank1);
+			else if (*c>='a' && *c<='h')
+				castRights.rookSq[ColourBlack][nextCastSide[ColourBlack]++]=sqMake(fileFromChar(*c), Rank8);
+			else
+				return castRights;
+			++c;
+		}
+	} else {
+		while(1)
+			switch(*c++) {
+				case 'K': castRights.rookSq[ColourWhite][CastSideH]=SqH1; break;
+				case 'Q': castRights.rookSq[ColourWhite][CastSideA]=SqA1; break;
+				case 'k': castRights.rookSq[ColourBlack][CastSideH]=SqH8; break;
+				case 'q': castRights.rookSq[ColourBlack][CastSideA]=SqA8; break;
+				default: return castRights; break;
+			}
+	}
 }
 
 void posMirror(Pos *pos) {
@@ -1048,7 +1091,7 @@ void posClean(Pos *pos) {
 	pos->data->lastMoveWasPromo=false;
 	pos->data->halfMoveNumber=0;
 	pos->data->epSq=SqInvalid;
-	pos->data->cast=CastRightsNone;
+	pos->data->castRights=CastRightsNone;
 	pos->data->capPiece=PieceNone;
 	pos->data->capSq=SqInvalid;
 	pos->data->key=0;
@@ -1283,7 +1326,10 @@ void posGenPseudoCast(Moves *moves) {
 
 Key posComputeKey(const Pos *pos) {
 	// En-passent square and castling rights.
-	Key key=posKeyEP[pos->data->epSq]^posKeyCastling[pos->data->cast];
+	Key key=posKeyEP[pos->data->epSq]^posKeyCastling[pos->data->castRights.rookSq[ColourWhite][CastSideA]]
+	                                 ^posKeyCastling[pos->data->castRights.rookSq[ColourWhite][CastSideH]]
+	                                 ^posKeyCastling[pos->data->castRights.rookSq[ColourBlack][CastSideA]]
+	                                 ^posKeyCastling[pos->data->castRights.rookSq[ColourBlack][CastSideH]];
 
 	// Colour.
 	if (posGetSTM(pos)==ColourBlack)

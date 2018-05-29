@@ -23,25 +23,15 @@ typedef enum {
 #include "square.h"
 
 typedef enum {
-	CastRightsNone=0,
-	CastRightsq=1,
-	CastRightsk=2,
-	CastRightsQ=4,
-	CastRightsK=8,
-	CastRightsKQ=CastRightsK | CastRightsQ,
-	CastRightsKk=CastRightsK | CastRightsk,
-	CastRightsKq=CastRightsK | CastRightsq,
-	CastRightsQk=CastRightsQ | CastRightsk,
-	CastRightsQq=CastRightsQ | CastRightsq,
-	CastRightskq=CastRightsk | CastRightsq,
-	CastRightsKQk=CastRightsKQ | CastRightsk,
-	CastRightsKQq=CastRightsKQ | CastRightsq,
-	CastRightsKkq=CastRightsKk | CastRightsq,
-	CastRightsQkq=CastRightsQk | CastRightsq,
-	CastRightsKQkq=CastRightsKQ | CastRightskq,
-	CastRightsNB=16
+	CastSideA, // queen side in standard games
+	CastSideH, // king side in standard games
+	CastSideNB,
+} CastSide;
+
+typedef struct {
+	uint8_t rookSq[ColourNB][CastSideNB]; // Set to SqInvalid if not allowed
 } CastRights;
-#define CastRightsBit 4
+extern const CastRights CastRightsNone;
 
 typedef uint64_t MatInfo; // Holds info on numbers of pieces.
 
@@ -142,7 +132,8 @@ MatInfo matInfoMakeMaskPiece(Piece piece); // A mask which one can AND with to t
 MatInfo matInfoMakeMaskPieceType(PieceType type);
 MatInfo matInfoMakeMaskColour(Colour colour);
 
-const char *posCastRightsToStr(CastRights castRights);
+void posCastRightsToStr(CastRights castRights, char str[static 8]);
+CastRights posCastRightsFromStr(const char *str);
 
 void posMirror(Pos *pos);
 void posFlip(Pos *pos);

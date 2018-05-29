@@ -64,6 +64,8 @@ typedef struct {
 UciOption *uciOptions=NULL;
 size_t uciOptionCount=0;
 
+bool uciChess960=false;
+
 const char *uciBoolToString[2]={[false]="false", [true]="true"};
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -83,9 +85,16 @@ UciOption *uciOptionFromName(const char *name);
 
 bool uciStringToBool(const char *string);
 
+void uciChess960Interface(void *userData, bool value);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
 ////////////////////////////////////////////////////////////////////////////////
+
+void uciInit(void) {
+	if (!uciOptionNewCheck("UCI_Chess960", &uciChess960Interface, NULL, uciChess960))
+		mainFatalError("Error: Could not add UCI_Chess960 option.\n");
+}
 
 void uciLoop(void) {
 	// Turn off output buffering (saves us having to call fflush() after every
@@ -447,6 +456,10 @@ bool uciOptionNewString(const char *name, void(*function)(void *userData, const 
 	return true;
 }
 
+bool uciGetChess960(void) {
+	return uciChess960;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -583,4 +596,10 @@ UciOption *uciOptionFromName(const char *name) {
 bool uciStringToBool(const char *string) {
 	assert(string!=NULL);
 	return utilStrEqual(string, "true");
+}
+
+void uciChess960Interface(void *userData, bool value) {
+	assert(userData==NULL);
+
+	uciChess960=value;
 }

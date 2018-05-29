@@ -12,6 +12,7 @@
 #include "uci.h"
 
 int main(int argc, char **argv) {
+	uciInit();
 	bbInit();
 	attacksInit();
 	bitbaseInit();

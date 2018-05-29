@@ -35,6 +35,7 @@ struct Pos {
 	Colour stm;
 	unsigned int fullMoveNumber;
 	Key pawnKey, matKey;
+	VPair pstScore; // From white's POV
 };
 
 const char *posStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -294,6 +295,7 @@ void posDraw(const Pos *pos) {
 	char fen[128];
 	posGetFEN(pos, fen);
 	uciWrite("FEN string: %s\n", fen);
+	uciWrite("PST score: (%i,%i)\n", pos->pstScore.mg, pos->pstScore.eg);
 }
 
 Colour posGetSTM(const Pos *pos) {
@@ -376,6 +378,10 @@ CastRights posGetCastRights(const Pos *pos) {
 
 Sq posGetEPSq(const Pos *pos) {
 	return pos->data->epSq;
+}
+
+VPair posGetPstScore(const Pos *pos) {
+	return pos->pstScore;
 }
 
 bool posMakeMove(Pos *pos, Move move) {
@@ -1036,6 +1042,7 @@ void posClean(Pos *pos) {
 	pos->fullMoveNumber=1;
 	pos->pawnKey=0;
 	pos->matKey=0;
+	pos->pstScore=VPairZero;
 	pos->data=pos->dataStart;
 	pos->data->lastMove=MoveInvalid;
 	pos->data->lastMoveWasPromo=false;
@@ -1065,6 +1072,9 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq) {
 	pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
 	pos->matKey^=posMatKey[index];
+
+	// Update PST score.
+	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
 }
 
 void posPieceRemove(Pos *pos, Sq sq) {
@@ -1087,6 +1097,9 @@ void posPieceRemove(Pos *pos, Sq sq) {
 	pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
 	pos->matKey^=posMatKey[lastIndex];
+
+	// Update PST score.
+	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
 }
 
 void posPieceMove(Pos *pos, Sq fromSq, Sq toSq) {
@@ -1108,6 +1121,10 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq) {
 	// Update hash keys.
 	pos->data->key^=posKeyPiece[piece][fromSq]^posKeyPiece[piece][toSq];
 	pos->pawnKey^=posPawnKeyPiece[piece][fromSq]^posPawnKeyPiece[piece][toSq];
+
+	// Update PST score.
+	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][fromSq]);
+	evalVPairAddTo(&pos->pstScore, &evalPST[piece][toSq]);
 }
 
 void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece) {
@@ -1488,6 +1505,14 @@ bool posIsConsistent(const Pos *pos) {
 	if (matKey!=trueMatKey) {
 		sprintf(error, "Current mat key is %016"PRIxKey" while true key is %016"PRIxKey".\n",
 						matKey, trueMatKey);
+		goto Error;
+	}
+
+	// Test PST score is accurate.
+	VPair truePstScore=evalComputePstScore(pos);
+	if (pos->pstScore.mg!=truePstScore.mg || pos->pstScore.eg!=truePstScore.eg) {
+		sprintf(error, "Current pst score is (%i,%i) while true is (%i,%i).\n",
+						pos->pstScore.mg, pos->pstScore.eg, truePstScore.mg, truePstScore.eg);
 		goto Error;
 	}
 

@@ -70,6 +70,8 @@ typedef uint64_t MatInfo; // Holds info on numbers of pieces.
 typedef uint64_t Key;
 #define PRIxKey PRIx64
 
+#include "eval.h"
+
 void posInit(void);
 
 Pos *posNew(const char *fen); // If fen is NULL uses standard initial position.
@@ -105,6 +107,7 @@ Key posGetMatKey(const Pos *pos);
 MatInfo posGetMatInfo(const Pos *pos);
 CastRights posGetCastRights(const Pos *pos);
 Sq posGetEPSq(const Pos *pos);
+VPair posGetPstScore(const Pos *pos);
 
 bool posMakeMove(Pos *pos, Move move);
 bool posCanMakeMove(const Pos *pos, Move move); // Returns the same result as posMakeMove() but does not actually make the move on the board.

@@ -844,7 +844,7 @@ void evalGetPawnData(const Pos *pos, EvalPawnData *pawnData) {
 	BB blocked[ColourNB];
 	blocked[ColourWhite]=(pawnData->pawns[ColourWhite] & bbSouthOne(occ));
 	blocked[ColourBlack]=(pawnData->pawns[ColourBlack] & bbNorthOne(occ));
-	evalVPairAddMulTo(&pawnData->score, &evalPawnBlocked, bbPopCount(blocked[ColourWhite])-bbPopCount(blocked[ColourBlack]));
+	evalVPairAddMulTo(&pawnData->score, &evalPawnBlocked, ((int)bbPopCount(blocked[ColourWhite]))-((int)bbPopCount(blocked[ColourBlack])));
 }
 
 void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {

@@ -1716,21 +1716,31 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 		case PieceTypeQueen:
 			return (fromPiece==toPiece && (bbBetween(fromSq, toSqTrue) & occ)==BBNone);
 		break;
-		case PieceTypeKing:
+		case PieceTypeKing: {
 			// King cannot change.
 			if (fromPiece!=toPiece)
 				return false;
 
 			// Castling requires extra tests.
-			if (toSq==fromSq+2)
-				return (stm==ColourWhite ? ((pos->data->cast & CastRightsK) && !(occ & (bbSq(SqF1) | bbSq(SqG1))))
-				                         : ((pos->data->cast & CastRightsk) && !(occ & (bbSq(SqF8) | bbSq(SqG8)))));
-			else if (toSq==fromSq-2)
-				return (stm==ColourWhite ? ((pos->data->cast & CastRightsQ) && !(occ & (bbSq(SqB1) | bbSq(SqC1) | bbSq(SqD1))))
-				                         : ((pos->data->cast & CastRightsq) && !(occ & (bbSq(SqB8) | bbSq(SqC8) | bbSq(SqD8)))));
-			else
-				return true; // Standard move.
-		break;
+			Sq toSqRaw=moveGetToSqRaw(move);
+			if (posGetPieceOnSq(pos, toSqRaw)==pieceMake(PieceTypeRook, posGetSTM(pos))) {
+				CastSide castSide=(toSqRaw<fromSq ? CastSideA : CastSideH);
+
+				if (toSqRaw!=pos->data->castRights.rookSq[posGetSTM(pos)][castSide])
+					return false;
+
+				Sq rookToSq=sqMake((castSide==CastSideA ? FileD : FileF), (posGetSTM(pos)==ColourWhite ? Rank1 : Rank8));
+				BB kingSpan=bbBetween(fromSq, toSqTrue)|bbSq(toSqTrue);
+				BB rookSpan=bbBetween(toSqRaw, rookToSq)|bbSq(rookToSq);
+				if ((((kingSpan | rookSpan) & ~(bbSq(toSqRaw)|bbSq(fromSq)))&posGetBBAll(pos)))
+					return false;
+
+				return true;
+			}
+
+			// Standard move
+			return true;
+		} break;
 		default:
 			return false;
 		break;

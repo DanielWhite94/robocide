@@ -57,10 +57,10 @@ Key posMatKey[PieceNB*16];
 
 void posClean(Pos *pos);
 
-void posPieceAdd(Pos *pos, Piece piece, Sq sq);
-void posPieceRemove(Pos *pos, Sq sq);
-void posPieceMove(Pos *pos, Sq fromSq, Sq toSq);
-void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece);
+void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate);
+void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate);
+void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate);
+void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate);
 
 void posGenPseudoNormal(Moves *moves, BB allowed);
 void posGenPseudoPawnMoves(Moves *moves, MoveType type);
@@ -225,7 +225,7 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	Sq sq;
 	for(sq=0;sq<SqNB;++sq)
 		if (fen.array[sq]!=PieceNone)
-			posPieceAdd(pos, fen.array[sq], sq);
+			posPieceAdd(pos, fen.array[sq], sq, true);
 	pos->stm=fen.stm;
 	pos->fullMoveNumber=fen.fullMoveNumber;
 	pos->data->halfMoveNumber=fen.halfMoveNumber;
@@ -426,7 +426,7 @@ bool posMakeMove(Pos *pos, Move move) {
 			assert(moveGetToPiece(move)==pieceMake(PieceTypeKing, movingSide));
 
 			// Remove king (do it this way in case of strange Chess960 castling)
-			posPieceRemove(pos, fromSq);
+			posPieceRemove(pos, fromSq, false);
 
 			// Move rook
 			Sq rookFromSq=toSqRaw;
@@ -434,10 +434,10 @@ bool posMakeMove(Pos *pos, Move move) {
 			assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
 
 			if (rookFromSq!=rookToSq)
-				posPieceMove(pos, rookFromSq, rookToSq);
+				posPieceMove(pos, rookFromSq, rookToSq, false);
 
 			// Replace king in new position.
-			posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue);
+			posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false);
 		} else {
 			// Standard moves
 			switch(pieceGetType(fromPiece)) {
@@ -455,15 +455,15 @@ bool posMakeMove(Pos *pos, Move move) {
 					// Capture?
 					if (pos->data->capPiece!=PieceNone)
 						// Remove piece.
-						posPieceRemove(pos, pos->data->capSq);
+						posPieceRemove(pos, pos->data->capSq, false);
 
 					// Move the pawn, potentially promoting.
 					Piece toPiece=moveGetToPiece(move);
 					if (toPiece!=fromPiece) {
 						pos->data->lastMoveWasPromo=true;
-						posPieceMoveChange(pos, fromSq, toSqRaw, toPiece);
+						posPieceMoveChange(pos, fromSq, toSqRaw, toPiece, false);
 					} else
-						posPieceMove(pos, fromSq, toSqRaw);
+						posPieceMove(pos, fromSq, toSqRaw, false);
 
 					// Pawn moves reset 50 move counter.
 					pos->data->halfMoveNumber=0;
@@ -479,14 +479,14 @@ bool posMakeMove(Pos *pos, Move move) {
 					// Capture?
 					if (pos->data->capPiece!=PieceNone) {
 						// Remove piece.
-						posPieceRemove(pos, toSqTrue);
+						posPieceRemove(pos, toSqTrue, false);
 
 						// Captures reset 50 move counter.
 						pos->data->halfMoveNumber=0;
 					}
 
 					// Move non-pawn piece (i.e. no promotion to worry about).
-					posPieceMove(pos, fromSq, toSqTrue);
+					posPieceMove(pos, fromSq, toSqTrue, false);
 				break;
 			}
 		}
@@ -609,27 +609,27 @@ void posUndoMove(Pos *pos) {
 		// If castling, remove rook here (to be safe in case of strange Chess960 castling)
 		if (pos->data->castRights.rookSq[movingSide][CastSideA]==toSqRaw) {
 			Sq rookToSq=sqMake(FileD, (movingSide==ColourWhite ? Rank1 : Rank8));
-			posPieceRemove(pos, rookToSq);
+			posPieceRemove(pos, rookToSq, true);
 		}
 		if (pos->data->castRights.rookSq[movingSide][CastSideH]==toSqRaw) {
 			Sq rookToSq=sqMake(FileF, (movingSide==ColourWhite ? Rank1 : Rank8));
-			posPieceRemove(pos, rookToSq);
+			posPieceRemove(pos, rookToSq, true);
 		}
 
 		// Move piece back (potentially un-promoting).
 		if ((pos->data+1)->lastMoveWasPromo)
-			posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide));
+			posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide), true);
 		else
-			posPieceMove(pos, toSqTrue, fromSq);
+			posPieceMove(pos, toSqTrue, fromSq, true);
 
 		// Replace any captured piece.
 		if ((pos->data+1)->capPiece!=PieceNone)
-			posPieceAdd(pos, (pos->data+1)->capPiece, (pos->data+1)->capSq);
+			posPieceAdd(pos, (pos->data+1)->capPiece, (pos->data+1)->capSq, true);
 
 		// If castling replace the rook.
 		if (posMoveIsCastling(pos, move)) {
 			Sq rookFromSq=toSqRaw;
-			posPieceAdd(pos, pieceMake(PieceTypeRook, movingSide), rookFromSq);
+			posPieceAdd(pos, pieceMake(PieceTypeRook, movingSide), rookFromSq, true);
 		}
 	}
 
@@ -1063,13 +1063,13 @@ void posMirror(Pos *pos) {
 	for(sq=0;sq<SqNB;++sq) {
 		board[sq]=posGetPieceOnSq(pos, sqMirror(sq));
 		if (board[sq]!=PieceNone)
-			posPieceRemove(pos, sqMirror(sq));
+			posPieceRemove(pos, sqMirror(sq), true);
 	}
 
 	// Add pieces from mirrored board.
 	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
-			posPieceAdd(pos, board[sq], sq);
+			posPieceAdd(pos, board[sq], sq, true);
 
 	// Mirror other fields.
 	if (pos->data->epSq!=SqInvalid)
@@ -1103,14 +1103,14 @@ void posFlip(Pos *pos) {
 			PieceType pieceType=pieceGetType(board[sq]);
 			Colour pieceColour=pieceGetColour(board[sq]);
 			board[sq]=pieceMake(pieceType, colourSwap(pieceColour));
-			posPieceRemove(pos, sqFlip(sq));
+			posPieceRemove(pos, sqFlip(sq), true);
 		}
 	}
 
 	// Add pieces from flipped board.
 	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
-			posPieceAdd(pos, board[sq], sq);
+			posPieceAdd(pos, board[sq], sq, true);
 
 	// Flip other fields.
 	pos->stm=colourSwap(pos->stm);
@@ -1162,7 +1162,7 @@ void posClean(Pos *pos) {
 	pos->data->key=0;
 }
 
-void posPieceAdd(Pos *pos, Piece piece, Sq sq) {
+void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate) {
 	// Sanity checks.
 	assert(pieceIsValid(piece));
 	assert(sqIsValid(sq));
@@ -1177,7 +1177,8 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq) {
 	pos->pieceList[index]=sq;
 
 	// Update hash keys.
-	pos->data->key^=posKeyPiece[piece][sq];
+	if (!skipMainKeyUpdate)
+		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
 	pos->matKey^=posMatKey[index];
 
@@ -1185,7 +1186,7 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq) {
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
 }
 
-void posPieceRemove(Pos *pos, Sq sq) {
+void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(sq));
 	assert(posGetPieceOnSq(pos, sq)!=PieceNone);
@@ -1202,7 +1203,8 @@ void posPieceRemove(Pos *pos, Sq sq) {
 	pos->array64[sq]=(PieceNone<<4);
 
 	// Update hash keys.
-	pos->data->key^=posKeyPiece[piece][sq];
+	if (!skipMainKeyUpdate)
+		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
 	pos->matKey^=posMatKey[lastIndex];
 
@@ -1210,7 +1212,7 @@ void posPieceRemove(Pos *pos, Sq sq) {
 	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
 }
 
-void posPieceMove(Pos *pos, Sq fromSq, Sq toSq) {
+void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
 	assert(posGetPieceOnSq(pos, fromSq)!=PieceNone);
@@ -1227,7 +1229,8 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq) {
 	pos->pieceList[index]=toSq;
 
 	// Update hash keys.
-	pos->data->key^=posKeyPiece[piece][fromSq]^posKeyPiece[piece][toSq];
+	if (!skipMainKeyUpdate)
+		pos->data->key^=posKeyPiece[piece][fromSq]^posKeyPiece[piece][toSq];
 	pos->pawnKey^=posPawnKeyPiece[piece][fromSq]^posPawnKeyPiece[piece][toSq];
 
 	// Update PST score.
@@ -1235,7 +1238,7 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq) {
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][toSq]);
 }
 
-void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece) {
+void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
 	assert(posGetPieceOnSq(pos, fromSq)!=PieceNone);
@@ -1244,8 +1247,8 @@ void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece) {
 	assert(pieceGetColour(toPiece)==pieceGetColour(posGetPieceOnSq(pos, fromSq)));
 
 	// Update position.
-	posPieceRemove(pos, fromSq);
-	posPieceAdd(pos, toPiece, toSq);
+	posPieceRemove(pos, fromSq, skipMainKeyUpdate);
+	posPieceAdd(pos, toPiece, toSq, skipMainKeyUpdate);
 }
 
 void posGenPseudoNormal(Moves *moves, BB allowed) {

@@ -9,7 +9,7 @@
 #include "square.h"
 
 typedef struct {
-	Piece array[64];
+	Piece array[SqNB];
 	Colour stm;
 	CastRights castRights;
 	Sq epSq;

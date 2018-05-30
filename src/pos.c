@@ -47,8 +47,7 @@ struct Pos {
 
 const char *posStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-STATICASSERT(SqNB<128 && SqInvalid<128); // For PosKeyEP array.
-Key posKeySTM, posKeyPiece[16][SqNB], posKeyEP[128], posKeyCastling[128];
+Key posKeySTM, posKeyPiece[16][SqNB], posKeyEP[SqMax], posKeyCastling[SqMax];
 Key posPawnKeyPiece[PieceNB][SqNB];
 Key posMatKey[PieceNB*16];
 
@@ -93,8 +92,8 @@ void posInit(void) {
 	posKeySTM=posRandKey();
 	memset(posKeyPiece, 0, PieceNB*SqNB*sizeof(Key));
 	memset(posPawnKeyPiece, 0, PieceNB*SqNB*sizeof(Key));
-	memset(posKeyEP, 0, 128*sizeof(Key));
-	memset(posKeyCastling, 0, 128*sizeof(Key));
+	memset(posKeyEP, 0, SqMax*sizeof(Key));
+	memset(posKeyCastling, 0, SqMax*sizeof(Key));
 	unsigned int i;
 	for(i=0;i<SqNB;++i) {
 		posKeyPiece[PieceWPawn][i]=posRandKey();

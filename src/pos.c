@@ -912,12 +912,9 @@ Move posMoveFromStr(const Pos *pos, const char str[static 6]){
 	Moves moves;
 	movesInit(&moves, pos, 0, MoveTypeAny);
 	Move move;
-	while((move=movesNext(&moves))!=MoveInvalid) {
-		char genStr[8];
-		posMoveToStr(pos, move, genStr);
-		if (!strcmp(str, genStr))
+	while((move=movesNext(&moves))!=MoveInvalid)
+		if (strcmp(str, POSMOVETOSTR(pos, move))==0)
 			return move;
-	}
 	return MoveInvalid;
 }
 

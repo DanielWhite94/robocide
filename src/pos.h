@@ -57,6 +57,9 @@ typedef uint64_t MatInfo; // Holds info on numbers of pieces.
 #undef MAKE
 #undef MASK
 
+#define POSMOVETOSTRMAXLEN 8
+#define POSMOVETOSTR(pos, move) ({char *str=alloca(POSMOVETOSTRMAXLEN); posMoveToStr((pos), (move), str); (const char *)str;})
+
 typedef uint64_t Key;
 #define PRIxKey PRIx64
 

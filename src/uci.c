@@ -261,9 +261,7 @@ void uciLoop(void) {
 				Sq toSq=posMoveGetToSqTrue(pos, move);
 				if (posGetPieceOnSq(pos, toSq)==PieceNone)
 					continue;
-				char str[8];
-				posMoveToStr(pos, move, str);
-				uciWrite("  %6s %4i\n", str, see(pos, moveGetFromSq(move), toSq));
+				uciWrite("  %6s %4i\n", POSMOVETOSTR(pos, move), see(pos, moveGetFromSq(move), toSq));
 			}
 		} else if (utilStrEqual(part, "uci")) {
 			uciWrite("id name robocide\nid author Daniel White\n");

@@ -399,11 +399,9 @@ void searchIDLoop(void *userData) {
 		char str[8];
 		posMoveToStr(node.pos, bestMove, str);
 		if (moveIsValid(ponderMove)) {
-			char str2[8];
 			posMakeMove(node.pos, bestMove);
-			posMoveToStr(node.pos, ponderMove, str2);
+			uciWrite("bestmove %s ponder %s\n", str, POSMOVETOSTR(node.pos, ponderMove));
 			posUndoMove(node.pos);
-			uciWrite("bestmove %s ponder %s\n", str, str2);
 		} else
 			uciWrite("bestmove %s\n", str);
 	}

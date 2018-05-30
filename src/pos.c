@@ -1748,8 +1748,8 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 				if (toSqPiece!=PieceNone && pieceGetColour(toSqPiece)==stm)
 					return false;
 
-				// Standard move
-				return true;
+				// Standard move (we still have to check movement in this case as move may have been generated as castling, but there is no rook in this position)
+				return (dX<=1 && dY<=1);
 			}
 
 			assert(toSqPiece==pieceMake(PieceTypeRook, posGetSTM(pos)));

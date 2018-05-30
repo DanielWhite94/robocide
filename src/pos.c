@@ -865,8 +865,9 @@ MoveType posMoveGetType(const Pos *pos, Move move){
 		return MoveTypeQuiet;
 
 	// Standard capture?
-	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
-	Piece capPiece=posGetPieceOnSq(pos, toSqTrue);
+	Sq toSqRaw=moveGetToSqRaw(move);
+	assert(toSqRaw==posMoveGetToSqTrue(pos, move)); // Should only differ in castling moves, but these are checked above
+	Piece capPiece=posGetPieceOnSq(pos, toSqRaw);
 	if (capPiece!=PieceNone)
 		return MoveTypeCapture;
 
@@ -879,7 +880,7 @@ MoveType posMoveGetType(const Pos *pos, Move move){
 
 	// En-passent capture?
 	assert(capPiece==PieceNone);
-	if (pieceGetType(fromPiece)==PieceTypePawn && sqFile(fromSq)!=sqFile(toSqTrue))
+	if (pieceGetType(fromPiece)==PieceTypePawn && sqFile(fromSq)!=sqFile(toSqRaw))
 		return MoveTypeCapture;
 
 	// Otherwise must be quiet.

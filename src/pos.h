@@ -122,6 +122,7 @@ bool posMoveIsPseudoLegal(const Pos *pos, Move move); // If side-to-move is not 
 
 MoveType posMoveGetType(const Pos *pos, Move move); // Assumes move is pseudo-legal in the current position.
 bool posMoveIsPromotion(const Pos *pos, Move move);
+bool posMoveIsCastling(const Pos *pos, Move move);
 Move posMoveFromStr(const Pos *pos, const char str[static 6]);
 void posMoveToStr(const Pos *pos, Move move, char str[static 6]);
 

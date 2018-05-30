@@ -23,7 +23,6 @@ Piece moveGetToPiece(Move move); // Piece that will be on the ToSq after the mov
 PieceType moveGetToPieceType(Move move);
 Colour moveGetColour(Move move);
 
-bool moveIsCastling(Move move);
 bool moveIsDP(Move move); // Is move a double pawn push.
 
 #endif

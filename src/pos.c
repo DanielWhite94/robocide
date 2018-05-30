@@ -853,6 +853,12 @@ bool posMoveIsPromotion(const Pos *pos, Move move) {
 	return result;
 }
 
+bool posMoveIsCastling(const Pos *pos, Move move) {
+	// We can simply check if we are moving into a castling rook
+	return (moveGetToSq(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideA] ||
+	        moveGetToSq(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH]);
+}
+
 Move posMoveFromStr(const Pos *pos, const char str[static 6]){
 	Moves moves;
 	movesInit(&moves, pos, 0, MoveTypeAny);

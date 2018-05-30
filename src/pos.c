@@ -587,11 +587,13 @@ void posUndoMove(Pos *pos) {
 	assert(pos->data>pos->dataStart);
 
 	Move move=pos->data->lastMove;
+	Colour nonMovingSide=posGetSTM(pos);
+	Colour movingSide=colourSwap(nonMovingSide);
 	assert(moveIsValid(move) || move==MoveNone);
 
 	// Update generic fields.
-	pos->stm=colourSwap(pos->stm);
-	pos->fullMoveNumber-=(pos->stm==ColourBlack);
+	pos->stm=movingSide;
+	pos->fullMoveNumber-=(movingSide==ColourBlack);
 
 	if (move!=MoveNone) {
 		Sq fromSq=moveGetFromSq(move);
@@ -599,18 +601,18 @@ void posUndoMove(Pos *pos) {
 		Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 
 		// If castling, remove rook here (to be safe in case of strange Chess960 castling)
-		if ((pos->data-1)->castRights.rookSq[pos->stm][CastSideA]==toSqRaw) {
-			Sq rookToSq=sqMake(FileD, (pos->stm==ColourWhite ? Rank1 : Rank8));
+		if ((pos->data-1)->castRights.rookSq[movingSide][CastSideA]==toSqRaw) {
+			Sq rookToSq=sqMake(FileD, (movingSide==ColourWhite ? Rank1 : Rank8));
 			posPieceRemove(pos, rookToSq);
 		}
-		if ((pos->data-1)->castRights.rookSq[pos->stm][CastSideH]==toSqRaw) {
-			Sq rookToSq=sqMake(FileF, (pos->stm==ColourWhite ? Rank1 : Rank8));
+		if ((pos->data-1)->castRights.rookSq[movingSide][CastSideH]==toSqRaw) {
+			Sq rookToSq=sqMake(FileF, (movingSide==ColourWhite ? Rank1 : Rank8));
 			posPieceRemove(pos, rookToSq);
 		}
 
 		// Move piece back (potentially un-promoting).
 		if (pos->data->lastMoveWasPromo)
-			posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, pos->stm));
+			posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide));
 		else
 			posPieceMove(pos, toSqTrue, fromSq);
 
@@ -621,7 +623,7 @@ void posUndoMove(Pos *pos) {
 		// If castling replace the rook.
 		if (posMoveIsCastling(pos, move)) {
 			Sq rookFromSq=toSqRaw;
-			posPieceAdd(pos, pieceMake(PieceTypeRook, pos->stm), rookFromSq);
+			posPieceAdd(pos, pieceMake(PieceTypeRook, movingSide), rookFromSq);
 		}
 	}
 

@@ -1664,9 +1664,9 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 	if (pieceGetColour(toPiece)!=stm)
 		return false;
 
-	// Friendly capture?
+	// Friendly capture? (deferred for king movements due to castling, see below)
 	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
-	Piece capPiece=posGetPieceOnSq(pos, toSqTrue);
+	Piece capPiece=(pieceGetType(toPiece)!=PieceTypeKing ? posGetPieceOnSq(pos, toSqTrue) : PieceNone);
 	if (capPiece!=PieceNone && pieceGetColour(capPiece)==stm)
 		return false;
 
@@ -1723,22 +1723,30 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 
 			// Castling requires extra tests.
 			Sq toSqRaw=moveGetToSqRaw(move);
-			if (posGetPieceOnSq(pos, toSqRaw)==pieceMake(PieceTypeRook, posGetSTM(pos))) {
-				CastSide castSide=(toSqRaw<fromSq ? CastSideA : CastSideH);
+			Piece toSqPiece=posGetPieceOnSq(pos, toSqRaw);
 
-				if (toSqRaw!=pos->data->castRights.rookSq[posGetSTM(pos)][castSide])
+			CastSide castSide;
+			if (toSqRaw==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideA])
+				castSide=CastSideA;
+			else if (toSqRaw==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH])
+				castSide=CastSideH;
+			else {
+				// Check friendly captures here as we skipped them for the king above
+				if (toSqPiece!=PieceNone && pieceGetColour(toSqPiece)==stm)
 					return false;
 
-				Sq rookToSq=sqMake((castSide==CastSideA ? FileD : FileF), (posGetSTM(pos)==ColourWhite ? Rank1 : Rank8));
-				BB kingSpan=bbBetween(fromSq, toSqTrue)|bbSq(toSqTrue);
-				BB rookSpan=bbBetween(toSqRaw, rookToSq)|bbSq(rookToSq);
-				if ((((kingSpan | rookSpan) & ~(bbSq(toSqRaw)|bbSq(fromSq)))&posGetBBAll(pos)))
-					return false;
-
+				// Standard move
 				return true;
 			}
 
-			// Standard move
+			assert(toSqPiece==pieceMake(PieceTypeRook, posGetSTM(pos)));
+
+			Sq rookToSq=sqMake((castSide==CastSideA ? FileD : FileF), (posGetSTM(pos)==ColourWhite ? Rank1 : Rank8));
+			BB kingSpan=bbBetween(fromSq, toSqTrue)|bbSq(toSqTrue);
+			BB rookSpan=bbBetween(toSqRaw, rookToSq)|bbSq(rookToSq);
+			if ((((kingSpan | rookSpan) & ~(bbSq(toSqRaw)|bbSq(fromSq)))&posGetBBAll(pos)))
+				return false;
+
 			return true;
 		} break;
 		default:

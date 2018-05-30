@@ -990,7 +990,7 @@ void posCastRightsToStr(CastRights castRights, char str[static 8]) {
 		CastSide castSide;
 		for(colour=ColourWhite; colour<=ColourBlack; ++colour) {
 			for(castSide=CastSideA; castSide<=CastSideH; ++castSide) {
-				Sq sq=castRights.rookSq[ColourWhite][CastSideA];
+				Sq sq=castRights.rookSq[colour][castSide];
 				if (sq!=SqInvalid) {
 					char c=fileToChar(sqFile(sq));
 					if (colour==ColourWhite)

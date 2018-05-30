@@ -857,9 +857,17 @@ bool posMoveIsPromotion(const Pos *pos, Move move) {
 }
 
 bool posMoveIsCastling(const Pos *pos, Move move) {
+	return posMoveIsCastlingA(pos, move)|posMoveIsCastlingH(pos, move);
+}
+
+bool posMoveIsCastlingA(const Pos *pos, Move move) {
 	// We can simply check if we are moving into a castling rook
-	return (moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideA] ||
-	        moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH]);
+	return (moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideA]);
+}
+
+bool posMoveIsCastlingH(const Pos *pos, Move move) {
+	// We can simply check if we are moving into a castling rook
+	return (moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH]);
 }
 
 Move posMoveFromStr(const Pos *pos, const char str[static 6]){

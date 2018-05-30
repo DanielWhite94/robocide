@@ -90,10 +90,7 @@ TUNECONST VPair evalRookTrapped={-400,0};
 TUNECONST VPair evalKingShieldClose={150,0};
 TUNECONST VPair evalKingShieldFar={50,0};
 TUNECONST VPair evalKingNearPasserFactor={0,200};
-TUNECONST VPair evalKingCastlingMobilityNone={0,0};
-TUNECONST VPair evalKingCastlingMobilityK={100,0};
-TUNECONST VPair evalKingCastlingMobilityQ={100,0};
-TUNECONST VPair evalKingCastlingMobilityKQ={200,0};
+TUNECONST VPair evalKingCastlingMobility={100,0};
 TUNECONST VPair evalTempoDefault={35,0};
 TUNECONST Value evalHalfMoveFactor=2048;
 TUNECONST Value evalWeightFactor=144;
@@ -196,7 +193,6 @@ typedef enum {
 	PawnTypeNB=16,
 } PawnType;
 VPair evalPawnValue[ColourNB][PawnTypeNB][SqNB];
-VPair evalKingCastlingMobility[CastRightsNB];
 int evalHalfMoveFactors[128];
 uint8_t evalWeightEGFactors[128];
 
@@ -302,10 +298,7 @@ void evalInit(void) {
 	evalOptionNewVPair("KingShieldClose", &evalKingShieldClose);
 	evalOptionNewVPair("KingShieldFar", &evalKingShieldFar);
 	evalOptionNewVPair("KingNearPasser", &evalKingNearPasserFactor);
-	evalOptionNewVPair("KingCastlingMobilityNone", &evalKingCastlingMobilityNone);
-	evalOptionNewVPair("KingCastlingMobilityK", &evalKingCastlingMobilityK);
-	evalOptionNewVPair("KingCastlingMobilityQ", &evalKingCastlingMobilityQ);
-	evalOptionNewVPair("KingCastlingMobilityKQ", &evalKingCastlingMobilityKQ);
+	evalOptionNewVPair("KingCastlingMobility", &evalKingCastlingMobility);
 	evalOptionNewVPair("Tempo", &evalTempoDefault);
 	evalOptionNewVPair("TempoKQKQ", &evalTempoKQKQ);
 	evalOptionNewVPair("TempoKQQKQQ", &evalTempoKQQKQQ);
@@ -942,7 +935,14 @@ VPair evaluateDefaultGlobal(EvalData *data) {
 
 	// King castling 'mobility'.
 	CastRights castRights=posGetCastRights(pos);
-	evalVPairAddTo(&score, &evalKingCastlingMobility[castRights]);
+	if (castRights.rookSq[ColourWhite][CastSideA]!=SqInvalid)
+		evalVPairAddTo(&score, &evalKingCastlingMobility);
+	if (castRights.rookSq[ColourWhite][CastSideH]!=SqInvalid)
+		evalVPairAddTo(&score, &evalKingCastlingMobility);
+	if (castRights.rookSq[ColourBlack][CastSideA]!=SqInvalid)
+		evalVPairSubFrom(&score, &evalKingCastlingMobility);
+	if (castRights.rookSq[ColourBlack][CastSideH]!=SqInvalid)
+		evalVPairSubFrom(&score, &evalKingCastlingMobility);
 
 	return score;
 }
@@ -1166,24 +1166,6 @@ void evalRecalc(void) {
 		assert(factor>=0.0 && factor<=1.0);
 		evalWeightEGFactors[i]=floorf(255.0*factor);
 	}
-
-	// Castling mobility.
-	evalKingCastlingMobility[CastRightsNone]=VPairZero; // (balanced)
-	evalKingCastlingMobility[CastRightsq]=evalVPairNegation(&evalKingCastlingMobilityQ);
-	evalKingCastlingMobility[CastRightsk]=evalVPairNegation(&evalKingCastlingMobilityK);
-	evalKingCastlingMobility[CastRightsQ]=evalKingCastlingMobilityQ;
-	evalKingCastlingMobility[CastRightsK]=evalKingCastlingMobilityK;
-	evalKingCastlingMobility[CastRightsKQ]=evalKingCastlingMobilityKQ;
-	evalKingCastlingMobility[CastRightsKk]=VPairZero; // (balanced)
-	evalKingCastlingMobility[CastRightsKq]=evalVPairSub(&evalKingCastlingMobilityK, &evalKingCastlingMobilityQ);
-	evalKingCastlingMobility[CastRightsQk]=evalVPairSub(&evalKingCastlingMobilityQ, &evalKingCastlingMobilityK);
-	evalKingCastlingMobility[CastRightsQq]=VPairZero; // (balanced)
-	evalKingCastlingMobility[CastRightskq]=evalVPairNegation(&evalKingCastlingMobilityKQ);
-	evalKingCastlingMobility[CastRightsKQk]=evalVPairSub(&evalKingCastlingMobilityKQ, &evalKingCastlingMobilityK);
-	evalKingCastlingMobility[CastRightsKQq]=evalVPairSub(&evalKingCastlingMobilityKQ, &evalKingCastlingMobilityQ);
-	evalKingCastlingMobility[CastRightsKkq]=evalVPairSub(&evalKingCastlingMobilityK, &evalKingCastlingMobilityKQ);
-	evalKingCastlingMobility[CastRightsQkq]=evalVPairSub(&evalKingCastlingMobilityQ, &evalKingCastlingMobilityKQ);
-	evalKingCastlingMobility[CastRightsKQkq]=VPairZero; // (balanced)
 
 	// Clear now-invalid material and pawn tables etc.
 	evalClear();

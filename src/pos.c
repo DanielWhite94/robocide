@@ -584,6 +584,8 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 }
 
 void posUndoMove(Pos *pos) {
+	assert(pos->data>pos->dataStart);
+
 	Move move=pos->data->lastMove;
 	assert(moveIsValid(move) || move==MoveNone);
 
@@ -593,8 +595,18 @@ void posUndoMove(Pos *pos) {
 
 	if (move!=MoveNone) {
 		Sq fromSq=moveGetFromSq(move);
-		Piece toPiece=moveGetToPiece(move);
+		Sq toSqRaw=moveGetToSqRaw(move);
 		Sq toSqTrue=posMoveGetToSqTrue(pos, move);
+
+		// If castling, remove rook here (to be safe in case of strange Chess960 castling)
+		if ((pos->data-1)->castRights.rookSq[pos->stm][CastSideA]==toSqRaw) {
+			Sq rookToSq=sqMake(FileD, (pos->stm==ColourWhite ? Rank1 : Rank8));
+			posPieceRemove(pos, rookToSq);
+		}
+		if ((pos->data-1)->castRights.rookSq[pos->stm][CastSideH]==toSqRaw) {
+			Sq rookToSq=sqMake(FileF, (pos->stm==ColourWhite ? Rank1 : Rank8));
+			posPieceRemove(pos, rookToSq);
+		}
 
 		// Move piece back (potentially un-promoting).
 		if (pos->data->lastMoveWasPromo)
@@ -607,11 +619,9 @@ void posUndoMove(Pos *pos) {
 			posPieceAdd(pos, pos->data->capPiece, pos->data->capSq);
 
 		// If castling replace the rook.
-		if (pieceGetType(toPiece)==PieceTypeKing) {
-			if (toSq==fromSq+2)
-				posPieceMove(pos, toSq-1, toSq+1); // Kingside.
-			else if (toSq==fromSq-2)
-				posPieceMove(pos, toSq+1, toSq-2); // Queenside.
+		if (posMoveIsCastling(pos, move)) {
+			Sq rookFromSq=toSqRaw;
+			posPieceAdd(pos, pieceMake(PieceTypeRook, pos->stm), rookFromSq);
 		}
 	}
 

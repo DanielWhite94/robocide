@@ -228,9 +228,9 @@ void evalVPairAddVPair16To(VPair *a, const VPair16 *b);
 void evalVPairSubVPair16From(VPair *a, const VPair16 *b);
 
 #ifdef TUNE
-void evalSetValue(void *varPtr, int value);
+void evalSetValue(void *varPtr, long long value);
 bool evalOptionNewVPair(const char *name, VPair *score);
-void evalSetValue16(void *varPtr, int value);
+void evalSetValue16(void *varPtr, long long value);
 bool evalOptionNewVPair16(const char *name, VPair16 *score);
 #endif
 
@@ -993,7 +993,7 @@ void evalVPairSubVPair16From(VPair *a, const VPair16 *b) {
 }
 
 #ifdef TUNE
-void evalSetValue(void *varPtr, int value) {
+void evalSetValue(void *varPtr, long long value) {
 	// Set value.
 	Value *var=(Value *)varPtr;
 	*var=value;
@@ -1036,7 +1036,7 @@ bool evalOptionNewVPair(const char *name, VPair *score) {
 	return success;
 }
 
-void evalSetValue16(void *varPtr, int value) {
+void evalSetValue16(void *varPtr, long long value) {
 	// Set value.
 	Value16 *var=(Value16 *)varPtr;
 	*var=value;

@@ -89,7 +89,7 @@ bool searchNodeIsQ(const Node *node);
 void searchInterfacePonder(void *dummy, bool ponder);
 
 #ifdef TUNE
-void searchInterfaceValue(void *ptr, int value);
+void searchInterfaceValue(void *ptr, long long value);
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1211,7 +1211,7 @@ void searchInterfacePonder(void *dummy, bool ponder) {
 }
 
 #ifdef TUNE
-void searchInterfaceValue(void *ptr, int value) {
+void searchInterfaceValue(void *ptr, long long value) {
 	// Set value.
 	*((int *)ptr)=value;
 

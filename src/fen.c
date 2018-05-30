@@ -71,7 +71,7 @@ bool fenRead(Fen *data, const char *string) {
 
 	// 3. Castling availability.
 	c=fields[2];
-	data->castRights=posCastRightsFromStr(c);
+	data->castRights=posCastRightsFromStr(c, data->array);
 
 	// 4. En passent target square.
 	if (fields[3][0]!='\0' && fields[3][1]!='\0' && fields[3][0]!='-') {

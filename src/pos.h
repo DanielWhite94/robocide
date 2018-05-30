@@ -140,7 +140,7 @@ MatInfo matInfoMakeMaskPieceType(PieceType type);
 MatInfo matInfoMakeMaskColour(Colour colour);
 
 void posCastRightsToStr(CastRights castRights, char str[static 8]);
-CastRights posCastRightsFromStr(const char *str);
+CastRights posCastRightsFromStr(const char *str, const Piece pieceArray[SqNB]);
 
 void posMirror(Pos *pos);
 void posFlip(Pos *pos);

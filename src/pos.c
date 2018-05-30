@@ -1022,7 +1022,7 @@ void posCastRightsToStr(CastRights castRights, char str[static 8]) {
 		strcat(str, "-");
 }
 
-CastRights posCastRightsFromStr(const char *str) {
+CastRights posCastRightsFromStr(const char *str, const Piece pieceArray[SqNB]) {
 	CastRights castRights;
 	castRights.rookSq[ColourWhite][CastSideA]=SqInvalid;
 	castRights.rookSq[ColourWhite][CastSideH]=SqInvalid;
@@ -1031,15 +1031,29 @@ CastRights posCastRightsFromStr(const char *str) {
 
 	const char *c=str;
 	if (uciGetChess960()) {
-		CastSide nextCastSide[ColourNB]={[ColourWhite]=CastSideA, [ColourBlack]=CastSideA};
-		while(1) {
-			if (*c>='A' && *c<='H')
-				castRights.rookSq[ColourWhite][nextCastSide[ColourWhite]++]=sqMake(fileFromChar(tolower(*c)), Rank1);
-			else if (*c>='a' && *c<='h')
-				castRights.rookSq[ColourBlack][nextCastSide[ColourBlack]++]=sqMake(fileFromChar(*c), Rank8);
-			else
+		Sq kingSq[ColourNB]={[ColourWhite]=SqInvalid, [ColourBlack]=SqInvalid};
+		Sq sq;
+		for(sq=0; sq<SqNB; ++sq)
+			if (pieceGetType(pieceArray[sq])==PieceTypeKing)
+				kingSq[pieceGetColour(pieceArray[sq])]=sq;
+
+		for(;;++c) {
+			if (*c>='A' && *c<='H') {
+				Sq rookSq=sqMake(fileFromChar(tolower(*c)), Rank1);
+				if (pieceArray[rookSq]!=pieceMake(PieceTypeRook, ColourWhite))
+					continue;
+
+				CastSide castSide=(rookSq<kingSq[ColourWhite] ? CastSideA : CastSideH);
+				castRights.rookSq[ColourWhite][castSide]=rookSq;
+			} else if (*c>='a' && *c<='h') {
+				Sq rookSq=sqMake(fileFromChar(*c), Rank8);
+				if (pieceArray[rookSq]!=pieceMake(PieceTypeRook, ColourBlack))
+					continue;
+
+				CastSide castSide=(rookSq<kingSq[ColourBlack] ? CastSideA : CastSideH);
+				castRights.rookSq[ColourBlack][castSide]=rookSq;
+			} else
 				return castRights;
-			++c;
 		}
 	} else {
 		while(1)

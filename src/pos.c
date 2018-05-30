@@ -1087,16 +1087,12 @@ void posMirror(Pos *pos) {
 		pos->data->epSq=sqMirror(pos->data->epSq);
 	if (pos->data->capSq!=SqInvalid)
 		pos->data->capSq=sqMirror(pos->data->capSq);
-	CastRights cast=CastRightsNone;
-	if (pos->data->cast & CastRightsK)
-		cast|=CastRightsQ;
-	if (pos->data->cast & CastRightsQ)
-		cast|=CastRightsK;
-	if (pos->data->cast & CastRightsk)
-		cast|=CastRightsq;
-	if (pos->data->cast & CastRightsq)
-		cast|=CastRightsk;
-	pos->data->cast=cast; // Not techinically correct under standard chess rules, but ensures king mobility evaluation is consistent.
+
+	CastRights oldCastRights=pos->data->castRights;
+	pos->data->castRights.rookSq[ColourWhite][CastSideA]=(oldCastRights.rookSq[ColourWhite][CastSideH]!=SqInvalid ? sqMirror(oldCastRights.rookSq[ColourWhite][CastSideH]) : SqInvalid);
+	pos->data->castRights.rookSq[ColourWhite][CastSideH]=(oldCastRights.rookSq[ColourWhite][CastSideA]!=SqInvalid ? sqMirror(oldCastRights.rookSq[ColourWhite][CastSideA]) : SqInvalid);
+	pos->data->castRights.rookSq[ColourBlack][CastSideA]=(oldCastRights.rookSq[ColourBlack][CastSideH]!=SqInvalid ? sqMirror(oldCastRights.rookSq[ColourBlack][CastSideH]) : SqInvalid);
+	pos->data->castRights.rookSq[ColourBlack][CastSideH]=(oldCastRights.rookSq[ColourBlack][CastSideA]!=SqInvalid ? sqMirror(oldCastRights.rookSq[ColourBlack][CastSideA]) : SqInvalid);
 
 	// Update keys.
 	pos->data->key=posComputeKey(pos);
@@ -1129,16 +1125,12 @@ void posFlip(Pos *pos) {
 		pos->data->epSq=sqMirror(pos->data->epSq);
 	if (pos->data->capSq!=SqInvalid)
 		pos->data->capSq=sqMirror(pos->data->capSq);
-	CastRights cast=CastRightsNone;
-	if (pos->data->cast & CastRightsK)
-		cast|=CastRightsk;
-	if (pos->data->cast & CastRightsQ)
-		cast|=CastRightsq;
-	if (pos->data->cast & CastRightsk)
-		cast|=CastRightsK;
-	if (pos->data->cast & CastRightsq)
-		cast|=CastRightsQ;
-	pos->data->cast=cast;
+
+	CastRights oldCastRights=pos->data->castRights;
+	pos->data->castRights.rookSq[ColourWhite][CastSideA]=(oldCastRights.rookSq[ColourBlack][CastSideH]!=SqInvalid ? sqFlip(oldCastRights.rookSq[ColourBlack][CastSideH]) : SqInvalid);
+	pos->data->castRights.rookSq[ColourWhite][CastSideH]=(oldCastRights.rookSq[ColourBlack][CastSideA]!=SqInvalid ? sqFlip(oldCastRights.rookSq[ColourBlack][CastSideA]) : SqInvalid);
+	pos->data->castRights.rookSq[ColourBlack][CastSideA]=(oldCastRights.rookSq[ColourWhite][CastSideH]!=SqInvalid ? sqFlip(oldCastRights.rookSq[ColourWhite][CastSideH]) : SqInvalid);
+	pos->data->castRights.rookSq[ColourBlack][CastSideH]=(oldCastRights.rookSq[ColourWhite][CastSideA]!=SqInvalid ? sqFlip(oldCastRights.rookSq[ColourWhite][CastSideA]) : SqInvalid);
 
 	// Update keys.
 	pos->data->key=posComputeKey(pos);

@@ -866,6 +866,10 @@ bool posMoveIsPseudoLegal(const Pos *pos, Move move) {
 }
 
 MoveType posMoveGetType(const Pos *pos, Move move){
+	// Castling? (special case to avoid worrying about wrong capPiece)
+	if (posMoveIsCastling(pos, move))
+		return MoveTypeQuiet;
+
 	// Standard capture?
 	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 	Piece capPiece=posGetPieceOnSq(pos, toSqTrue);

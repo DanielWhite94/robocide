@@ -125,6 +125,7 @@ bool posMoveIsPromotion(const Pos *pos, Move move);
 bool posMoveIsCastling(const Pos *pos, Move move);
 Move posMoveFromStr(const Pos *pos, const char str[static 6]);
 void posMoveToStr(const Pos *pos, Move move, char str[static 6]);
+Sq posMoveGetToSqTrue(const Pos *pos, Move move); // Adjusted if castling
 
 unsigned int matInfoGetPieceCount(MatInfo info, Piece piece);
 

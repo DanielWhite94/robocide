@@ -248,21 +248,21 @@ MoveScore searchScoreMove(const Pos *pos, Move move) {
 
 	// Extract move info.
 	Sq fromSq=moveGetFromSq(move);
-	Sq toSq=moveGetToSq(move);
+	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 	Piece fromPiece=posGetPieceOnSq(pos, fromSq);
 	PieceType fromPieceType=pieceGetType(fromPiece);
 	PieceType toPieceType=moveGetToPieceType(move);
-	PieceType capturedPieceType=pieceGetType(posGetPieceOnSq(pos, toSq));
+	PieceType capturedPieceType=pieceGetType(posGetPieceOnSq(pos, toSqTrue));
 
 	// Sort by MVV-LVA
 	if (capturedPieceType==PieceTypeNone && fromPieceType==PieceTypePawn &&
-			sqFile(fromSq)!=sqFile(toSq))
+			sqFile(fromSq)!=sqFile(toSqTrue))
 		capturedPieceType=PieceTypePawn; // En-passent capture.
 	MoveScore score=(capturedPieceType+toPieceType-fromPieceType)*8+(8-toPieceType);
 	score<<=HistoryBit;
 
 	// Further sort using history tables
-	score+=historyGet(fromPiece, toSq);
+	score+=historyGet(fromPiece, toSqTrue);
 
 	assert(score<MoveScoreMax);
 	return score;
@@ -697,7 +697,7 @@ void searchNodeInternal(Node *node) {
 	if (posMoveGetType(node->pos, bestMove)==MoveTypeQuiet) {
 		Piece fromPiece=moveGetToPiece(bestMove);
 		assert(fromPiece==posGetPieceOnSq(node->pos, moveGetFromSq(bestMove))); // Could only disagree if move is promotion, but these are classed as captures.
-		Sq toSq=moveGetToSq(bestMove);
+		Sq toSq=moveGetToSqRaw(bestMove);
 		historyInc(fromPiece, toSq, node->depth);
 	}
 
@@ -749,7 +749,7 @@ void searchQNodeInternal(Node *node) {
 	bool noLegalMove=true;
 	while((move=movesNext(&moves))!=MoveInvalid) {
 		// If SEE is negative, skip move.
-		if (!node->inCheck && !posMoveIsPromotion(node->pos, move) && seeSign(node->pos, moveGetFromSq(move), moveGetToSq(move))<0)
+		if (!node->inCheck && !posMoveIsPromotion(node->pos, move) && seeSign(node->pos, moveGetFromSq(move), posMoveGetToSqTrue(node->pos, move))<0)
 			continue;
 
 		// Search move.

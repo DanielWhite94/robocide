@@ -34,7 +34,7 @@ const char MovePromoChar[PieceTypeNB]={
 };
 
 bool moveIsValid(Move move) {
-	return (moveGetFromSq(move)!=moveGetToSq(move));
+	return (moveGetFromSq(move)!=moveGetToSqRaw(move));
 }
 
 Move moveMake(Sq fromSq, Sq toSq, Piece toPiece) {
@@ -48,7 +48,7 @@ Sq moveGetFromSq(Move move) {
 	return (move>>MoveShiftFromSq)&63;
 }
 
-Sq moveGetToSq(Move move) {
+Sq moveGetToSqRaw(Move move) {
 	return (move>>MoveShiftToSq)&63;
 }
 

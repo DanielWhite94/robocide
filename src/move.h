@@ -18,7 +18,7 @@ bool moveIsValid(Move move);
 Move moveMake(Sq fromSq, Sq toSq, Piece toPiece); // see moveGetToPiece().
 
 Sq moveGetFromSq(Move move);
-Sq moveGetToSq(Move move);
+Sq moveGetToSqRaw(Move move); // Returns rook's from square for castling
 Piece moveGetToPiece(Move move); // Piece that will be on the ToSq after the move (e.g. the piece on FromSq unless a pawn promotion).
 PieceType moveGetToPieceType(Move move);
 Colour moveGetColour(Move move);

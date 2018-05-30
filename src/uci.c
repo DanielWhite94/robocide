@@ -258,7 +258,7 @@ void uciLoop(void) {
 			movesInit(&moves, pos, 0, MoveTypeAny);
 			Move move;
 			while((move=movesNext(&moves))!=MoveInvalid) {
-				Sq toSq=moveGetToSq(move);
+				Sq toSq=posMoveGetToSqTrue(pos, move);
 				if (posGetPieceOnSq(pos, toSq)==PieceNone)
 					continue;
 				char str[8];

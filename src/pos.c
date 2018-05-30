@@ -378,6 +378,11 @@ bool posMakeMove(Pos *pos, Move move) {
 	if (!posCanMakeMove(pos, move))
 		return false;
 
+	// Grab castling status now before we advance to next data entry.
+	bool isCastlingA=posMoveIsCastlingA(pos, move);
+	bool isCastlingH=posMoveIsCastlingH(pos, move);
+	bool isCastling=isCastlingA|isCastlingH;
+
 	// Use next data entry.
 	if (pos->data+1>=pos->dataEnd) {
 		// We need more space.
@@ -393,32 +398,26 @@ bool posMakeMove(Pos *pos, Move move) {
 	++pos->data;
 
 	// Update generic fields.
+	Colour movingSide=posGetSTM(pos);
+	Colour nonMovingSide=colourSwap(movingSide);
+
 	Sq fromSq=moveGetFromSq(move);
 	Sq toSqRaw=moveGetToSqRaw(move);
 	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
+
 	pos->data->lastMove=move;
 	pos->data->lastMoveWasPromo=false;
 	pos->data->halfMoveNumber=(pos->data-1)->halfMoveNumber+1;
 	pos->data->epSq=SqInvalid;
 	pos->data->key=(pos->data-1)->key^posKeySTM^posKeyEP[(pos->data-1)->epSq];
 	pos->data->castRights=(pos->data-1)->castRights;
-	pos->data->capPiece=posGetPieceOnSq(pos, toSqTrue);
+	pos->data->capPiece=(!isCastling ? posGetPieceOnSq(pos, toSqTrue) : PieceNone);
 	pos->data->capSq=toSqTrue;
-	pos->fullMoveNumber+=(pos->stm==ColourBlack); // Inc after black's move.
-	pos->stm=colourSwap(pos->stm);
+	pos->fullMoveNumber+=(movingSide==ColourBlack); // Inc after black's move.
+	pos->stm=nonMovingSide;
 
 	if (move!=MoveNone) {
 		Piece fromPiece=posGetPieceOnSq(pos, fromSq);
-
-		// Update castling rights
-		if (pos->data->castRights.rookSq[colourSwap(pos->stm)][CastSideA]==fromSq || pieceGetType(fromPiece)==PieceTypeKing)
-			pos->data->castRights.rookSq[colourSwap(pos->stm)][CastSideA]=SqInvalid;
-		if (pos->data->castRights.rookSq[colourSwap(pos->stm)][CastSideH]==fromSq || pieceGetType(fromPiece)==PieceTypeKing)
-			pos->data->castRights.rookSq[colourSwap(pos->stm)][CastSideH]=SqInvalid;
-		if (pos->data->castRights.rookSq[pos->stm][CastSideA]==toSqRaw)
-			pos->data->castRights.rookSq[pos->stm][CastSideA]=SqInvalid;
-		if (pos->data->castRights.rookSq[pos->stm][CastSideH]==toSqRaw)
-			pos->data->castRights.rookSq[pos->stm][CastSideH]=SqInvalid;
 
 		switch(pieceGetType(fromPiece)) {
 			case PieceTypePawn: {
@@ -428,7 +427,7 @@ bool posMakeMove(Pos *pos, Move move) {
 				bool isEP=(sqFile(fromSq)!=sqFile(toSqRaw) && pos->data->capPiece==PieceNone);
 				if (isEP) {
 					pos->data->capSq^=8;
-					pos->data->capPiece=pieceMake(PieceTypePawn, pos->stm);
+					pos->data->capPiece=pieceMake(PieceTypePawn, nonMovingSide);
 					assert(posGetPieceOnSq(pos, pos->data->capSq)==pos->data->capPiece);
 				}
 
@@ -460,17 +459,17 @@ bool posMakeMove(Pos *pos, Move move) {
 				posPieceRemove(pos, fromSq);
 
 				// Castling.
-				if (posMoveIsCastling(pos, move)) {
+				if (isCastling) {
 					Sq rookFromSq=toSqRaw;
-					Sq rookToSq=sqMake((posMoveIsCastlingA(pos, move) ? FileD : FileF), (pos->stm==ColourWhite ? Rank8 : Rank1));
-					assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, colourSwap(pos->stm)));
+					Sq rookToSq=sqMake((isCastlingA ? FileD : FileF), (movingSide==ColourWhite ? Rank1 : Rank8));
+					assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
 
 					if (rookFromSq!=rookToSq)
 						posPieceMove(pos, rookFromSq, rookToSq);
 				}
 
 				// Replace king in new position.
-				posPieceAdd(pos, pieceMake(PieceTypeKing, colourSwap(pos->stm)), toSqTrue);
+				posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue);
 
 				// Capture?
 				if (pos->data->capPiece!=PieceNone) {
@@ -495,6 +494,16 @@ bool posMakeMove(Pos *pos, Move move) {
 				posPieceMove(pos, fromSq, toSqTrue);
 			break;
 		}
+
+		// Update castling rights
+		if (pos->data->castRights.rookSq[movingSide][CastSideA]==fromSq || pieceGetType(fromPiece)==PieceTypeKing)
+			pos->data->castRights.rookSq[movingSide][CastSideA]=SqInvalid;
+		if (pos->data->castRights.rookSq[movingSide][CastSideH]==fromSq || pieceGetType(fromPiece)==PieceTypeKing)
+			pos->data->castRights.rookSq[movingSide][CastSideH]=SqInvalid;
+		if (pos->data->castRights.rookSq[nonMovingSide][CastSideA]==toSqRaw)
+			pos->data->castRights.rookSq[nonMovingSide][CastSideA]=SqInvalid;
+		if (pos->data->castRights.rookSq[nonMovingSide][CastSideH]==toSqRaw)
+			pos->data->castRights.rookSq[nonMovingSide][CastSideH]=SqInvalid;
 
 		// Update key.
 		pos->data->key^=posKeyEP[pos->data->epSq];

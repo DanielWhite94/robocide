@@ -456,13 +456,31 @@ bool posMakeMove(Pos *pos, Move move) {
 				}
 			} break;
 			case PieceTypeKing:
-				// Castling.
-				if (sqFile(toSq)==sqFile(fromSq)+2)
-					posPieceMove(pos, toSq+1, toSq-1); // Kingside.
-				else if (sqFile(toSq)==sqFile(fromSq)-2)
-					posPieceMove(pos, toSq-2, toSq+1); // Queenside.
+				// Remove king (do it this way in case of strange Chess960 castling)
+				posPieceRemove(pos, fromSq);
 
-				// Fall through to move king.
+				// Castling.
+				if (posMoveIsCastling(pos, move)) {
+					Sq rookFromSq=toSqRaw;
+					Sq rookToSq=sqMake((posMoveIsCastlingA(pos, move) ? FileD : FileF), (pos->stm==ColourWhite ? Rank8 : Rank1));
+					assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, colourSwap(pos->stm)));
+
+					if (rookFromSq!=rookToSq)
+						posPieceMove(pos, rookFromSq, rookToSq);
+				}
+
+				// Replace king in new position.
+				posPieceAdd(pos, pieceMake(PieceTypeKing, colourSwap(pos->stm)), toSqTrue);
+
+				// Capture?
+				if (pos->data->capPiece!=PieceNone) {
+					// Remove piece.
+					posPieceRemove(pos, toSqTrue);
+
+					// Captures reset 50 move counter.
+					pos->data->halfMoveNumber=0;
+				}
+			break;
 			default:
 				// Capture?
 				if (pos->data->capPiece!=PieceNone) {

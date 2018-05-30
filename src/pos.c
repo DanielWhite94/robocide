@@ -1383,7 +1383,7 @@ void posGenPseudoCast(Moves *moves) {
 			BB rookSpan=bbBetween(rookFromSq, rookToSq)|bbSq(rookToSq);
 
 			if (!(((kingSpan | rookSpan) & ~(bbSq(rookFromSq)|bbSq(kingFromSq)))&posGetBBAll(pos)))
-				PUSH(moveMake(kingFromSq, kingToSq, pieceMake(PieceTypeKing, stm)));
+				PUSH(moveMake(kingFromSq, rookFromSq, pieceMake(PieceTypeKing, stm)));
 		}
 	}
 

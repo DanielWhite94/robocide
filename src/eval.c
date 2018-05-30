@@ -307,8 +307,6 @@ void evalInit(void) {
 	evalOptionNewVPair("KingCastlingMobilityQ", &evalKingCastlingMobilityQ);
 	evalOptionNewVPair("KingCastlingMobilityKQ", &evalKingCastlingMobilityKQ);
 	evalOptionNewVPair("Tempo", &evalTempoDefault);
-	evalOptionNewVPair("TempoKQKQ", &evalTempoKQKQ);
-	evalOptionNewVPair("TempoKQQKQQ", &evalTempoKQQKQQ);
 	uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 32768, evalHalfMoveFactor);
 	uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 1024, evalWeightFactor);
 # endif

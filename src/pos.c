@@ -619,7 +619,7 @@ void posUndoMove(Pos *pos) {
 		// Move piece back (potentially un-promoting).
 		if ((pos->data+1)->lastMoveWasPromo)
 			posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide), true);
-		else
+		else if (toSqTrue!=fromSq) // king doesn't always move when castling
 			posPieceMove(pos, toSqTrue, fromSq, true);
 
 		// Replace any captured piece.

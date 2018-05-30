@@ -884,10 +884,14 @@ void posMoveToStr(const Pos *pos, Move move, char str[static 6]) {
 	// From/to squares.
 	Sq fromSq=moveGetFromSq(move);
 	Sq toSq=moveGetToSq(move);
-	str[0]=fileToChar(sqFile(fromSq));
-	str[1]=rankToChar(sqRank(fromSq));
-	str[2]=fileToChar(sqFile(toSq));
-	str[3]=rankToChar(sqRank(toSq));
+
+	// Special case for non-chess 960 castling
+	if (!uciGetChess960() && posMoveIsCastling(pos, move)) {
+		// We normally send as king captures rook, but here we need kings true final position
+		File file=(toSq<fromSq ? FileC : FileG);
+		Rank rank=(moveGetColour(move)==ColourWhite ? Rank1 : Rank8);
+		toSq=sqMake(file, rank);
+	}
 
 	// Promotion?
 	Piece fromPiece=posGetPieceOnSq(pos, fromSq);
@@ -895,8 +899,13 @@ void posMoveToStr(const Pos *pos, Move move, char str[static 6]) {
 	Piece toPiece=moveGetToPiece(move);
 	bool isPromo=(fromPiece!=toPiece);
 	assert(!isPromo || sqRank(toSq)==(posGetSTM(pos)==ColourWhite ? Rank8 : Rank1));
-	str[4]=(isPromo ? pieceTypeToPromoChar(pieceGetType(toPiece)) : '\0');
 
+	// Create string
+	str[0]=fileToChar(sqFile(fromSq));
+	str[1]=rankToChar(sqRank(fromSq));
+	str[2]=fileToChar(sqFile(toSq));
+	str[3]=rankToChar(sqRank(toSq));
+	str[4]=(isPromo ? pieceTypeToPromoChar(pieceGetType(toPiece)) : '\0');
 	str[5]='\0';
 }
 

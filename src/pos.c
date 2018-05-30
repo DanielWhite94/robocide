@@ -1325,19 +1325,30 @@ void posGenPseudoPawnMoves(Moves *moves, MoveType type) {
 
 void posGenPseudoCast(Moves *moves) {
 #	define PUSH(m) movesPush(moves, (m))
+
 	const Pos *pos=movesGetPos(moves);
-	BB occ=posGetBBAll(pos);
-	if (posGetSTM(pos)==ColourWhite) {
-		if ((pos->data->cast & CastRightsK) && !(occ & (bbSq(SqF1) | bbSq(SqG1))))
-			PUSH(moveMake(SqE1, SqG1, PieceWKing));
-		if ((pos->data->cast & CastRightsQ) && !(occ & (bbSq(SqB1) | bbSq(SqC1) | bbSq(SqD1))))
-			PUSH(moveMake(SqE1, SqC1, PieceWKing));
-	} else {
-		if ((pos->data->cast & CastRightsk) && !(occ & (bbSq(SqF8) | bbSq(SqG8))))
-			PUSH(moveMake(SqE8, SqG8, PieceBKing));
-		if ((pos->data->cast & CastRightsq) && !(occ & (bbSq(SqB8) | bbSq(SqC8) | bbSq(SqD8))))
-			PUSH(moveMake(SqE8, SqC8, PieceBKing));
+
+	Colour stm=posGetSTM(pos);
+	Sq kingFromSq=posGetKingSq(pos, stm);
+	Rank backRank=(stm==ColourWhite ? Rank1 : Rank8);
+	int castSide;
+	for(castSide=CastSideA; castSide<=CastSideH; ++castSide) {
+		if (pos->data->castRights.rookSq[stm][castSide]!=SqInvalid) {
+			Sq rookFromSq=pos->data->castRights.rookSq[stm][castSide];
+			Sq rookToSq=sqMake((castSide==CastSideA ? FileD : FileF), backRank);
+			Sq kingToSq=sqMake((castSide==CastSideA ? FileC : FileF), backRank);
+
+			assert(pieceGetType(posGetPieceOnSq(pos, rookFromSq))==PieceTypeRook);
+			assert(pieceGetColour(posGetPieceOnSq(pos, rookFromSq))==stm);
+
+			BB kingSpan=bbBetween(kingFromSq, kingToSq)|bbSq(kingToSq);
+			BB rookSpan=bbBetween(rookFromSq, rookToSq)|bbSq(rookToSq);
+
+			if (!(((kingSpan | rookSpan) & ~(bbSq(rookFromSq)|bbSq(kingFromSq)))&posGetBBAll(pos)))
+				PUSH(moveMake(kingFromSq, kingToSq, pieceMake(PieceTypeKing, stm)));
+		}
 	}
+
 #	undef PUSH
 }
 

@@ -378,10 +378,12 @@ bool posMakeMove(Pos *pos, Move move) {
 	if (!posCanMakeMove(pos, move))
 		return false;
 
-	// Grab castling status now before we advance to next data entry.
+	// Grab some move info now before we advance to next data entry.
 	bool isCastlingA=posMoveIsCastlingA(pos, move);
 	bool isCastlingH=posMoveIsCastlingH(pos, move);
 	bool isCastling=isCastlingA|isCastlingH;
+
+	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 
 	// Use next data entry.
 	if (pos->data+1>=pos->dataEnd) {
@@ -403,7 +405,6 @@ bool posMakeMove(Pos *pos, Move move) {
 
 	Sq fromSq=moveGetFromSq(move);
 	Sq toSqRaw=moveGetToSqRaw(move);
-	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 
 	pos->data->lastMove=move;
 	pos->data->lastMoveWasPromo=false;
@@ -419,80 +420,75 @@ bool posMakeMove(Pos *pos, Move move) {
 	if (move!=MoveNone) {
 		Piece fromPiece=posGetPieceOnSq(pos, fromSq);
 
-		switch(pieceGetType(fromPiece)) {
-			case PieceTypePawn: {
-				// Pawns are complicated so deserve a special case.
+		// Special case for castling
+		if (isCastling) {
+			assert(fromPiece==pieceMake(PieceTypeKing, movingSide));
+			assert(moveGetToPiece(move)==pieceMake(PieceTypeKing, movingSide));
 
-				// En-passent capture?
-				bool isEP=(sqFile(fromSq)!=sqFile(toSqRaw) && pos->data->capPiece==PieceNone);
-				if (isEP) {
-					pos->data->capSq^=8;
-					pos->data->capPiece=pieceMake(PieceTypePawn, nonMovingSide);
-					assert(posGetPieceOnSq(pos, pos->data->capSq)==pos->data->capPiece);
-				}
+			// Remove king (do it this way in case of strange Chess960 castling)
+			posPieceRemove(pos, fromSq);
 
-				// Capture?
-				if (pos->data->capPiece!=PieceNone)
-					// Remove piece.
-					posPieceRemove(pos, pos->data->capSq);
+			// Move rook
+			Sq rookFromSq=toSqRaw;
+			Sq rookToSq=sqMake((isCastlingA ? FileD : FileF), (movingSide==ColourWhite ? Rank1 : Rank8));
+			assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
 
-				// Move the pawn, potentially promoting.
-				Piece toPiece=moveGetToPiece(move);
-				if (toPiece!=fromPiece) {
-					pos->data->lastMoveWasPromo=true;
-					posPieceMoveChange(pos, fromSq, toSqRaw, toPiece);
-				} else
-					posPieceMove(pos, fromSq, toSqRaw);
+			if (rookFromSq!=rookToSq)
+				posPieceMove(pos, rookFromSq, rookToSq);
 
-				// Pawn moves reset 50 move counter.
-				pos->data->halfMoveNumber=0;
+			// Replace king in new position.
+			posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue);
+		} else {
+			// Standard moves
+			switch(pieceGetType(fromPiece)) {
+				case PieceTypePawn: {
+					// Pawns are complicated so deserve a special case.
 
-				// If double pawn move check set EP capture square (for next move).
-				if (abs(((int)sqRank(toSqRaw))-((int)sqRank(fromSq)))==2) {
-					Sq epSq=toSqRaw^8;
-					if (posIsEPCap(pos, epSq))
-						pos->data->epSq=epSq;
-				}
-			} break;
-			case PieceTypeKing:
-				// Remove king (do it this way in case of strange Chess960 castling)
-				posPieceRemove(pos, fromSq);
+					// En-passent capture?
+					bool isEP=(sqFile(fromSq)!=sqFile(toSqRaw) && pos->data->capPiece==PieceNone);
+					if (isEP) {
+						pos->data->capSq^=8;
+						pos->data->capPiece=pieceMake(PieceTypePawn, nonMovingSide);
+						assert(posGetPieceOnSq(pos, pos->data->capSq)==pos->data->capPiece);
+					}
 
-				// Castling.
-				if (isCastling) {
-					Sq rookFromSq=toSqRaw;
-					Sq rookToSq=sqMake((isCastlingA ? FileD : FileF), (movingSide==ColourWhite ? Rank1 : Rank8));
-					assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
+					// Capture?
+					if (pos->data->capPiece!=PieceNone)
+						// Remove piece.
+						posPieceRemove(pos, pos->data->capSq);
 
-					if (rookFromSq!=rookToSq)
-						posPieceMove(pos, rookFromSq, rookToSq);
-				}
+					// Move the pawn, potentially promoting.
+					Piece toPiece=moveGetToPiece(move);
+					if (toPiece!=fromPiece) {
+						pos->data->lastMoveWasPromo=true;
+						posPieceMoveChange(pos, fromSq, toSqRaw, toPiece);
+					} else
+						posPieceMove(pos, fromSq, toSqRaw);
 
-				// Replace king in new position.
-				posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue);
-
-				// Capture?
-				if (pos->data->capPiece!=PieceNone) {
-					// Remove piece.
-					posPieceRemove(pos, toSqTrue);
-
-					// Captures reset 50 move counter.
+					// Pawn moves reset 50 move counter.
 					pos->data->halfMoveNumber=0;
-				}
-			break;
-			default:
-				// Capture?
-				if (pos->data->capPiece!=PieceNone) {
-					// Remove piece.
-					posPieceRemove(pos, toSqTrue);
 
-					// Captures reset 50 move counter.
-					pos->data->halfMoveNumber=0;
-				}
+					// If double pawn move check set EP capture square (for next move).
+					if (abs(((int)sqRank(toSqRaw))-((int)sqRank(fromSq)))==2) {
+						Sq epSq=toSqRaw^8;
+						if (posIsEPCap(pos, epSq))
+							pos->data->epSq=epSq;
+					}
+				} break;
+				default:
+					// Capture?
+					if (pos->data->capPiece!=PieceNone) {
+						// Remove piece.
+						posPieceRemove(pos, toSqTrue);
 
-				// Move non-pawn piece (i.e. no promotion to worry about).
-				posPieceMove(pos, fromSq, toSqTrue);
-			break;
+						// Captures reset 50 move counter.
+						pos->data->halfMoveNumber=0;
+					}
+
+					// Move non-pawn piece (i.e. no promotion to worry about).
+					posPieceMove(pos, fromSq, toSqTrue);
+				break;
+			}
 		}
 
 		// Update castling rights
@@ -603,6 +599,7 @@ void posUndoMove(Pos *pos) {
 	// Update generic fields.
 	pos->stm=movingSide;
 	pos->fullMoveNumber-=(movingSide==ColourBlack);
+	--pos->data; // do this here so that posMoveGetToSqTrue and posMoveIsCastling work correctly
 
 	if (move!=MoveNone) {
 		Sq fromSq=moveGetFromSq(move);
@@ -610,24 +607,24 @@ void posUndoMove(Pos *pos) {
 		Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 
 		// If castling, remove rook here (to be safe in case of strange Chess960 castling)
-		if ((pos->data-1)->castRights.rookSq[movingSide][CastSideA]==toSqRaw) {
+		if (pos->data->castRights.rookSq[movingSide][CastSideA]==toSqRaw) {
 			Sq rookToSq=sqMake(FileD, (movingSide==ColourWhite ? Rank1 : Rank8));
 			posPieceRemove(pos, rookToSq);
 		}
-		if ((pos->data-1)->castRights.rookSq[movingSide][CastSideH]==toSqRaw) {
+		if (pos->data->castRights.rookSq[movingSide][CastSideH]==toSqRaw) {
 			Sq rookToSq=sqMake(FileF, (movingSide==ColourWhite ? Rank1 : Rank8));
 			posPieceRemove(pos, rookToSq);
 		}
 
 		// Move piece back (potentially un-promoting).
-		if (pos->data->lastMoveWasPromo)
+		if ((pos->data+1)->lastMoveWasPromo)
 			posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide));
 		else
 			posPieceMove(pos, toSqTrue, fromSq);
 
 		// Replace any captured piece.
-		if (pos->data->capPiece!=PieceNone)
-			posPieceAdd(pos, pos->data->capPiece, pos->data->capSq);
+		if ((pos->data+1)->capPiece!=PieceNone)
+			posPieceAdd(pos, (pos->data+1)->capPiece, (pos->data+1)->capSq);
 
 		// If castling replace the rook.
 		if (posMoveIsCastling(pos, move)) {
@@ -635,9 +632,6 @@ void posUndoMove(Pos *pos) {
 			posPieceAdd(pos, pieceMake(PieceTypeRook, movingSide), rookFromSq);
 		}
 	}
-
-	// Discard data.
-	--pos->data;
 
 	assert(posIsConsistent(pos));
 }

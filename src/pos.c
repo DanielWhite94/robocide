@@ -524,7 +524,7 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 
 	// Make a list of squares we need to ensure are unattacked.
 	BB checkSquares=bbSq(kingSq);
-	if (moveIsCastling(move))
+	if (posMoveIsCastling(pos, move))
 		checkSquares|=fromBB|bbSq((toSq+fromSq)/2);
 
 	// Test for attacks to any of checkSquares.

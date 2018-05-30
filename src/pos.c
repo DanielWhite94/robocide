@@ -1384,7 +1384,7 @@ void posGenPseudoCast(Moves *moves) {
 		if (pos->data->castRights.rookSq[stm][castSide]!=SqInvalid) {
 			Sq rookFromSq=pos->data->castRights.rookSq[stm][castSide];
 			Sq rookToSq=sqMake((castSide==CastSideA ? FileD : FileF), backRank);
-			Sq kingToSq=sqMake((castSide==CastSideA ? FileC : FileF), backRank);
+			Sq kingToSq=sqMake((castSide==CastSideA ? FileC : FileG), backRank);
 
 			assert(pieceGetType(posGetPieceOnSq(pos, rookFromSq))==PieceTypeRook);
 			assert(pieceGetColour(posGetPieceOnSq(pos, rookFromSq))==stm);

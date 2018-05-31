@@ -32,11 +32,10 @@ typedef struct {
 	CastRights castRights;
 } PosData;
 
+STATICASSERT(PieceBit<=8);
 struct Pos {
 	BB bbPiece[PieceNB];
-	uint8_t array64[SqNB]; // One entry per square pointing to location in pieceList.
-	Sq pieceList[PieceNB*16]; // 16 entries per piece.
-	uint8_t pieceListNext[PieceNB]; // Gives next empty slot in pieceList array.
+	uint8_t array64[SqNB]; // entries are Pieces
 	PosData *dataStart, *dataEnd, *data;
 	BB bbColour[ColourNB], bbAll;
 	Colour stm;
@@ -291,7 +290,7 @@ Colour posGetSTM(const Pos *pos) {
 
 Piece posGetPieceOnSq(const Pos *pos, Sq sq) {
 	assert(sqIsValid(sq));
-	return (pos->array64[sq]>>4);
+	return pos->array64[sq];
 }
 
 BB posGetBBAll(const Pos *pos) {
@@ -1127,9 +1126,6 @@ void posFlip(Pos *pos) {
 void posClean(Pos *pos) {
 	memset(pos->bbPiece, 0, PieceNB*sizeof(BB));
 	memset(pos->array64, 0, SqNB*sizeof(uint8_t));
-	unsigned int i;
-	for(i=0;i<PieceNB;++i)
-		pos->pieceListNext[i]=16*i;
 	pos->bbColour[ColourWhite]=pos->bbColour[ColourBlack]=pos->bbAll=BBNone;
 	pos->stm=ColourWhite;
 	pos->fullMoveNumber=1;
@@ -1157,15 +1153,13 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate) {
 	pos->bbPiece[piece]^=bbSq(sq);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(sq);
 	pos->bbAll^=bbSq(sq);
-	uint8_t index=(pos->pieceListNext[piece]++);
-	pos->array64[sq]=index;
-	pos->pieceList[index]=sq;
+	pos->array64[sq]=piece;
 
 	// Update hash keys.
 	if (!skipMainKeyUpdate)
 		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
-	pos->matKey^=posMatKey[index];
+	pos->matKey^=posMatKey[piece];
 
 	// Update PST score.
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
@@ -1177,21 +1171,17 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 	assert(posGetPieceOnSq(pos, sq)!=PieceNone);
 
 	// Update position.
-	uint8_t index=pos->array64[sq];
-	Piece piece=(index>>4);
+	Piece piece=posGetPieceOnSq(pos, sq);
 	pos->bbPiece[piece]^=bbSq(sq);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(sq);
 	pos->bbAll^=bbSq(sq);
-	uint8_t lastIndex=(--pos->pieceListNext[piece]);
-	pos->pieceList[index]=pos->pieceList[lastIndex];
-	pos->array64[pos->pieceList[index]]=index;
-	pos->array64[sq]=(PieceNone<<4);
+	pos->array64[sq]=PieceNone;
 
 	// Update hash keys.
 	if (!skipMainKeyUpdate)
 		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
-	pos->matKey^=posMatKey[lastIndex];
+	pos->matKey^=posMatKey[piece];
 
 	// Update PST score.
 	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
@@ -1204,14 +1194,12 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
 	assert(posGetPieceOnSq(pos, toSq)==PieceNone);
 
 	// Update position.
-	uint8_t index=pos->array64[fromSq];
-	Piece piece=(index>>4);
+	Piece piece=posGetPieceOnSq(pos, fromSq);
 	pos->bbPiece[piece]^=bbSq(fromSq)^bbSq(toSq);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(fromSq)^bbSq(toSq);
 	pos->bbAll^=bbSq(fromSq)^bbSq(toSq);
-	pos->array64[toSq]=index;
-	pos->array64[fromSq]=(PieceNone<<4);
-	pos->pieceList[index]=toSq;
+	pos->array64[toSq]=piece;
+	pos->array64[fromSq]=PieceNone;
 
 	// Update hash keys.
 	if (!skipMainKeyUpdate)
@@ -1482,6 +1470,7 @@ bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq 
 
 bool posIsConsistent(const Pos *pos) {
 	char error[512];
+	Sq sq;
 
 	// Test bitboards are self consistent.
 	BB wAll=BBNone, bAll=BBNone;
@@ -1510,63 +1499,21 @@ bool posIsConsistent(const Pos *pos) {
 		goto Error;
 	}
 
-	// Test Array64 'pointers' are correct (consistent and agree with bitboards).
-	Sq sq;
-	uint8_t index;
-	for(sq=0;sq<SqNB;++sq) {
-		index=pos->array64[sq];
-		Piece piece=(index>>4);
-		if (piece!=PieceNone && !pieceIsValid(piece)) {
-			sprintf(error, "Invalid piece '%i' derived from array64 index '%i' (%c%c)"
-										 ".\n", piece, index, fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
-			goto Error;
-		}
-		if (piece==PieceNone) {
-			assert(index==0);
-			if (pos->bbAll & bbSq(sq)) {
-				sprintf(error, "Piece exists in bitboards but not in array (%c%c).\n",
-								fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
+	// Test array64 agrees with bitboards.
+	for(sq=0; sq<SqNB; ++sq) {
+		BB bb=bbSq(sq);
+		Piece piece=pos->array64[sq];
+		if (piece!=PieceNone) {
+			if ((pos->bbPiece[piece] & bb)==BBNone) {
+				sprintf(error, "Piece %i in array64 for %c%c, but not set in bitboards.\n", piece, fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
 				goto Error;
 			}
-			continue; // Special case (the 'null index').
-		}
-		if ((pos->bbPiece[piece] & bbSq(sq))==BBNone) {
-			sprintf(error, "Piece exists in array, but not in bitboards (%c%c).\n",
-							fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
-			goto Error;
-		}
-		if (index>=pos->pieceListNext[piece]) {
-			sprintf(error, "Array64 points outside of list for piece '%i' (%c%c).\n",
-							piece, fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
-			goto Error;
-		}
-		if (pos->pieceList[index]!=sq) {
-			sprintf(error, "Array64 sq %c%c disagrees with piece list sq %c%c at "
-										 "index %i.\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)),
-										 fileToChar(sqFile(pos->pieceList[index])), rankToChar(sqRank(pos->pieceList[index])),
-										 index);
-			goto Error;
-		}
-	}
-
-	// Test piece lists are correct.
-	for(type1=PieceTypePawn;type1<=PieceTypeKing;++type1) {
-		Piece piece=pieceMake(type1, ColourWhite);
-		for(index=(piece<<4);index<pos->pieceListNext[piece];++index)
-			if ((pos->bbPiece[piece] & bbSq(pos->pieceList[index]))==BBNone) {
-				sprintf(error, "Piece list thinks piece %i exists on %c%c but bitboards"
-											 " do not.\n", piece, fileToChar(sqFile(pos->pieceList[index])),
-											 rankToChar(sqRank(pos->pieceList[index])));
+		} else {
+			if ((pos->bbAll & bb)!=BBNone) {
+				sprintf(error, "%c%c empty in array64, but set in bitboards.\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
 				goto Error;
 			}
-		piece=pieceMake(type1, ColourBlack);
-		for(index=(piece<<4);index<pos->pieceListNext[piece];++index)
-			if ((pos->bbPiece[piece] & bbSq(pos->pieceList[index]))==BBNone) {
-				sprintf(error, "Piece list thinks piece %i exists on %c%c but bitboards"
-											 " do not.\n", piece, fileToChar(sqFile(pos->pieceList[index])),
-											 rankToChar(sqRank(pos->pieceList[index])));
-				goto Error;
-			}
+		}
 	}
 
 	// Test correct bishop pieces are correct (either light or dark).

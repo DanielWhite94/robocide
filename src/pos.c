@@ -1267,15 +1267,12 @@ void posGenPseudoNormal(Moves *moves, BB allowed) {
 	for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
 		// Loop over each piece of this type.
 		Piece piece=pieceMake(type, stm);
-		const Sq *sq=posGetPieceListStart(pos, piece);
-		const Sq *endSq=posGetPieceListEnd(pos, piece);
-		for(;sq<endSq;++sq) {
-			// Calculate attack set.
-			BB set=(attacksPiece(piece, *sq, occ) & allowed);
-
-			// Loop over destination squares and add as individual moves.
-			while(set)
-				PUSH(moveMake(*sq, bbScanReset(&set), piece));
+		BB pieceSet=posGetBBPiece(pos, piece);
+		while(pieceSet) {
+			Sq fromSq=bbScanReset(&pieceSet);
+			BB moveSet=(attacksPiece(piece, fromSq, occ) & allowed);
+			while(moveSet)
+				PUSH(moveMake(fromSq, bbScanReset(&moveSet), piece));
 		}
 	}
 #	undef PUSH

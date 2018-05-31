@@ -1633,18 +1633,18 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 	if (capPiece!=PieceNone && pieceGetColour(capPiece)==stm)
 		return false;
 
-	// Piece-specific logic.
+	// Bad moving piece?
 	Sq fromSq=moveGetFromSq(move);
 	Piece fromPiece=posGetPieceOnSq(pos, fromSq);
+	if (fromPiece==PieceNone || pieceGetColour(fromPiece)!=stm)
+		return false;
+
+	// Piece type specific logic.
 	BB occ=posGetBBAll(pos);
 	unsigned int dX=abs(((int)sqFile(fromSq))-((int)sqFile(toSqTrue)));
 	int dY=abs(((int)sqRank(fromSq))-((int)sqRank(toSqTrue)));
 	switch(pieceGetType(fromPiece)) {
 		case PieceTypePawn: {
-			// Moving pawn of correct colour?
-			if (pieceGetColour(fromPiece)!=stm)
-				return false;
-
 			// Valid rank movement?
 			int colourDelta=(stm==ColourWhite ? 1 : -1);
 			int rankDelta=sqRank(toSqTrue)-sqRank(fromSq);

@@ -28,6 +28,7 @@ By default, the following options are available:
 * PawnHash - Size of the pawn hash table in megabytes. While a larger number
 should result in more hits, the memory is probably better used on the standard
 hash table (as the pawn table already enjoys a high hit-rate).
+* UCI_Chess960 - standard UCI option to enable/disable Chess960 mode (changes representation and logic of castling rights and moves)
 * MatHash - Similar to the PawnHash option but for the material combination
 table.
 * Hash - The size of the main transposition table in megabytes. Generally, a

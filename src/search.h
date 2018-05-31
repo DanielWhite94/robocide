@@ -51,6 +51,6 @@ void searchLimitSetMoveTime(SearchLimit *limit, TimeMs moveTime); // From 'movet
 void searchLimitSetDepth(SearchLimit *limit, Depth depth); // From 'depth x' argument.
 void searchLimitSetNodes(SearchLimit *limit, unsigned long long int nodes); // From 'nodes x' argument.
 void searchLimitSetMovesToGo(SearchLimit *limit, unsigned int movesToGo);
-void searchLimitAddMove(SearchLimit *limit, Move move); // If no moves added, uses full set.
+void searchLimitAddMove(SearchLimit *limit, const Pos *pos, Move move); // If no moves added, uses full set.
 
 #endif

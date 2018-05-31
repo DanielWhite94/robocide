@@ -165,8 +165,8 @@ void uciLoop(void) {
 					inSearchMoves=true;
 				else if (inSearchMoves) {
 					Move move=posMoveFromStr(pos, part);
-					if (moveIsValid(move) && posCanMakeMove(pos, move))
-						searchLimitAddMove(&limit, move);
+					if (moveIsValid(move))
+						searchLimitAddMove(&limit, pos, move);
 				}
 			}
 

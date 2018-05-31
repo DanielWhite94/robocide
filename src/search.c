@@ -182,13 +182,14 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	if (searchTime!=TimeMsInvalid)
 		searchEndTime=searchLimit.startTime+searchTime;
 
-	// If no search moves given via uci, fill with all pseudo-legal moves.
+	// If no search moves given via uci, fill with all legal moves.
 	if (searchLimit.searchMovesNext==searchLimit.searchMoves) {
 		Moves tempMoves;
 		movesInit(&tempMoves, searchPos, 0, MoveTypeAny);
 		Move move;
 		while((move=movesNext(&tempMoves))!=MoveInvalid)
-			*searchLimit.searchMovesNext++=move;
+			if (posCanMakeMove(searchPos, move))
+				*searchLimit.searchMovesNext++=move;
 	}
 
 	// Set away worker
@@ -317,8 +318,9 @@ void searchLimitSetMovesToGo(SearchLimit *limit, unsigned int movesToGo) {
 	limit->movesToGo=movesToGo;
 }
 
-void searchLimitAddMove(SearchLimit *limit, Move move) {
-	*limit->searchMovesNext++=move;
+void searchLimitAddMove(SearchLimit *limit, const Pos *pos, Move move) {
+	if (posCanMakeMove(pos, move))
+		*limit->searchMovesNext++=move;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -336,72 +338,69 @@ void searchThinkClear(void) {
 void searchIDLoop(void *userData) {
 	assert(userData==NULL);
 
-	// Make node structure for root node.
-	Node node;
-	node.pos=searchPos;
-	node.ply=0;
-	node.alpha=-ScoreInf;
-	node.beta=ScoreInf;
-	node.inCheck=posIsSTMInCheck(node.pos);
+	// Only search if more than one legal move available (including restrictions by searchmoves argument), or in infinite/analysis mode.
+	if (searchLimit.searchMovesNext>searchLimit.searchMoves || searchLimit.infinite) {
+		// Make node structure for root node.
+		Node node;
+		node.pos=searchPos;
+		node.ply=0;
+		node.alpha=-ScoreInf;
+		node.beta=ScoreInf;
+		node.inCheck=posIsSTMInCheck(node.pos);
 
-	// Loop increasing search depth until we run out of 'time'.
-	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
-		// After 1s start showing 'currmove' info.
-		if (searchOutput && timeGet()>=searchLimit.startTime+1000)
-			searchShowCurrmove=true;
+		// Loop, increasing search depth until we run out of 'time'.
+		for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
+			// After 1s start showing 'currmove' info.
+			if (searchOutput && timeGet()>=searchLimit.startTime+1000)
+				searchShowCurrmove=true;
 
-		// Output pre info.
-		searchOutputDepthPre(&node);
+			// Output pre info.
+			searchOutputDepthPre(&node);
 
-		// Search
-		searchNode(&node);
+			// Search
+			searchNode(&node);
 
-		// No info found? (out of time/nodes/etc.).
-		if (node.bound==BoundNone)
-			break;
+			// No info found? (out of time/nodes/etc.).
+			if (node.bound==BoundNone)
+				break;
 
-		// Output post info.
-		searchOutputDepthPost(&node);
+			// Output post info.
+			searchOutputDepthPost(&node);
 
-		// Time to end?
-		if (searchIsTimeUp())
-			break;
+			// Time to end?
+			if (searchIsTimeUp())
+				break;
+		}
 	}
 
 	// Grab best move from TT if available, otherwise choose a legal move from searchmoves given.
-	Move bestMove=ttReadMove(node.pos);
-	if (!moveIsValid(bestMove) || !posCanMakeMove(node.pos, bestMove)) {
-		Move *movePtr;
-		for(movePtr=searchLimit.searchMoves; movePtr!=searchLimit.searchMovesNext; ++movePtr)
-			if (posCanMakeMove(node.pos, *movePtr)) {
-				bestMove=*movePtr;
-				break;
-			}
-	}
+	Move bestMove=ttReadMove(searchPos);
+	if ((!moveIsValid(bestMove) || !posCanMakeMove(searchPos, bestMove)) && searchLimit.searchMovesNext>searchLimit.searchMoves)
+		bestMove=searchLimit.searchMoves[0];
 
 	// If in pondering mode try to extract ponder move.
 	Move ponderMove=MoveInvalid;
 	if (searchPonder && moveIsValid(bestMove)) {
-		assert(posCanMakeMove(node.pos, bestMove));
-		posMakeMove(node.pos, bestMove);
-		ponderMove=ttReadMove(node.pos);
-		if (!moveIsValid(ponderMove) || !posCanMakeMove(node.pos, ponderMove))
-			ponderMove=posGenLegalMove(node.pos, MoveTypeAny);
-		posUndoMove(node.pos);
+		assert(posCanMakeMove(searchPos, bestMove));
+		posMakeMove(searchPos, bestMove);
+		ponderMove=ttReadMove(searchPos);
+		if (!moveIsValid(ponderMove) || !posCanMakeMove(searchPos, ponderMove))
+			ponderMove=posGenLegalMove(searchPos, MoveTypeAny);
+		posUndoMove(searchPos);
 	}
 
 	// This is to handle infinite mode - wait until told to stop.
 	while(searchLimit.infinite)
 		lockWait(searchActivity);
 
+	// Send best move (and potentially ponder move) to GUI.
 	if (searchOutput) {
-		// Send best move (and potentially ponder move) to GUI.
 		char str[8];
-		posMoveToStr(node.pos, bestMove, str);
+		posMoveToStr(searchPos, bestMove, str);
 		if (moveIsValid(ponderMove)) {
-			posMakeMove(node.pos, bestMove);
-			uciWrite("bestmove %s ponder %s\n", str, POSMOVETOSTR(node.pos, ponderMove));
-			posUndoMove(node.pos);
+			posMakeMove(searchPos, bestMove);
+			uciWrite("bestmove %s ponder %s\n", str, POSMOVETOSTR(searchPos, ponderMove));
+			posUndoMove(searchPos);
 		} else
 			uciWrite("bestmove %s\n", str);
 	}

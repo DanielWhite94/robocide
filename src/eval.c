@@ -1242,7 +1242,7 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 	// KBPvK (any positive number of pawns and any positive number of same coloured bishops).
 	if (occXKings==bbWhiteXKings) { // only white material?
 		BB pawns=posGetBBPiece(pos, PieceWPawn);
-		if ((bbWhiteXKings&pawns)!=BBNone) { // does white even have any pawns?
+		if ((bbWhiteXKings&pawns)!=BBNone && (bbWhiteXKings^pawns)!=BBNone) { // does white even have any pawns and non-pawns?
 			if ((bbWhiteXKings^pawns)==posGetBBPiece(pos, PieceWBishopL))
 				return EvalMatTypeKBPvK;
 			if ((bbWhiteXKings^pawns)==posGetBBPiece(pos, PieceWBishopD))
@@ -1250,7 +1250,7 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 		}
 	} else if (occXKings==bbBlackXKings) { // only black material?
 		BB pawns=posGetBBPiece(pos, PieceBPawn);
-		if ((bbBlackXKings&pawns)!=BBNone) { // does black even have any pawns?
+		if ((bbBlackXKings&pawns)!=BBNone && (bbBlackXKings^pawns)!=BBNone) { // does black even have any pawns and non-pawns?
 			if ((bbBlackXKings^pawns)==posGetBBPiece(pos, PieceBBishopL))
 				return EvalMatTypeKBPvK;
 			if ((bbBlackXKings^pawns)==posGetBBPiece(pos, PieceBBishopD))

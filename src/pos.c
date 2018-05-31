@@ -310,22 +310,12 @@ BB posGetBBPiece(const Pos *pos, Piece piece) {
 
 unsigned int posGetPieceCount(const Pos *pos, Piece piece) {
 	assert(pieceIsValid(piece));
-	return (posGetPieceListEnd(pos, piece)-posGetPieceListStart(pos, piece));
+	return bbPopCount(posGetBBPiece(pos, piece));
 }
 
 Sq posGetKingSq(const Pos *pos, Colour colour) {
 	assert(colourIsValid(colour));
-	return *posGetPieceListStart(pos, pieceMake(PieceTypeKing, colour));
-}
-
-const Sq *posGetPieceListStart(const Pos *pos, Piece piece) {
-	assert(pieceIsValid(piece));
-	return &pos->pieceList[piece<<4];
-}
-
-const Sq *posGetPieceListEnd(const Pos *pos, Piece piece) {
-	assert(pieceIsValid(piece));
-	return &pos->pieceList[pos->pieceListNext[piece]];
+	return bbScanForward(posGetBBPiece(pos, pieceMake(PieceTypeKing, colour)));
 }
 
 unsigned int posGetHalfMoveNumber(const Pos *pos) {

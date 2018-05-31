@@ -89,9 +89,6 @@ unsigned int posGetPieceCount(const Pos *pos, Piece piece);
 
 Sq posGetKingSq(const Pos *pos, Colour colour);
 
-const Sq *posGetPieceListStart(const Pos *pos, Piece piece); // Used to loop over each piece of a given kind.
-const Sq *posGetPieceListEnd(const Pos *pos, Piece piece);
-
 unsigned int posGetHalfMoveNumber(const Pos *pos);
 unsigned int posGetFullMoveNumber(const Pos *pos);
 Key posGetKey(const Pos *pos);

@@ -382,10 +382,11 @@ VPair evalComputePstScore(const Pos *pos) {
 		PieceType type;
 		for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
 			Piece piece=pieceMake(type, colour);
-			const Sq *sq=posGetPieceListStart(pos, piece);
-			const Sq *sqEnd=posGetPieceListEnd(pos, piece);
-			for(;sq<sqEnd;++sq)
-				evalVPairAddTo(&score, &evalPST[piece][*sq]);
+			BB pieceSet=posGetBBPiece(pos, piece);
+			while(pieceSet) {
+				Sq sq=bbScanReset(&pieceSet);
+				evalVPairAddTo(&score, &evalPST[piece][sq]);
+			}
 		}
 	}
 
@@ -487,51 +488,51 @@ Score evaluateInternal(const Pos *pos) {
 VPair evaluateDefault(EvalData *data) {
 	const Pos *pos=data->pos;
 
-	const Sq *sq, *sqEnd;
+	BB pieceSet;
 
 	// 'Global' calculations (includes pawns)
 	VPair score=evaluateDefaultGlobal(data);
 
 	// Bishop mobility
-	sq=posGetPieceListStart(pos, PieceWBishopL);
-	sqEnd=posGetPieceListEnd(pos, PieceWBishopL);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksBishop(*sq, posGetBBAll(pos));
+	pieceSet=posGetBBPiece(pos, PieceWBishopL);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks));
 	}
-	sq=posGetPieceListStart(pos, PieceWBishopD);
-	sqEnd=posGetPieceListEnd(pos, PieceWBishopD);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksBishop(*sq, posGetBBAll(pos));
+	pieceSet=posGetBBPiece(pos, PieceWBishopD);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks));
 	}
-	sq=posGetPieceListStart(pos, PieceBBishopL);
-	sqEnd=posGetPieceListEnd(pos, PieceBBishopL);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksBishop(*sq, posGetBBAll(pos));
+	pieceSet=posGetBBPiece(pos, PieceBBishopL);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairSubMulFrom(&score, &evalBishopMob, bbPopCount(attacks));
 	}
-	sq=posGetPieceListStart(pos, PieceBBishopD);
-	sqEnd=posGetPieceListEnd(pos, PieceBBishopD);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksBishop(*sq, posGetBBAll(pos));
+	pieceSet=posGetBBPiece(pos, PieceBBishopD);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairSubMulFrom(&score, &evalBishopMob, bbPopCount(attacks));
 	}
 
 	// Rook mobilty
-	sq=posGetPieceListStart(pos, PieceWRook);
-	sqEnd=posGetPieceListEnd(pos, PieceWRook);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksRook(*sq, posGetBBAll(pos));
-		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(*sq))));
-		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(*sq))));
+	pieceSet=posGetBBPiece(pos, PieceWRook);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksRook(sq, posGetBBAll(pos));
+		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(sq))));
+		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(sq))));
 	}
-	sq=posGetPieceListStart(pos, PieceBRook);
-	sqEnd=posGetPieceListEnd(pos, PieceBRook);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksRook(*sq, posGetBBAll(pos));
-		evalVPairSubMulFrom(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(*sq))));
-		evalVPairSubMulFrom(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(*sq))));
+	pieceSet=posGetBBPiece(pos, PieceBRook);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksRook(sq, posGetBBAll(pos));
+		evalVPairSubMulFrom(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(sq))));
+		evalVPairSubMulFrom(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(sq))));
 	}
 
 	// Kings
@@ -871,15 +872,18 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	// Loop over each pawn.
 	Colour colour;
 	for(colour=ColourWhite;colour<=ColourBlack;++colour) {
-		const Sq *sq=posGetPieceListStart(pos, pieceMake(PieceTypePawn, colour));
-		const Sq *sqEnd=posGetPieceListEnd(pos, pieceMake(PieceTypePawn, colour));
-		for(;sq<sqEnd;++sq) {
-			PawnType type=((((doubled[colour]>>*sq)&1)<<PawnTypeShiftDoubled) |
-			               (((isolated[colour]>>*sq)&1)<<PawnTypeShiftIsolated) |
-			               (((pawnData->passed[colour]>>*sq)&1)<<PawnTypeShiftPassed));
+		Piece piece=pieceMake(PieceTypePawn, colour);
+		BB pieceSet=posGetBBPiece(pos, piece);
+		while(pieceSet) {
+			Sq sq=bbScanReset(&pieceSet);
+
+			PawnType type=((((doubled[colour]>>sq)&1)<<PawnTypeShiftDoubled) |
+			               (((isolated[colour]>>sq)&1)<<PawnTypeShiftIsolated) |
+			               (((pawnData->passed[colour]>>sq)&1)<<PawnTypeShiftPassed));
 			assert(type>=0 && type<PawnTypeNB);
-			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][*sq]);
+			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][sq]);
 		}
+
 	}
 }
 

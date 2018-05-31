@@ -906,13 +906,13 @@ bool posMoveIsCastling(const Pos *pos, Move move) {
 bool posMoveIsCastlingA(const Pos *pos, Move move) {
 	// We can simply check if we are moving into a castling rook
 	assert(moveIsValid(move));
-	return (moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideA]);
+	return (pieceGetType(moveGetToPiece(move))==PieceTypeKing && moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideA]);
 }
 
 bool posMoveIsCastlingH(const Pos *pos, Move move) {
 	// We can simply check if we are moving into a castling rook
 	assert(moveIsValid(move));
-	return (moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH]);
+	return (pieceGetType(moveGetToPiece(move))==PieceTypeKing && moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH]);
 }
 
 Move posMoveFromStr(const Pos *pos, const char str[static 6]){

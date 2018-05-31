@@ -398,12 +398,15 @@ bool posMakeMove(Pos *pos, Move move) {
 	pos->data->epSq=SqInvalid;
 	pos->data->key=(pos->data-1)->key^posKeySTM^posKeyEP[(pos->data-1)->epSq];
 	pos->data->castRights=(pos->data-1)->castRights;
-	pos->data->capPiece=(!isCastling ? posGetPieceOnSq(pos, toSqTrue) : PieceNone);
-	pos->data->capSq=toSqTrue;
+	pos->data->capPiece=PieceNone;
+	pos->data->capSq=SqInvalid;
 	pos->fullMoveNumber+=(movingSide==ColourBlack); // Inc after black's move.
 	pos->stm=nonMovingSide;
 
 	if (move!=MoveNone) {
+		pos->data->capPiece=(!isCastling ? posGetPieceOnSq(pos, toSqTrue) : PieceNone);
+		pos->data->capSq=toSqTrue;
+
 		Sq toSqRaw=moveGetToSqRaw(move);
 		Sq fromSq=moveGetFromSq(move);
 

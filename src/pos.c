@@ -1203,6 +1203,7 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
+	assert(toSq!=fromSq);
 	assert(posGetPieceOnSq(pos, fromSq)!=PieceNone);
 	assert(posGetPieceOnSq(pos, toSq)==PieceNone);
 
@@ -1227,6 +1228,7 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
 void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
+	assert(toSq!=fromSq);
 	assert(posGetPieceOnSq(pos, fromSq)!=PieceNone);
 	assert(posGetPieceOnSq(pos, toSq)==PieceNone);
 	assert(pieceIsValid(toPiece));

@@ -17,7 +17,7 @@ bool pieceTypeIsValid(PieceType type) {
 
 bool pieceIsValid(Piece piece) {
 	return ((piece>=PieceWPawn && piece<=PieceWKing) ||
-					(piece>=PieceBPawn && piece<=PieceBKing));
+	        (piece>=PieceBPawn && piece<=PieceBKing));
 }
 
 bool pieceTypeIsBishop(PieceType type) {

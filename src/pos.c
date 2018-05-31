@@ -392,9 +392,6 @@ bool posMakeMove(Pos *pos, Move move) {
 	Colour movingSide=posGetSTM(pos);
 	Colour nonMovingSide=colourSwap(movingSide);
 
-	Sq fromSq=moveGetFromSq(move);
-	Sq toSqRaw=moveGetToSqRaw(move);
-
 	pos->data->lastMove=move;
 	pos->data->lastMoveWasPromo=false;
 	pos->data->halfMoveNumber=(pos->data-1)->halfMoveNumber+1;
@@ -407,6 +404,9 @@ bool posMakeMove(Pos *pos, Move move) {
 	pos->stm=nonMovingSide;
 
 	if (move!=MoveNone) {
+		Sq toSqRaw=moveGetToSqRaw(move);
+		Sq fromSq=moveGetFromSq(move);
+
 		Piece fromPiece=posGetPieceOnSq(pos, fromSq);
 
 		// Special case for castling

@@ -33,6 +33,7 @@ const size_t evalPawnTableDefaultSizeMb=1;
 STATICASSERT(ScoreBit<=16);
 STATICASSERT(EvalMatTypeBit<=8);
 typedef struct {
+	Key key;
 	MatInfo mat;
 	VPair offset;
 	int16_t scoreOffset;
@@ -347,13 +348,13 @@ EvalMatType evalGetMatType(const Pos *pos) {
 	EvalMatData *entry=htableGrab(evalMatTable, hTableKey);
 
 	// If not a match clear entry
-	MatInfo mat=posGetMatInfo(pos);
-	if (entry->mat!=mat)
+	Key key=posGetMatKey(pos);
+	if (entry->key!=key)
 		entry->type=EvalMatTypeInvalid;
 
 	// If no data already, compute
 	if (entry->type==EvalMatTypeInvalid) {
-		entry->mat=mat;
+		entry->key=key;
 		entry->type=evalComputeMatType(pos);
 		entry->computed=false;
 	}
@@ -571,13 +572,13 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 	EvalMatData *entry=htableGrab(evalMatTable, hTableKey);
 
 	// If not a match clear entry
-	MatInfo mat=posGetMatInfo(pos);
-	if (entry->mat!=mat)
+	Key key=posGetMatKey(pos);
+	if (entry->key!=key)
 		entry->type=EvalMatTypeInvalid;
 
 	// If no type info, compute first.
 	if (entry->type==EvalMatTypeInvalid) {
-		entry->mat=mat;
+		entry->key=key;
 		entry->type=evalComputeMatType(pos);
 		entry->computed=false;
 	}
@@ -598,7 +599,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 #	define G(P) (matInfoGetPieceCount(mat,(P))) // Hard-coded 'mat'.
 
 	// Init data.
-	assert(matData->mat==posGetMatInfo(pos));
+	assert(matData->key==posGetMatKey(pos));
 	assert(matData->type!=EvalMatTypeInvalid);
 	matData->computed=true;
 	matData->offset=VPairZero;
@@ -1204,11 +1205,15 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 #	define MAKE(p,n) matInfoMake((p),(n))
 #	define MASK(t) matInfoMakeMaskPieceType(t)
 
-	// Grab material info.
-	MatInfo mat=posGetMatInfo(pos);
+	// Collect pos data
+	BB occ=posGetBBAll(pos);
+	BB kings=(posGetBBPiece(pos, PieceWKing)|posGetBBPiece(pos, PieceBKing));
+	BB occXKings=occ^kings; // Occupancy without kings
 
 	// If only pieces are bishops and all share same colour squares, draw.
-	if ((mat & ~MatInfoMaskBishopsL)==0 || (mat & ~MatInfoMaskBishopsD)==0)
+	BB bishopsL=(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceBBishopL));
+	BB bishopsD=(posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceBBishopD));
+	if (occXKings==bishopsL || occXKings==bishopsD)
 		return EvalMatTypeDraw;
 
 	// Check for known combinations.
@@ -1220,13 +1225,13 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 			assert(false);
 		break;
 		case 3:
-			if (mat==MatInfoMaskKNvK || mat==MatInfoMaskKvKN)
-				return EvalMatTypeDraw;
-			else if (mat==(MAKE(PieceWPawn,1)|MatInfoMaskKings) || mat==(MAKE(PieceBPawn,1)|MatInfoMaskKings))
+			if (occXKings==posGetBBPiece(pos, PieceWKnight) || occXKings==posGetBBPiece(pos, PieceBKnight))
+				return EvalMatTypeDraw; // KNvK
+			else if (occXKings==posGetBBPiece(pos, PieceWPawn) || occXKings==posGetBBPiece(pos, PieceBPawn))
 				return EvalMatTypeKPvK;
 		break;
 		case 4:
-			if (mat==(MAKE(PieceWKnight,2)|MatInfoMaskKings) || mat==(MAKE(PieceBKnight,2)|MatInfoMaskKings))
+			if (occXKings==posGetBBPiece(pos, PieceWKnight) || occXKings==posGetBBPiece(pos, PieceBKnight))
 				return EvalMatTypeKNNvK;
 		break;
 	}

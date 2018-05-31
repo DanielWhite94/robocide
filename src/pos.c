@@ -818,7 +818,10 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 
 bool posHasPieces(const Pos *pos, Colour colour) {
 	assert(colourIsValid(colour));
-	return ((posGetMatInfo(pos) & matInfoMakeMaskColour(colour) & ~(matInfoMakeMaskPieceType(PieceTypePawn) | matInfoMakeMaskPieceType(PieceTypeKing)))!=0);
+
+	BB pawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colour));
+	BB king=posGetBBPiece(pos, pieceMake(PieceTypeKing, colour));
+	return (posGetBBColour(pos, colour) & ~(pawns | king))!=BBNone;
 }
 
 bool posMoveIsPseudoLegal(const Pos *pos, Move move) {

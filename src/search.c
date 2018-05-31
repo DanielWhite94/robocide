@@ -943,10 +943,10 @@ bool searchIsZugzwang(const Node *node) {
 	Piece piece=pieceMake(PieceTypeKnight, stm);
 	Piece endPiece=pieceMake(PieceTypeKing, stm);
 	for(; piece<endPiece; ++piece) {
-		const Sq *sq=posGetPieceListStart(node->pos, piece);
-		const Sq *sqEnd=posGetPieceListEnd(node->pos, piece);
-		for(; sq<sqEnd; ++sq) {
-			BB attacks=attacksPiece(piece, *sq, occ) & notFriendly;
+		BB pieceSet=posGetBBPiece(node->pos, piece);
+		while(pieceSet) {
+			Sq sq=bbScanReset(&pieceSet);
+			BB attacks=attacksPiece(piece, sq, occ) & notFriendly;
 			mobility+=bbPopCount(attacks);
 			if (mobility>mobilityLimit)
 				return false;

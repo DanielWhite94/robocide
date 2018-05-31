@@ -338,17 +338,6 @@ Key posGetMatKey(const Pos *pos) {
 	return pos->matKey;
 }
 
-MatInfo posGetMatInfo(const Pos *pos) {
-	// Grab piece offsets and subtract 'base' to give literal piece counts.
-	const MatInfo *pieceListNext=((const MatInfo *)pos->pieceListNext);
-	MatInfo white=pieceListNext[ColourWhite]-0x7060504030201000llu;
-	MatInfo black=pieceListNext[ColourBlack]-0xF0E0D0C0B0A09080llu;
-
-	// Interleave white and black into a single 64 bit integer (we only need 4
-	// bits per piece)
-	return ((black<<4) | white);
-}
-
 CastRights posGetCastRights(const Pos *pos) {
 	return pos->data->castRights;
 }

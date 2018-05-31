@@ -94,7 +94,6 @@ unsigned int posGetFullMoveNumber(const Pos *pos);
 Key posGetKey(const Pos *pos);
 Key posGetPawnKey(const Pos *pos);
 Key posGetMatKey(const Pos *pos);
-MatInfo posGetMatInfo(const Pos *pos);
 CastRights posGetCastRights(const Pos *pos);
 Sq posGetEPSq(const Pos *pos);
 VPair posGetPstScore(const Pos *pos);

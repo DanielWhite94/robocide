@@ -34,7 +34,6 @@ STATICASSERT(ScoreBit<=16);
 STATICASSERT(EvalMatTypeBit<=8);
 typedef struct {
 	Key key;
-	MatInfo mat;
 	VPair offset;
 	int16_t scoreOffset;
 	uint8_t weightMG, weightEG;
@@ -333,13 +332,6 @@ void evalClear(void) {
 	// Clear hash tables.
 	htableClear(evalPawnTable);
 	htableClear(evalMatTable);
-
-	// The material table uses mat!=entry->mat to indicate an unused/uncalculated entry.
-	// The only entry where this is not the case after clearing above, is the entry with key 0,
-	// so fix this now as a special case.
-	EvalMatData *entry=htableGrab(evalMatTable, 0);
-	entry->mat=1;
-	htableRelease(evalMatTable, 0);
 }
 
 EvalMatType evalGetMatType(const Pos *pos) {
@@ -595,29 +587,32 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 }
 
 void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
-#	define M(P,N) (matInfoMake((P),(N)))
-#	define G(P) (matInfoGetPieceCount(mat,(P))) // Hard-coded 'mat'.
-
 	// Init data.
 	assert(matData->key==posGetMatKey(pos));
 	assert(matData->type!=EvalMatTypeInvalid);
 	matData->computed=true;
 	matData->offset=VPairZero;
 	matData->scoreOffset=0;
-	MatInfo mat=(matData->mat & ~matInfoMakeMaskPieceType(PieceTypeKing)); // Remove kings as these as always present.
-	bool wBishopL=((mat & matInfoMakeMaskPiece(PieceWBishopL))!=0);
-	bool bBishopL=((mat & matInfoMakeMaskPiece(PieceBBishopL))!=0);
-	bool wBishopD=((mat & matInfoMakeMaskPiece(PieceWBishopD))!=0);
-	bool bBishopD=((mat & matInfoMakeMaskPiece(PieceBBishopD))!=0);
 
 	// Find weights for middlegame and endgame.
-	unsigned int whiteBishopCount=G(PieceWBishopL)+G(PieceWBishopD);
-	unsigned int blackBishopCount=G(PieceBBishopL)+G(PieceBBishopD);
-	unsigned int minorCount=G(PieceWKnight)+G(PieceBKnight)+whiteBishopCount+blackBishopCount;
-	unsigned int rookCount=G(PieceWRook)+G(PieceBRook);
-	unsigned int queenCount=G(PieceWQueen)+G(PieceBQueen);
-	unsigned int pieceWeight=minorCount+2*rookCount+4*queenCount;
+	unsigned wPawnCount=bbPopCount(posGetBBPiece(pos, PieceWPawn));
+	unsigned bPawnCount=bbPopCount(posGetBBPiece(pos, PieceBPawn));
+	unsigned wKnightCount=bbPopCount(posGetBBPiece(pos, PieceWKnight));
+	unsigned bKnightCount=bbPopCount(posGetBBPiece(pos, PieceBKnight));
+	unsigned wBishopLCount=bbPopCount(posGetBBPiece(pos, PieceWBishopL));
+	unsigned bBishopLCount=bbPopCount(posGetBBPiece(pos, PieceBBishopL));
+	unsigned wBishopDCount=bbPopCount(posGetBBPiece(pos, PieceWBishopD));
+	unsigned bBishopDCount=bbPopCount(posGetBBPiece(pos, PieceBBishopD));
+	unsigned wRookCount=bbPopCount(posGetBBPiece(pos, PieceWRook));
+	unsigned bRookCount=bbPopCount(posGetBBPiece(pos, PieceBRook));
+
+	unsigned minorCount=wKnightCount+wBishopLCount+wBishopDCount+bKnightCount+bBishopLCount+bBishopDCount;
+	unsigned rookCount=wRookCount+bRookCount;
+	unsigned queenCount=bbPopCount(posGetBBPiece(pos, PieceWQueen)|posGetBBPiece(pos, PieceBQueen));
+
+	unsigned pieceWeight=minorCount+2*rookCount+4*queenCount;
 	assert(pieceWeight<128);
+
 	matData->weightEG=evalWeightEGFactors[pieceWeight];
 	matData->weightMG=256-matData->weightEG;
 
@@ -784,29 +779,27 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 	matData->weightEG=(matData->weightEG*factor)/1024;
 
 	// Opposite coloured bishop endgames are drawish.
-	if ((wBishopL^wBishopD) && (bBishopL^bBishopD) && (wBishopL^bBishopL)) {
+	if ((wBishopLCount>0 && wBishopDCount==0 && bBishopDCount>0 && bBishopLCount==0) ||
+	    (wBishopDCount>0 && wBishopLCount==0 && bBishopLCount>0 && bBishopDCount==0)) {
 		matData->weightMG=(matData->weightMG*evalOppositeBishopFactor.mg)/256;
 		matData->weightEG=(matData->weightEG*evalOppositeBishopFactor.eg)/256;
 	}
 
 	// Knight pawn affinity.
-	unsigned int knightAffW=G(PieceWKnight)*G(PieceWPawn);
-	unsigned int knightAffB=G(PieceBKnight)*G(PieceBPawn);
+	int knightAffW=wKnightCount*wPawnCount;
+	int knightAffB=bKnightCount*bPawnCount;
 	evalVPairAddMulTo(&matData->offset, &evalKnightPawnAffinity, knightAffW-knightAffB);
 
 	// Rook pawn affinity.
-	unsigned int rookAffW=G(PieceWRook)*G(PieceWPawn);
-	unsigned int rookAffB=G(PieceBRook)*G(PieceBPawn);
+	int rookAffW=wRookCount*wPawnCount;
+	int rookAffB=bRookCount*bPawnCount;
 	evalVPairAddMulTo(&matData->offset, &evalRookPawnAffinity, rookAffW-rookAffB);
 
 	// Bishop pair bonus
-	if (wBishopL && wBishopD)
+	if (wBishopLCount>0 && wBishopDCount>0)
 		evalVPairAddTo(&matData->offset, &evalBishopPair);
-	if (bBishopL && bBishopD)
+	if (bBishopLCount>0 && bBishopDCount>0)
 		evalVPairSubFrom(&matData->offset, &evalBishopPair);
-
-#	undef G
-#	undef M
 }
 
 HTableKey evalGetMatDataHTableKeyFromPos(const Pos *pos) {

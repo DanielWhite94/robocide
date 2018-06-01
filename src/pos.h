@@ -33,30 +33,6 @@ typedef struct {
 } CastRights;
 extern const CastRights CastRightsNone;
 
-typedef uint64_t MatInfo; // Holds info on numbers of pieces.
-
-#define MAKE(p,n) matInfoMake((p),(n))
-#define MASK(t) matInfoMakeMaskPieceType(t)
-#define MatInfoMaskKings (MAKE(PieceWKing,1)|MAKE(PieceBKing,1)) // Kings mask or equivalently KvK position.
-#define MatInfoMaskKNvK (MAKE(PieceWKnight,1)|MatInfoMaskKings) // King and white knight vs lone king.
-#define MatInfoMaskKvKN (MAKE(PieceBKnight,1)|MatInfoMaskKings) // King and black knight vs lone king.
-#define MatInfoMaskBishopsL (MASK(PieceTypeBishopL)|MatInfoMaskKings) // Light coloured bishop mask (for both colours).
-#define MatInfoMaskBishopsD (MASK(PieceTypeBishopD)|MatInfoMaskKings) // Dark coloured bishop mask (for both colours).
-#define MatInfoMaskMinors (matInfoMakeMaskPieceType(PieceTypeKnight) | \
-                           matInfoMakeMaskPieceType(PieceTypeBishopL) | \
-                           matInfoMakeMaskPieceType(PieceTypeBishopD))
-#define MatInfoMaskMajors (matInfoMakeMaskPieceType(PieceTypeRook)| \
-                           matInfoMakeMaskPieceType(PieceTypeQueen))
-#define MatInfoMaskKNvKN (M(PieceWKnight,1)|M(PieceBKnight,1)) // KNvKN.
-#define MatInfoMaskKQvKQ (M(PieceWQueen,1)|M(PieceBQueen,1)) // KQvKQ.
-#define MatInfoMaskKQQvKQQ (M(PieceWQueen,2)|M(PieceBQueen,2)) // KQQvKQQ.
-#define MatInfoMaskNRQ (matInfoMakeMaskPieceType(PieceTypeKnight) | \
-                        matInfoMakeMaskPieceType(PieceTypeRook) | \
-                        matInfoMakeMaskPieceType(PieceTypeQueen)) // Knight, rooks and queens of any colour.
-
-#undef MAKE
-#undef MASK
-
 #define POSMOVETOSTRMAXLEN 8
 #define POSMOVETOSTR(pos, move) ({char *str=alloca(POSMOVETOSTRMAXLEN); posMoveToStr((pos), (move), str); (const char *)str;})
 
@@ -127,13 +103,6 @@ bool posMoveIsCastlingH(const Pos *pos, Move move);
 Move posMoveFromStr(const Pos *pos, const char str[static 6]);
 void posMoveToStr(const Pos *pos, Move move, char str[static 6]);
 Sq posMoveGetToSqTrue(const Pos *pos, Move move); // Adjusted if castling
-
-unsigned int matInfoGetPieceCount(MatInfo info, Piece piece);
-
-MatInfo matInfoMake(Piece piece, unsigned int count); // Can be OR'd together to make full MatInfo 'object'.
-MatInfo matInfoMakeMaskPiece(Piece piece); // A mask which one can AND with to test if any pieces of a given kind are present.
-MatInfo matInfoMakeMaskPieceType(PieceType type);
-MatInfo matInfoMakeMaskColour(Colour colour);
 
 void posCastRightsToStr(CastRights castRights, char str[static 8]);
 CastRights posCastRightsFromStr(const char *str, const Piece pieceArray[SqNB]);

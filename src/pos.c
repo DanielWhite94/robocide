@@ -956,38 +956,6 @@ Sq posMoveGetToSqTrue(const Pos *pos, Move move) {
 		return moveGetToSqRaw(move);
 }
 
-unsigned int matInfoGetPieceCount(MatInfo info, Piece piece) {
-	assert(pieceIsValid(piece));
-	return (info>>matInfoShift(piece))&15;
-}
-
-MatInfo matInfoMake(Piece piece, unsigned int count) {
-	assert(pieceIsValid(piece));
-	assert(count<16);
-	return ((MatInfo)count)<<matInfoShift(piece);
-}
-
-MatInfo matInfoMakeMaskPiece(Piece piece) {
-	assert(pieceIsValid(piece));
-	return matInfoMake(piece, 15);
-}
-
-MatInfo matInfoMakeMaskPieceType(PieceType type) {
-	assert(pieceTypeIsValid(type));
-	return matInfoMakeMaskPiece(pieceMake(type, ColourWhite))|matInfoMakeMaskPiece(pieceMake(type, ColourBlack));
-}
-
-MatInfo matInfoMakeMaskColour(Colour colour) {
-	assert(colourIsValid(colour));
-	return matInfoMakeMaskPiece(pieceMake(PieceTypePawn, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeKnight, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeBishopL, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeBishopD, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeRook, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeQueen, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeKing, colour));
-}
-
 void posCastRightsToStr(CastRights castRights, char str[static 8]) {
 	char temp[4];
 	str[0]='\0';

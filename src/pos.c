@@ -368,11 +368,11 @@ bool posMakeMove(Pos *pos, Move move) {
 		return false;
 
 	// Grab some move info now before we advance to next data entry.
-	bool isCastlingA=posMoveIsCastlingA(pos, move);
-	bool isCastlingH=posMoveIsCastlingH(pos, move);
+	bool isCastlingA=(move!=MoveNone ? posMoveIsCastlingA(pos, move) : false);
+	bool isCastlingH=(move!=MoveNone ? posMoveIsCastlingH(pos, move) : false);
 	bool isCastling=isCastlingA|isCastlingH;
 
-	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
+	Sq toSqTrue=(move!=MoveNone ? posMoveGetToSqTrue(pos, move) : SqInvalid);
 
 	// Use next data entry.
 	if (pos->data+1>=pos->dataEnd) {
@@ -404,6 +404,8 @@ bool posMakeMove(Pos *pos, Move move) {
 	pos->stm=nonMovingSide;
 
 	if (move!=MoveNone) {
+		assert(toSqTrue!=SqInvalid);
+
 		pos->data->capPiece=(!isCastling ? posGetPieceOnSq(pos, toSqTrue) : PieceNone);
 		pos->data->capSq=toSqTrue;
 
@@ -895,12 +897,14 @@ bool posMoveIsCastling(const Pos *pos, Move move) {
 
 bool posMoveIsCastlingA(const Pos *pos, Move move) {
 	// We can simply check if we are moving into a castling rook
-	return (moveIsValid(move) && pieceGetType(moveGetToPiece(move))==PieceTypeKing && moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideA]);
+	assert(moveIsValid(move));
+	return (pieceGetType(moveGetToPiece(move))==PieceTypeKing && moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideA]);
 }
 
 bool posMoveIsCastlingH(const Pos *pos, Move move) {
 	// We can simply check if we are moving into a castling rook
-	return (moveIsValid(move) && pieceGetType(moveGetToPiece(move))==PieceTypeKing && moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH]);
+	assert(moveIsValid(move));
+	return (pieceGetType(moveGetToPiece(move))==PieceTypeKing && moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH]);
 }
 
 Move posMoveFromStr(const Pos *pos, const char str[static 6]){

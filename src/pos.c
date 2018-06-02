@@ -431,6 +431,7 @@ bool posMakeMove(Pos *pos, Move move) {
 				posPieceMove(pos, rookFromSq, rookToSq, false);
 
 			// Replace king in new position.
+			assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
 			posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false);
 		} else {
 			// Standard moves
@@ -480,6 +481,7 @@ bool posMakeMove(Pos *pos, Move move) {
 					}
 
 					// Move non-pawn piece (i.e. no promotion to worry about).
+					assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
 					posPieceMove(pos, fromSq, toSqTrue, false);
 				break;
 			}

@@ -1625,6 +1625,10 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 	if (capPiece!=PieceNone && pieceGetColour(capPiece)==stm)
 		return false;
 
+	// King capture?
+	if (pieceGetType(capPiece)==PieceTypeKing)
+		return false;
+
 	// Bad moving piece?
 	Sq fromSq=moveGetFromSq(move);
 	Piece fromPiece=posGetPieceOnSq(pos, fromSq);

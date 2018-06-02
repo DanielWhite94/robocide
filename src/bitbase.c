@@ -66,13 +66,13 @@ BitBaseResult bitbaseProbe(const Pos *pos) {
 	Sq pawnSq, wKingSq, bKingSq;
 	Colour stm;
 	if (attacker==ColourWhite) {
-		pawnSq=*posGetPieceListStart(pos, PieceWPawn);
+		pawnSq=bbScanForward(posGetBBPiece(pos, PieceWPawn));
 		wKingSq=posGetKingSq(pos, ColourWhite);
 		bKingSq=posGetKingSq(pos, ColourBlack);
 		stm=posGetSTM(pos);
 	} else {
 		// Flip squares vertically, swap king colours and swap side to move.
-		pawnSq=sqFlip(*posGetPieceListStart(pos, PieceBPawn));
+		pawnSq=sqFlip(bbScanForward(posGetBBPiece(pos, PieceBPawn)));
 		wKingSq=sqFlip(posGetKingSq(pos, ColourBlack));
 		bKingSq=sqFlip(posGetKingSq(pos, ColourWhite));
 		stm=colourSwap(posGetSTM(pos));

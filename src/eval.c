@@ -33,7 +33,7 @@ const size_t evalPawnTableDefaultSizeMb=1;
 STATICASSERT(ScoreBit<=16);
 STATICASSERT(EvalMatTypeBit<=8);
 typedef struct {
-	MatInfo mat;
+	Key key;
 	VPair offset;
 	int16_t scoreOffset;
 	uint8_t weightMG, weightEG;
@@ -332,13 +332,6 @@ void evalClear(void) {
 	// Clear hash tables.
 	htableClear(evalPawnTable);
 	htableClear(evalMatTable);
-
-	// The material table uses mat!=entry->mat to indicate an unused/uncalculated entry.
-	// The only entry where this is not the case after clearing above, is the entry with key 0,
-	// so fix this now as a special case.
-	EvalMatData *entry=htableGrab(evalMatTable, 0);
-	entry->mat=1;
-	htableRelease(evalMatTable, 0);
 }
 
 EvalMatType evalGetMatType(const Pos *pos) {
@@ -347,13 +340,13 @@ EvalMatType evalGetMatType(const Pos *pos) {
 	EvalMatData *entry=htableGrab(evalMatTable, hTableKey);
 
 	// If not a match clear entry
-	MatInfo mat=posGetMatInfo(pos);
-	if (entry->mat!=mat)
+	Key key=posGetMatKey(pos);
+	if (entry->key!=key)
 		entry->type=EvalMatTypeInvalid;
 
 	// If no data already, compute
 	if (entry->type==EvalMatTypeInvalid) {
-		entry->mat=mat;
+		entry->key=key;
 		entry->type=evalComputeMatType(pos);
 		entry->computed=false;
 	}
@@ -382,10 +375,11 @@ VPair evalComputePstScore(const Pos *pos) {
 		PieceType type;
 		for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
 			Piece piece=pieceMake(type, colour);
-			const Sq *sq=posGetPieceListStart(pos, piece);
-			const Sq *sqEnd=posGetPieceListEnd(pos, piece);
-			for(;sq<sqEnd;++sq)
-				evalVPairAddTo(&score, &evalPST[piece][*sq]);
+			BB pieceSet=posGetBBPiece(pos, piece);
+			while(pieceSet) {
+				Sq sq=bbScanReset(&pieceSet);
+				evalVPairAddTo(&score, &evalPST[piece][sq]);
+			}
 		}
 	}
 
@@ -487,51 +481,51 @@ Score evaluateInternal(const Pos *pos) {
 VPair evaluateDefault(EvalData *data) {
 	const Pos *pos=data->pos;
 
-	const Sq *sq, *sqEnd;
+	BB pieceSet;
 
 	// 'Global' calculations (includes pawns)
 	VPair score=evaluateDefaultGlobal(data);
 
 	// Bishop mobility
-	sq=posGetPieceListStart(pos, PieceWBishopL);
-	sqEnd=posGetPieceListEnd(pos, PieceWBishopL);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksBishop(*sq, posGetBBAll(pos));
+	pieceSet=posGetBBPiece(pos, PieceWBishopL);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks));
 	}
-	sq=posGetPieceListStart(pos, PieceWBishopD);
-	sqEnd=posGetPieceListEnd(pos, PieceWBishopD);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksBishop(*sq, posGetBBAll(pos));
+	pieceSet=posGetBBPiece(pos, PieceWBishopD);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks));
 	}
-	sq=posGetPieceListStart(pos, PieceBBishopL);
-	sqEnd=posGetPieceListEnd(pos, PieceBBishopL);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksBishop(*sq, posGetBBAll(pos));
+	pieceSet=posGetBBPiece(pos, PieceBBishopL);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairSubMulFrom(&score, &evalBishopMob, bbPopCount(attacks));
 	}
-	sq=posGetPieceListStart(pos, PieceBBishopD);
-	sqEnd=posGetPieceListEnd(pos, PieceBBishopD);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksBishop(*sq, posGetBBAll(pos));
+	pieceSet=posGetBBPiece(pos, PieceBBishopD);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, posGetBBAll(pos));
 		evalVPairSubMulFrom(&score, &evalBishopMob, bbPopCount(attacks));
 	}
 
 	// Rook mobilty
-	sq=posGetPieceListStart(pos, PieceWRook);
-	sqEnd=posGetPieceListEnd(pos, PieceWRook);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksRook(*sq, posGetBBAll(pos));
-		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(*sq))));
-		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(*sq))));
+	pieceSet=posGetBBPiece(pos, PieceWRook);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksRook(sq, posGetBBAll(pos));
+		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(sq))));
+		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(sq))));
 	}
-	sq=posGetPieceListStart(pos, PieceBRook);
-	sqEnd=posGetPieceListEnd(pos, PieceBRook);
-	for(;sq<sqEnd;++sq) {
-		BB attacks=attacksRook(*sq, posGetBBAll(pos));
-		evalVPairSubMulFrom(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(*sq))));
-		evalVPairSubMulFrom(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(*sq))));
+	pieceSet=posGetBBPiece(pos, PieceBRook);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksRook(sq, posGetBBAll(pos));
+		evalVPairSubMulFrom(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(sq))));
+		evalVPairSubMulFrom(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(sq))));
 	}
 
 	// Kings
@@ -570,13 +564,13 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 	EvalMatData *entry=htableGrab(evalMatTable, hTableKey);
 
 	// If not a match clear entry
-	MatInfo mat=posGetMatInfo(pos);
-	if (entry->mat!=mat)
+	Key key=posGetMatKey(pos);
+	if (entry->key!=key)
 		entry->type=EvalMatTypeInvalid;
 
 	// If no type info, compute first.
 	if (entry->type==EvalMatTypeInvalid) {
-		entry->mat=mat;
+		entry->key=key;
 		entry->type=evalComputeMatType(pos);
 		entry->computed=false;
 	}
@@ -593,29 +587,40 @@ void evalGetMatData(const Pos *pos, EvalMatData *matData) {
 }
 
 void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
-#	define M(P,N) (matInfoMake((P),(N)))
-#	define G(P) (matInfoGetPieceCount(mat,(P))) // Hard-coded 'mat'.
-
 	// Init data.
-	assert(matData->mat==posGetMatInfo(pos));
+	assert(matData->key==posGetMatKey(pos));
 	assert(matData->type!=EvalMatTypeInvalid);
 	matData->computed=true;
 	matData->offset=VPairZero;
 	matData->scoreOffset=0;
-	MatInfo mat=(matData->mat & ~matInfoMakeMaskPieceType(PieceTypeKing)); // Remove kings as these as always present.
-	bool wBishopL=((mat & matInfoMakeMaskPiece(PieceWBishopL))!=0);
-	bool bBishopL=((mat & matInfoMakeMaskPiece(PieceBBishopL))!=0);
-	bool wBishopD=((mat & matInfoMakeMaskPiece(PieceWBishopD))!=0);
-	bool bBishopD=((mat & matInfoMakeMaskPiece(PieceBBishopD))!=0);
 
 	// Find weights for middlegame and endgame.
-	unsigned int whiteBishopCount=G(PieceWBishopL)+G(PieceWBishopD);
-	unsigned int blackBishopCount=G(PieceBBishopL)+G(PieceBBishopD);
-	unsigned int minorCount=G(PieceWKnight)+G(PieceBKnight)+whiteBishopCount+blackBishopCount;
-	unsigned int rookCount=G(PieceWRook)+G(PieceBRook);
-	unsigned int queenCount=G(PieceWQueen)+G(PieceBQueen);
-	unsigned int pieceWeight=minorCount+2*rookCount+4*queenCount;
+	unsigned wPawnCount=bbPopCount(posGetBBPiece(pos, PieceWPawn));
+	unsigned bPawnCount=bbPopCount(posGetBBPiece(pos, PieceBPawn));
+	unsigned wKnightCount=bbPopCount(posGetBBPiece(pos, PieceWKnight));
+	unsigned bKnightCount=bbPopCount(posGetBBPiece(pos, PieceBKnight));
+	unsigned wBishopLCount=bbPopCount(posGetBBPiece(pos, PieceWBishopL));
+	unsigned bBishopLCount=bbPopCount(posGetBBPiece(pos, PieceBBishopL));
+	unsigned wBishopDCount=bbPopCount(posGetBBPiece(pos, PieceWBishopD));
+	unsigned bBishopDCount=bbPopCount(posGetBBPiece(pos, PieceBBishopD));
+	unsigned wRookCount=bbPopCount(posGetBBPiece(pos, PieceWRook));
+	unsigned bRookCount=bbPopCount(posGetBBPiece(pos, PieceBRook));
+	unsigned wQueenCount=bbPopCount(posGetBBPiece(pos, PieceWQueen));
+	unsigned bQueenCount=bbPopCount(posGetBBPiece(pos, PieceBQueen));
+
+	unsigned pawnCount=wPawnCount+bPawnCount;
+	unsigned minorCount=wKnightCount+wBishopLCount+wBishopDCount+bKnightCount+bBishopLCount+bBishopDCount;
+	unsigned rookCount=wRookCount+bRookCount;
+	unsigned queenCount=wQueenCount+bQueenCount;
+	unsigned majorCount=rookCount+queenCount;
+
+	unsigned pieceWeight=minorCount+2*rookCount+4*queenCount;
 	assert(pieceWeight<128);
+
+	unsigned wXKingsCount=bbPopCount(posGetBBColour(pos, ColourWhite))-1;
+	unsigned bXKingsCount=bbPopCount(posGetBBColour(pos, ColourBlack))-1;
+	unsigned totalXKingsCount=bbPopCount(posGetBBAll(pos))-2;
+
 	matData->weightEG=evalWeightEGFactors[pieceWeight];
 	matData->weightMG=256-matData->weightEG;
 
@@ -626,14 +631,11 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 			assert(false);
 		break;
 		case EvalMatTypeOther:
-			assert(mat); // KvK should already be handled.
-			const MatInfo matPawns=matInfoMakeMaskPieceType(PieceTypePawn);
-			const MatInfo matWhite=matInfoMakeMaskColour(ColourWhite);
-			const MatInfo matBlack=matInfoMakeMaskColour(ColourBlack);
+			assert(totalXKingsCount>0); // KvK has already been handled
 
-			if (!(mat & matPawns)) {
+			if (pawnCount==0) {
 				// Pawnless.
-				if ((mat & MatInfoMaskMinors)==mat) {
+				if (minorCount==totalXKingsCount) {
 					// Minors only.
 					switch(minorCount) {
 						case 0: case 1:
@@ -642,81 +644,82 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 						case 2:
 							// Don't need to consider bishops of a single colour as these are
 							// evaluated as insufficient material draws.
-							assert(mat!=(M(PieceWBishopL,1)|M(PieceBBishopL,1)) && // KBvKB (same coloured bishops)
-							       mat!=(M(PieceWBishopD,1)|M(PieceBBishopD,1)) &&
-							       mat!=M(PieceWBishopL,2) && mat!=M(PieceWBishopD,2) && // KBBvK (same coloured bishops).
-							       mat!=M(PieceBBishopL,2) && mat!=M(PieceBBishopD,2));
+							assert(!(wBishopLCount==1 && bBishopLCount==1)); // KBvKB (same (light) coloured bishops)
+							assert(!(wBishopDCount==1 && bBishopDCount==1)); // KBvKB (same (dark) coloured bishops)
+							assert(wBishopLCount!=2 && wBishopDCount!=2); // KBBvK (same coloured (white) bishops)
+							assert(bBishopLCount!=2 && bBishopDCount!=2); // KBBvK (same coloured (black) bishops)
+
 							// Nor do we need to consider KNNvK as this is handled in other case statement.
-							assert(mat!=M(PieceWKnight,2) && mat!=M(PieceBKnight,2)); // KNNvK.
+							assert(wKnightCount!=2 && bKnightCount!=2); // KNNvK
 
 							// Win for bishop pair and bishop + knight, draw for everything else.
-							if (mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)) || // KBBvK.
-							    mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)) ||
-							    mat==(M(PieceWBishopL,1)|M(PieceWKnight,1)) || // KBNvK.
-							    mat==(M(PieceWBishopD,1)|M(PieceWKnight,1)) ||
-							    mat==(M(PieceBBishopL,1)|M(PieceBKnight,1)) ||
-							    mat==(M(PieceBBishopD,1)|M(PieceBKnight,1)))
+							if ((wBishopLCount==1 && wBishopDCount==1) || // KBBvK
+							    (bBishopLCount==1 && bBishopDCount==1) ||
+							    ((wBishopLCount==1 || wBishopDCount==1) && wKnightCount==1) || // KBNvK
+							    ((bBishopLCount==1 || bBishopDCount==1) && bKnightCount==1))
 								factor/=2; // More difficult than material advantage suggests.
 							else {
-								assert(mat==(M(PieceWBishopL,1)|M(PieceBKnight,1)) || // KBvKN.
-								       mat==(M(PieceWBishopD,1)|M(PieceBKnight,1)) ||
-								       mat==(M(PieceBBishopL,1)|M(PieceWKnight,1)) ||
-								       mat==(M(PieceBBishopD,1)|M(PieceWKnight,1)) ||
-								       mat==(M(PieceWBishopL,1)|M(PieceBBishopD,1)) || // KBvKB (opposite bishops)
-								       mat==(M(PieceWBishopD,1)|M(PieceBBishopL,1)) ||
-								       mat==MatInfoMaskKNvKN); // KNvKN.
+								assert((wBishopLCount==1 && bKnightCount==1) || // KBvKN
+									   (wBishopDCount==1 && bKnightCount==1) ||
+									   (bBishopLCount==1 && wKnightCount==1) ||
+									   (bBishopDCount==1 && wKnightCount==1) ||
+									   (wBishopLCount==1 && bBishopDCount==1) || // KBvKB (opposite bishops)
+									   (wBishopDCount==1 && bBishopLCount==1) ||
+									   (wKnightCount==1 && bKnightCount==1)); // KNvKN
 								factor/=128; // All others are trivial draws.
 							}
 						break;
 						case 3:
-							if (mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceWKnight,1)) || // KBBvKN (bishop pair).
-							    mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceBKnight,1)))
+							if ((wBishopLCount==1 && wBishopDCount==1 && bKnightCount==1) || // KBBvKN (bishop pair)
+							    (bBishopLCount==1 && bBishopDCount==1 && wKnightCount==1))
 								factor/=2;
-							else if (mat==(M(PieceWKnight,1)|M(PieceWBishopL,1)|M(PieceBBishopL,1)) || // KBNvKB (same coloured bishops).
-							         mat==(M(PieceWKnight,1)|M(PieceWBishopD,1)|M(PieceBBishopD,1)) ||
-							         mat==(M(PieceBKnight,1)|M(PieceBBishopL,1)|M(PieceWBishopL,1)) ||
-							         mat==(M(PieceBKnight,1)|M(PieceBBishopD,1)|M(PieceWBishopD,1)) ||
-							         mat==(M(PieceWKnight,1)|M(PieceWBishopD,1)|M(PieceBBishopL,1)) || // KBNvKB (opposite coloured bishops).
-							         mat==(M(PieceWKnight,1)|M(PieceWBishopL,1)|M(PieceBBishopD,1)) ||
-							         mat==(M(PieceBKnight,1)|M(PieceBBishopD,1)|M(PieceWBishopL,1)) ||
-							         mat==(M(PieceBKnight,1)|M(PieceBBishopL,1)|M(PieceWBishopD,1)) ||
-							         mat==(M(PieceWKnight,1)|M(PieceWBishopL,1)|M(PieceBKnight,1)) || // KBNvN.
-							         mat==(M(PieceWKnight,1)|M(PieceWBishopD,1)|M(PieceBKnight,1)) ||
-							         mat==(M(PieceBKnight,1)|M(PieceBBishopL,1)|M(PieceWKnight,1)) ||
-							         mat==(M(PieceBKnight,1)|M(PieceBBishopD,1)|M(PieceWKnight,1)))
+							else if ((wKnightCount==1 && wBishopLCount==1 && bBishopLCount==1) || // KBNvKB (same coloured bishops).
+							         (wKnightCount==1 && wBishopDCount==1 && bBishopDCount==1) ||
+							         (bKnightCount==1 && bBishopLCount==1 && wBishopLCount==1) ||
+							         (bKnightCount==1 && bBishopDCount==1 && wBishopDCount==1) ||
+							         (wKnightCount==1 && wBishopDCount==1 && bBishopLCount==1) || // KBNvKB (opposite coloured bishops).
+							         (wKnightCount==1 && wBishopLCount==1 && bBishopDCount==1) ||
+							         (bKnightCount==1 && bBishopDCount==1 && wBishopLCount==1) ||
+							         (bKnightCount==1 && bBishopLCount==1 && wBishopDCount==1) ||
+							         (wKnightCount==1 && wBishopLCount==1 && bKnightCount==1) || // KBNvN.
+							         (wKnightCount==1 && wBishopDCount==1 && bKnightCount==1) ||
+							         (bKnightCount==1 && bBishopLCount==1 && wKnightCount==1) ||
+							         (bKnightCount==1 && bBishopDCount==1 && wKnightCount==1))
 								factor/=16;
-							else if (mat==(M(PieceWKnight,2)|M(PieceBKnight,1)) || // KNNvKN.
-							         mat==(M(PieceBKnight,2)|M(PieceWKnight,1)) ||
-							         mat==(M(PieceWKnight,2)|M(PieceBBishopL,1)) || // KNNvKB.
-							         mat==(M(PieceWKnight,2)|M(PieceBBishopD,1)) ||
-							         mat==(M(PieceBKnight,2)|M(PieceWBishopL,1)) ||
-							         mat==(M(PieceBKnight,2)|M(PieceWBishopD,1)) ||
-							         mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBBishopL,1)) || // KBBvKB (bishop pair).
-							         mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBBishopD,1)) ||
-							         mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWBishopL,1)) ||
-							         mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWBishopD,1)) ||
-							         mat==(M(PieceWBishopL,2)|M(PieceBBishopD,1)) ||  // KBBvKB (no bishop pair).
-							         mat==(M(PieceWBishopD,2)|M(PieceBBishopL,1)) ||
-							         mat==(M(PieceBBishopL,2)|M(PieceWBishopD,1)) ||
-							         mat==(M(PieceBBishopD,2)|M(PieceWBishopL,1)) ||
-							         mat==(M(PieceWBishopL,2)|M(PieceBKnight,1)) || // KBBvN (no bishop pair).
-							         mat==(M(PieceWBishopD,2)|M(PieceBKnight,1)) ||
-							         mat==(M(PieceBBishopL,2)|M(PieceWKnight,1)) ||
-							         mat==(M(PieceBBishopD,2)|M(PieceWKnight,1)))
+							else if ((wKnightCount==2 && bKnightCount==1) || // KNNvKN.
+							         (bKnightCount==2 && wKnightCount==1) ||
+							         (wKnightCount==2 && bBishopLCount==1) || // KNNvKB.
+							         (wKnightCount==2 && bBishopDCount==1) ||
+							         (bKnightCount==2 && wBishopLCount==1) ||
+							         (bKnightCount==2 && wBishopDCount==1) ||
+							         (wBishopLCount==1 && wBishopDCount==1 && bBishopLCount==1) || // KBBvKB (bishop pair).
+							         (wBishopLCount==1 && wBishopDCount==1 && bBishopDCount==1) ||
+							         (bBishopLCount==1 && bBishopDCount==1 && wBishopLCount==1) ||
+							         (bBishopLCount==1 && bBishopDCount==1 && wBishopDCount==1) ||
+							         (wBishopLCount==2 && bBishopDCount==1) ||  // KBBvKB (no bishop pair).
+							         (wBishopDCount==2 && bBishopLCount==1) ||
+							         (bBishopLCount==2 && wBishopDCount==1) ||
+							         (bBishopDCount==2 && wBishopLCount==1) ||
+							         (wBishopLCount==2 && bKnightCount==1) || // KBBvN (no bishop pair).
+							         (wBishopDCount==2 && bKnightCount==1) ||
+							         (bBishopLCount==2 && wKnightCount==1) ||
+							         (bBishopDCount==2 && wKnightCount==1))
 								factor/=32;
 						break;
 					}
-				} else if ((mat & MatInfoMaskMajors)==mat) {
+				} else if (majorCount==totalXKingsCount) {
 					// Majors only.
 
 					// Single side with material should be easy win (at least a rook ahead).
-					if ((mat & matWhite)==mat)
+					if (wXKingsCount==totalXKingsCount)
 						matData->scoreOffset+=ScoreEasyWin;
-					else if ((mat & matBlack)==mat)
+					else if (bXKingsCount==totalXKingsCount)
 						matData->scoreOffset-=ScoreEasyWin;
-					else if (mat==(M(PieceWQueen,1)|M(PieceBRook,1))|| // KQvKR.
-					         mat==(M(PieceBQueen,1)|M(PieceWRook,1)))
-						factor/=2;
+					else if (wXKingsCount==1 && bXKingsCount==1) {
+						if ((wQueenCount==1 && bRookCount==1) ||
+						    (bQueenCount==1 && wRookCount==1))
+						    factor/=2;
+					}
 				} else {
 					// Mix of major and minor pieces.
 					switch(minorCount+rookCount+queenCount) {
@@ -724,40 +727,40 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 							assert(false); // KvK already handled and single piece cannot be both minor and major.
 						break;
 						case 2:
-							if (mat==(M(PieceWRook,1)|M(PieceBBishopL,1)) || // KRvKB.
-							    mat==(M(PieceBRook,1)|M(PieceWBishopL,1)) ||
-							    mat==(M(PieceWRook,1)|M(PieceBBishopD,1)) ||
-							    mat==(M(PieceBRook,1)|M(PieceWBishopD,1)) ||
-							    mat==(M(PieceWRook,1)|M(PieceBKnight,1)) || // KRvKN.
-							    mat==(M(PieceBRook,1)|M(PieceWKnight,1)))
+							if ((wRookCount==1 && bBishopLCount==1) || // KRvKB
+							    (wRookCount==1 && bBishopDCount==1) ||
+							    (bRookCount==1 && wBishopLCount==1) ||
+							    (bRookCount==1 && wBishopDCount==1) ||
+							    (wRookCount==1 && bKnightCount==1) || // KRvKN
+							    (bRookCount==1 && wKnightCount==1))
 								factor/=4;
 						break;
 						case 3:
-							if (mat==(M(PieceWQueen,1)|M(PieceWBishopL,1)|M(PieceBQueen,1)) || // KQBvKQ.
-							    mat==(M(PieceWQueen,1)|M(PieceWBishopD,1)|M(PieceBQueen,1)) ||
-							    mat==(M(PieceBQueen,1)|M(PieceBBishopL,1)|M(PieceWQueen,1)) ||
-							    mat==(M(PieceBQueen,1)|M(PieceBBishopD,1)|M(PieceWQueen,1)) ||
-							    mat==(M(PieceWQueen,1)|M(PieceBKnight,2)) || // KQvKNN.
-							    mat==(M(PieceBQueen,1)|M(PieceWKnight,2)))
+							if ((wQueenCount==1 && wBishopLCount==1 && bQueenCount==1) || // KQBvKQ
+							    (wQueenCount==1 && wBishopDCount==1 && bQueenCount==1) ||
+							    (bQueenCount==1 && bBishopLCount==1 && wQueenCount==1) ||
+							    (bQueenCount==1 && bBishopDCount==1 && wQueenCount==1) ||
+							    (wQueenCount==1 && bKnightCount==2) || // KQvKNN
+							    (bQueenCount==1 && wKnightCount==2))
 								factor/=8;
-							else if (mat==(M(PieceWQueen,1)|M(PieceWKnight,1)|M(PieceBQueen,1)) || // KQNvKQ.
-							         mat==(M(PieceBQueen,1)|M(PieceBKnight,1)|M(PieceWQueen,1)) ||
-							         mat==(M(PieceWRook,1)|M(PieceWKnight,1)|M(PieceBRook,1)) || // KRNvKR.
-							         mat==(M(PieceBRook,1)|M(PieceBKnight,1)|M(PieceWRook,1)) ||
-							         mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBQueen,1)) || // KQvKBB. (bishop pair)
-							         mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWQueen,1)) ||
-							         mat==(M(PieceWQueen,1)|M(PieceBRook,1)|M(PieceBBishopL,1)) || // KQvKRB.
-							         mat==(M(PieceWQueen,1)|M(PieceBRook,1)|M(PieceBBishopD,1)) ||
-							         mat==(M(PieceBQueen,1)|M(PieceWRook,1)|M(PieceWBishopL,1)) ||
-							         mat==(M(PieceBQueen,1)|M(PieceWRook,1)|M(PieceWBishopD,1)) ||
-							         mat==(M(PieceWQueen,1)|M(PieceBRook,1)|M(PieceBKnight,1)) || // KQvKRN.
-							         mat==(M(PieceBQueen,1)|M(PieceWRook,1)|M(PieceWKnight,1)) ||
-							         mat==(M(PieceWBishopL,1)|M(PieceWBishopD,1)|M(PieceBRook,1)) || // KRvKBB (bishop pair).
-							         mat==(M(PieceBBishopL,1)|M(PieceBBishopD,1)|M(PieceWRook,1)) ||
-							         mat==(M(PieceWRook,1)|M(PieceWBishopL,1)|M(PieceBRook,1)) || // KRBvKR.
-							         mat==(M(PieceWRook,1)|M(PieceWBishopD,1)|M(PieceBRook,1)) ||
-							         mat==(M(PieceBRook,1)|M(PieceBBishopL,1)|M(PieceWRook,1)) ||
-							         mat==(M(PieceBRook,1)|M(PieceBBishopD,1)|M(PieceWRook,1)))
+							else if ((wQueenCount==1 && wKnightCount==1 && bQueenCount==1) || // KQNvKQ
+							         (bQueenCount==1 && bKnightCount==1 && wQueenCount==1) ||
+							         (wRookCount==1 && wKnightCount==1 && bRookCount==1) || // KRNvKR
+							         (bRookCount==1 && bKnightCount==1 && wRookCount==1) ||
+							         (wQueenCount==1 && bBishopLCount==1 && bBishopDCount==1) || // KQvKBB (bishop pair)
+							         (bQueenCount==1 && wBishopLCount==1 && wBishopDCount==1) ||
+							         (wQueenCount==1 && bRookCount==1 && bBishopLCount==1) || // KQvKRB
+							         (wQueenCount==1 && bRookCount==1 && bBishopDCount==1) ||
+							         (bQueenCount==1 && wRookCount==1 && wBishopLCount==1) ||
+							         (bQueenCount==1 && wRookCount==1 && wBishopDCount==1) ||
+							         (wQueenCount==1 && bRookCount==1 && bKnightCount==1) || // KQvKRN
+							         (bQueenCount==1 && wRookCount==1 && wKnightCount==1) ||
+							         (wRookCount==1 && bBishopLCount==1 && bBishopDCount==1) || // KRvKBB (bishop pair)
+							         (bRookCount==1 && wBishopLCount==1 && wBishopDCount==1) ||
+							         (wRookCount==1 && wBishopLCount==1 && bRookCount==1) || // KRBvKR
+							         (wRookCount==1 && wBishopDCount==1 && bRookCount==1) ||
+							         (bRookCount==1 && bBishopLCount==1 && wRookCount==1) ||
+							         (bRookCount==1 && bBishopDCount==1 && wRookCount==1))
 								factor/=4;
 						break;
 					}
@@ -782,29 +785,27 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 	matData->weightEG=(matData->weightEG*factor)/1024;
 
 	// Opposite coloured bishop endgames are drawish.
-	if ((wBishopL^wBishopD) && (bBishopL^bBishopD) && (wBishopL^bBishopL)) {
+	if ((wBishopLCount>0 && wBishopDCount==0 && bBishopDCount>0 && bBishopLCount==0) ||
+	    (wBishopDCount>0 && wBishopLCount==0 && bBishopLCount>0 && bBishopDCount==0)) {
 		matData->weightMG=(matData->weightMG*evalOppositeBishopFactor.mg)/256;
 		matData->weightEG=(matData->weightEG*evalOppositeBishopFactor.eg)/256;
 	}
 
 	// Knight pawn affinity.
-	unsigned int knightAffW=G(PieceWKnight)*G(PieceWPawn);
-	unsigned int knightAffB=G(PieceBKnight)*G(PieceBPawn);
+	int knightAffW=wKnightCount*wPawnCount;
+	int knightAffB=bKnightCount*bPawnCount;
 	evalVPairAddMulTo(&matData->offset, &evalKnightPawnAffinity, knightAffW-knightAffB);
 
 	// Rook pawn affinity.
-	unsigned int rookAffW=G(PieceWRook)*G(PieceWPawn);
-	unsigned int rookAffB=G(PieceBRook)*G(PieceBPawn);
+	int rookAffW=wRookCount*wPawnCount;
+	int rookAffB=bRookCount*bPawnCount;
 	evalVPairAddMulTo(&matData->offset, &evalRookPawnAffinity, rookAffW-rookAffB);
 
 	// Bishop pair bonus
-	if (wBishopL && wBishopD)
+	if (wBishopLCount>0 && wBishopDCount>0)
 		evalVPairAddTo(&matData->offset, &evalBishopPair);
-	if (bBishopL && bBishopD)
+	if (bBishopLCount>0 && bBishopDCount>0)
 		evalVPairSubFrom(&matData->offset, &evalBishopPair);
-
-#	undef G
-#	undef M
 }
 
 HTableKey evalGetMatDataHTableKeyFromPos(const Pos *pos) {
@@ -871,15 +872,18 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	// Loop over each pawn.
 	Colour colour;
 	for(colour=ColourWhite;colour<=ColourBlack;++colour) {
-		const Sq *sq=posGetPieceListStart(pos, pieceMake(PieceTypePawn, colour));
-		const Sq *sqEnd=posGetPieceListEnd(pos, pieceMake(PieceTypePawn, colour));
-		for(;sq<sqEnd;++sq) {
-			PawnType type=((((doubled[colour]>>*sq)&1)<<PawnTypeShiftDoubled) |
-			               (((isolated[colour]>>*sq)&1)<<PawnTypeShiftIsolated) |
-			               (((pawnData->passed[colour]>>*sq)&1)<<PawnTypeShiftPassed));
+		Piece piece=pieceMake(PieceTypePawn, colour);
+		BB pieceSet=posGetBBPiece(pos, piece);
+		while(pieceSet) {
+			Sq sq=bbScanReset(&pieceSet);
+
+			PawnType type=((((doubled[colour]>>sq)&1)<<PawnTypeShiftDoubled) |
+			               (((isolated[colour]>>sq)&1)<<PawnTypeShiftIsolated) |
+			               (((pawnData->passed[colour]>>sq)&1)<<PawnTypeShiftPassed));
 			assert(type>=0 && type<PawnTypeNB);
-			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][*sq]);
+			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][sq]);
 		}
+
 	}
 }
 
@@ -1200,11 +1204,18 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 #	define MAKE(p,n) matInfoMake((p),(n))
 #	define MASK(t) matInfoMakeMaskPieceType(t)
 
-	// Grab material info.
-	MatInfo mat=posGetMatInfo(pos);
+	// Collect pos data
+	BB bbWhite=posGetBBColour(pos, ColourWhite);
+	BB bbWhiteXKings=(bbWhite^posGetBBPiece(pos, PieceWKing));
+	BB bbBlack=posGetBBColour(pos, ColourBlack);
+	BB bbBlackXKings=(bbBlack^posGetBBPiece(pos, PieceBKing));
+
+	BB occXKings=bbWhiteXKings|bbBlackXKings;
 
 	// If only pieces are bishops and all share same colour squares, draw.
-	if ((mat & ~MatInfoMaskBishopsL)==0 || (mat & ~MatInfoMaskBishopsD)==0)
+	BB bishopsL=(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceBBishopL));
+	BB bishopsD=(posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceBBishopD));
+	if (occXKings==bishopsL || occXKings==bishopsD)
 		return EvalMatTypeDraw;
 
 	// Check for known combinations.
@@ -1216,27 +1227,34 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 			assert(false);
 		break;
 		case 3:
-			if (mat==MatInfoMaskKNvK || mat==MatInfoMaskKvKN)
-				return EvalMatTypeDraw;
-			else if (mat==(MAKE(PieceWPawn,1)|MatInfoMaskKings) || mat==(MAKE(PieceBPawn,1)|MatInfoMaskKings))
+			if (occXKings==posGetBBPiece(pos, PieceWKnight) || occXKings==posGetBBPiece(pos, PieceBKnight))
+				return EvalMatTypeDraw; // KNvK
+			else if (occXKings==posGetBBPiece(pos, PieceWPawn) || occXKings==posGetBBPiece(pos, PieceBPawn))
 				return EvalMatTypeKPvK;
 		break;
 		case 4:
-			if (mat==(MAKE(PieceWKnight,2)|MatInfoMaskKings) || mat==(MAKE(PieceBKnight,2)|MatInfoMaskKings))
+			if (occXKings==posGetBBPiece(pos, PieceWKnight) || occXKings==posGetBBPiece(pos, PieceBKnight))
 				return EvalMatTypeKNNvK;
 		break;
 	}
 
 	// KBPvK (any positive number of pawns and any positive number of same coloured bishops).
-	const MatInfo matW=(mat & matInfoMakeMaskColour(ColourWhite) & ~MatInfoMaskKings);
-	const MatInfo matB=(mat & matInfoMakeMaskColour(ColourBlack) & ~MatInfoMaskKings);
-	const MatInfo matPawns=matInfoMakeMaskPieceType(PieceTypePawn);
-	if (!matB && (matW & matPawns) && !(matW & MatInfoMaskNRQ)) { // No black pieces, white has pawns and white does not have any knights, rooks or queens.
-		if (((matW & MatInfoMaskBishopsL)!=0)^((matW & MatInfoMaskBishopsD)!=0)) // Check white has exactly one type (colour) of bishop.
-			return EvalMatTypeKBPvK;
-	} else if (!matW && (matB & matPawns) && !(matB & MatInfoMaskNRQ)) {
-		if (((matB & MatInfoMaskBishopsL)!=0)^((matB & MatInfoMaskBishopsD)!=0))
-			return EvalMatTypeKBPvK;
+	if (occXKings==bbWhiteXKings) { // only white material?
+		BB pawns=posGetBBPiece(pos, PieceWPawn);
+		if ((bbWhiteXKings&pawns)!=BBNone && (bbWhiteXKings^pawns)!=BBNone) { // does white even have any pawns and non-pawns?
+			if ((bbWhiteXKings^pawns)==posGetBBPiece(pos, PieceWBishopL))
+				return EvalMatTypeKBPvK;
+			if ((bbWhiteXKings^pawns)==posGetBBPiece(pos, PieceWBishopD))
+				return EvalMatTypeKBPvK;
+		}
+	} else if (occXKings==bbBlackXKings) { // only black material?
+		BB pawns=posGetBBPiece(pos, PieceBPawn);
+		if ((bbBlackXKings&pawns)!=BBNone && (bbBlackXKings^pawns)!=BBNone) { // does black even have any pawns and non-pawns?
+			if ((bbBlackXKings^pawns)==posGetBBPiece(pos, PieceBBishopL))
+				return EvalMatTypeKBPvK;
+			if ((bbBlackXKings^pawns)==posGetBBPiece(pos, PieceBBishopD))
+				return EvalMatTypeKBPvK;
+		}
 	}
 
 	// Other combination.

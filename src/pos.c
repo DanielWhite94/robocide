@@ -32,11 +32,10 @@ typedef struct {
 	CastRights castRights;
 } PosData;
 
+STATICASSERT(PieceBit<=8);
 struct Pos {
 	BB bbPiece[PieceNB];
-	uint8_t array64[SqNB]; // One entry per square pointing to location in pieceList.
-	Sq pieceList[PieceNB*16]; // 16 entries per piece.
-	uint8_t pieceListNext[PieceNB]; // Gives next empty slot in pieceList array.
+	uint8_t array64[SqNB]; // entries are Pieces
 	PosData *dataStart, *dataEnd, *data;
 	BB bbColour[ColourNB], bbAll;
 	Colour stm;
@@ -49,7 +48,8 @@ const char *posStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 
 
 Key posKeySTM, posKeyPiece[16][SqNB], posKeyEP[SqMax], posKeyCastling[SqMax];
 Key posPawnKeyPiece[PieceNB][SqNB];
-Key posMatKey[PieceNB*16];
+Key posMatKey[PieceNB][16];
+Key posMatKeyXOR[PieceNB][16];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.
@@ -121,9 +121,19 @@ void posInit(void) {
 		posKeyCastling[sqMake(i, Rank8)]=posRandKey();
 	}
 
-	posMatKey[0]=0; // For empty squares.
-	for(i=1;i<PieceNB*16;++i)
-		posMatKey[i]=posRandKey();
+	memset(posMatKey, 0, PieceNB*16*sizeof(Key));
+	memset(posMatKeyXOR, 0, PieceNB*16*sizeof(Key));
+	Colour colour;
+	PieceType pieceType;
+	for(colour=ColourWhite; colour<=ColourBlack; ++colour)
+		for(pieceType=PieceTypePawn; pieceType<=PieceTypeQueen; ++pieceType) {
+			Piece piece=pieceMake(pieceType, colour);
+			for(i=1; i<16; ++i)
+				posMatKey[piece][i]=posRandKey();
+
+			for(i=1; i<16; ++i)
+				posMatKeyXOR[piece][i]=posMatKey[piece][i]^posMatKey[piece][i-1];
+		}
 }
 
 Pos *posNew(const char *gfen) {
@@ -291,7 +301,7 @@ Colour posGetSTM(const Pos *pos) {
 
 Piece posGetPieceOnSq(const Pos *pos, Sq sq) {
 	assert(sqIsValid(sq));
-	return (pos->array64[sq]>>4);
+	return pos->array64[sq];
 }
 
 BB posGetBBAll(const Pos *pos) {
@@ -310,22 +320,12 @@ BB posGetBBPiece(const Pos *pos, Piece piece) {
 
 unsigned int posGetPieceCount(const Pos *pos, Piece piece) {
 	assert(pieceIsValid(piece));
-	return (posGetPieceListEnd(pos, piece)-posGetPieceListStart(pos, piece));
+	return bbPopCount(posGetBBPiece(pos, piece));
 }
 
 Sq posGetKingSq(const Pos *pos, Colour colour) {
 	assert(colourIsValid(colour));
-	return *posGetPieceListStart(pos, pieceMake(PieceTypeKing, colour));
-}
-
-const Sq *posGetPieceListStart(const Pos *pos, Piece piece) {
-	assert(pieceIsValid(piece));
-	return &pos->pieceList[piece<<4];
-}
-
-const Sq *posGetPieceListEnd(const Pos *pos, Piece piece) {
-	assert(pieceIsValid(piece));
-	return &pos->pieceList[pos->pieceListNext[piece]];
+	return bbScanForward(posGetBBPiece(pos, pieceMake(PieceTypeKing, colour)));
 }
 
 unsigned int posGetHalfMoveNumber(const Pos *pos) {
@@ -346,17 +346,6 @@ Key posGetPawnKey(const Pos *pos) {
 
 Key posGetMatKey(const Pos *pos) {
 	return pos->matKey;
-}
-
-MatInfo posGetMatInfo(const Pos *pos) {
-	// Grab piece offsets and subtract 'base' to give literal piece counts.
-	const MatInfo *pieceListNext=((const MatInfo *)pos->pieceListNext);
-	MatInfo white=pieceListNext[ColourWhite]-0x7060504030201000llu;
-	MatInfo black=pieceListNext[ColourBlack]-0xF0E0D0C0B0A09080llu;
-
-	// Interleave white and black into a single 64 bit integer (we only need 4
-	// bits per piece)
-	return ((black<<4) | white);
 }
 
 CastRights posGetCastRights(const Pos *pos) {
@@ -442,6 +431,7 @@ bool posMakeMove(Pos *pos, Move move) {
 				posPieceMove(pos, rookFromSq, rookToSq, false);
 
 			// Replace king in new position.
+			assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
 			posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false);
 		} else {
 			// Standard moves
@@ -491,6 +481,7 @@ bool posMakeMove(Pos *pos, Move move) {
 					}
 
 					// Move non-pawn piece (i.e. no promotion to worry about).
+					assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
 					posPieceMove(pos, fromSq, toSqTrue, false);
 				break;
 			}
@@ -550,6 +541,13 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 		assert(pos->data->epSq==toSqRaw);
 		occ^=bbSq(toSqRaw^8);
 		opp^=bbSq(toSqRaw^8);
+	}
+
+	// Update occupancy to reflect rook movement if castling.
+	if (posMoveIsCastling(pos, move)) {
+		occ&=~bbSq(toSqRaw); // rook's from sq
+		Sq rookToSq=sqMake((posMoveIsCastlingA(pos, move) ? FileD : FileF), (stm==ColourWhite ? Rank1 : Rank8));
+		occ|=bbSq(rookToSq);
 	}
 
 	// Make a list of squares we need to ensure are unattacked.
@@ -844,7 +842,10 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 
 bool posHasPieces(const Pos *pos, Colour colour) {
 	assert(colourIsValid(colour));
-	return ((posGetMatInfo(pos) & matInfoMakeMaskColour(colour) & ~(matInfoMakeMaskPieceType(PieceTypePawn) | matInfoMakeMaskPieceType(PieceTypeKing)))!=0);
+
+	BB pawns=posGetBBPiece(pos, pieceMake(PieceTypePawn, colour));
+	BB king=posGetBBPiece(pos, pieceMake(PieceTypeKing, colour));
+	return (posGetBBColour(pos, colour) & ~(pawns | king))!=BBNone;
 }
 
 bool posMoveIsPseudoLegal(const Pos *pos, Move move) {
@@ -962,38 +963,6 @@ Sq posMoveGetToSqTrue(const Pos *pos, Move move) {
 		return sqMake(file, rank);
 	} else
 		return moveGetToSqRaw(move);
-}
-
-unsigned int matInfoGetPieceCount(MatInfo info, Piece piece) {
-	assert(pieceIsValid(piece));
-	return (info>>matInfoShift(piece))&15;
-}
-
-MatInfo matInfoMake(Piece piece, unsigned int count) {
-	assert(pieceIsValid(piece));
-	assert(count<16);
-	return ((MatInfo)count)<<matInfoShift(piece);
-}
-
-MatInfo matInfoMakeMaskPiece(Piece piece) {
-	assert(pieceIsValid(piece));
-	return matInfoMake(piece, 15);
-}
-
-MatInfo matInfoMakeMaskPieceType(PieceType type) {
-	assert(pieceTypeIsValid(type));
-	return matInfoMakeMaskPiece(pieceMake(type, ColourWhite))|matInfoMakeMaskPiece(pieceMake(type, ColourBlack));
-}
-
-MatInfo matInfoMakeMaskColour(Colour colour) {
-	assert(colourIsValid(colour));
-	return matInfoMakeMaskPiece(pieceMake(PieceTypePawn, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeKnight, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeBishopL, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeBishopD, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeRook, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeQueen, colour))|
-           matInfoMakeMaskPiece(pieceMake(PieceTypeKing, colour));
 }
 
 void posCastRightsToStr(CastRights castRights, char str[static 8]) {
@@ -1151,10 +1120,7 @@ void posFlip(Pos *pos) {
 
 void posClean(Pos *pos) {
 	memset(pos->bbPiece, 0, PieceNB*sizeof(BB));
-	memset(pos->array64, 0, SqNB*sizeof(uint8_t));
-	unsigned int i;
-	for(i=0;i<PieceNB;++i)
-		pos->pieceListNext[i]=16*i;
+	memset(pos->array64, PieceNone, SqNB*sizeof(uint8_t));
 	pos->bbColour[ColourWhite]=pos->bbColour[ColourBlack]=pos->bbAll=BBNone;
 	pos->stm=ColourWhite;
 	pos->fullMoveNumber=1;
@@ -1180,17 +1146,16 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate) {
 
 	// Update position.
 	pos->bbPiece[piece]^=bbSq(sq);
+	unsigned postMoveCount=bbPopCount(pos->bbPiece[piece]);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(sq);
 	pos->bbAll^=bbSq(sq);
-	uint8_t index=(pos->pieceListNext[piece]++);
-	pos->array64[sq]=index;
-	pos->pieceList[index]=sq;
+	pos->array64[sq]=piece;
 
 	// Update hash keys.
 	if (!skipMainKeyUpdate)
 		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
-	pos->matKey^=posMatKey[index];
+	pos->matKey^=posMatKeyXOR[piece][postMoveCount];
 
 	// Update PST score.
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
@@ -1202,21 +1167,18 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 	assert(posGetPieceOnSq(pos, sq)!=PieceNone);
 
 	// Update position.
-	uint8_t index=pos->array64[sq];
-	Piece piece=(index>>4);
+	Piece piece=posGetPieceOnSq(pos, sq);
+	unsigned postMoveCount=bbPopCount(pos->bbPiece[piece]);
 	pos->bbPiece[piece]^=bbSq(sq);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(sq);
 	pos->bbAll^=bbSq(sq);
-	uint8_t lastIndex=(--pos->pieceListNext[piece]);
-	pos->pieceList[index]=pos->pieceList[lastIndex];
-	pos->array64[pos->pieceList[index]]=index;
-	pos->array64[sq]=(PieceNone<<4);
+	pos->array64[sq]=PieceNone;
 
 	// Update hash keys.
 	if (!skipMainKeyUpdate)
 		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
-	pos->matKey^=posMatKey[lastIndex];
+	pos->matKey^=posMatKeyXOR[piece][postMoveCount];
 
 	// Update PST score.
 	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
@@ -1225,18 +1187,17 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
+	assert(toSq!=fromSq);
 	assert(posGetPieceOnSq(pos, fromSq)!=PieceNone);
 	assert(posGetPieceOnSq(pos, toSq)==PieceNone);
 
 	// Update position.
-	uint8_t index=pos->array64[fromSq];
-	Piece piece=(index>>4);
+	Piece piece=posGetPieceOnSq(pos, fromSq);
 	pos->bbPiece[piece]^=bbSq(fromSq)^bbSq(toSq);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(fromSq)^bbSq(toSq);
 	pos->bbAll^=bbSq(fromSq)^bbSq(toSq);
-	pos->array64[toSq]=index;
-	pos->array64[fromSq]=(PieceNone<<4);
-	pos->pieceList[index]=toSq;
+	pos->array64[toSq]=piece;
+	pos->array64[fromSq]=PieceNone;
 
 	// Update hash keys.
 	if (!skipMainKeyUpdate)
@@ -1251,6 +1212,7 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
 void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
+	assert(toSq!=fromSq);
 	assert(posGetPieceOnSq(pos, fromSq)!=PieceNone);
 	assert(posGetPieceOnSq(pos, toSq)==PieceNone);
 	assert(pieceIsValid(toPiece));
@@ -1274,15 +1236,12 @@ void posGenPseudoNormal(Moves *moves, BB allowed) {
 	for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
 		// Loop over each piece of this type.
 		Piece piece=pieceMake(type, stm);
-		const Sq *sq=posGetPieceListStart(pos, piece);
-		const Sq *endSq=posGetPieceListEnd(pos, piece);
-		for(;sq<endSq;++sq) {
-			// Calculate attack set.
-			BB set=(attacksPiece(piece, *sq, occ) & allowed);
-
-			// Loop over destination squares and add as individual moves.
-			while(set)
-				PUSH(moveMake(*sq, bbScanReset(&set), piece));
+		BB pieceSet=posGetBBPiece(pos, piece);
+		while(pieceSet) {
+			Sq fromSq=bbScanReset(&pieceSet);
+			BB moveSet=(attacksPiece(piece, fromSq, occ) & allowed);
+			while(moveSet)
+				PUSH(moveMake(fromSq, bbScanReset(&moveSet), piece));
 		}
 	}
 #	undef PUSH
@@ -1444,9 +1403,15 @@ Key posComputePawnKey(const Pos *pos) {
 
 Key posComputeMatKey(const Pos *pos) {
 	Key key=0;
-	Sq sq;
-	for(sq=0;sq<SqNB;++sq)
-		key^=posMatKey[pos->array64[sq]];
+
+	Colour colour;
+	PieceType pieceType;
+	for(colour=ColourWhite; colour<=ColourBlack; ++colour)
+		for(pieceType=PieceTypePawn; pieceType<=PieceTypeQueen; ++pieceType) {
+			Piece piece=pieceMake(pieceType, colour);
+			unsigned count=posGetPieceCount(pos, piece);
+			key^=posMatKey[piece][count];
+		}
 
 	return key;
 }
@@ -1510,6 +1475,7 @@ bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq 
 
 bool posIsConsistent(const Pos *pos) {
 	char error[512];
+	Sq sq;
 
 	// Test bitboards are self consistent.
 	BB wAll=BBNone, bAll=BBNone;
@@ -1538,63 +1504,29 @@ bool posIsConsistent(const Pos *pos) {
 		goto Error;
 	}
 
-	// Test Array64 'pointers' are correct (consistent and agree with bitboards).
-	Sq sq;
-	uint8_t index;
-	for(sq=0;sq<SqNB;++sq) {
-		index=pos->array64[sq];
-		Piece piece=(index>>4);
-		if (piece!=PieceNone && !pieceIsValid(piece)) {
-			sprintf(error, "Invalid piece '%i' derived from array64 index '%i' (%c%c)"
-										 ".\n", piece, index, fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
-			goto Error;
-		}
-		if (piece==PieceNone) {
-			assert(index==0);
-			if (pos->bbAll & bbSq(sq)) {
-				sprintf(error, "Piece exists in bitboards but not in array (%c%c).\n",
-								fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
+	// Test array64 agrees with bitboards.
+	for(sq=0; sq<SqNB; ++sq) {
+		BB bb=bbSq(sq);
+		Piece piece=pos->array64[sq];
+		if (piece!=PieceNone) {
+			if ((pos->bbPiece[piece] & bb)==BBNone) {
+				sprintf(error, "Piece %i in array64 for %c%c, but not set in bitboards.\n", piece, fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
 				goto Error;
 			}
-			continue; // Special case (the 'null index').
-		}
-		if ((pos->bbPiece[piece] & bbSq(sq))==BBNone) {
-			sprintf(error, "Piece exists in array, but not in bitboards (%c%c).\n",
-							fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
-			goto Error;
-		}
-		if (index>=pos->pieceListNext[piece]) {
-			sprintf(error, "Array64 points outside of list for piece '%i' (%c%c).\n",
-							piece, fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
-			goto Error;
-		}
-		if (pos->pieceList[index]!=sq) {
-			sprintf(error, "Array64 sq %c%c disagrees with piece list sq %c%c at "
-										 "index %i.\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)),
-										 fileToChar(sqFile(pos->pieceList[index])), rankToChar(sqRank(pos->pieceList[index])),
-										 index);
-			goto Error;
+		} else {
+			if ((pos->bbAll & bb)!=BBNone) {
+				sprintf(error, "%c%c empty in array64, but set in bitboards.\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
+				goto Error;
+			}
 		}
 	}
 
-	// Test piece lists are correct.
-	for(type1=PieceTypePawn;type1<=PieceTypeKing;++type1) {
-		Piece piece=pieceMake(type1, ColourWhite);
-		for(index=(piece<<4);index<pos->pieceListNext[piece];++index)
-			if ((pos->bbPiece[piece] & bbSq(pos->pieceList[index]))==BBNone) {
-				sprintf(error, "Piece list thinks piece %i exists on %c%c but bitboards"
-											 " do not.\n", piece, fileToChar(sqFile(pos->pieceList[index])),
-											 rankToChar(sqRank(pos->pieceList[index])));
-				goto Error;
-			}
-		piece=pieceMake(type1, ColourBlack);
-		for(index=(piece<<4);index<pos->pieceListNext[piece];++index)
-			if ((pos->bbPiece[piece] & bbSq(pos->pieceList[index]))==BBNone) {
-				sprintf(error, "Piece list thinks piece %i exists on %c%c but bitboards"
-											 " do not.\n", piece, fileToChar(sqFile(pos->pieceList[index])),
-											 rankToChar(sqRank(pos->pieceList[index])));
-				goto Error;
-			}
+	// Test we have exactly 1 king of each colour.
+	int wKingCount=bbPopCount(pos->bbPiece[PieceWKing]);
+	int bKingCount=bbPopCount(pos->bbPiece[PieceBKing]);
+	if (wKingCount!=1 || bKingCount!=1) {
+		sprintf(error, "bad king counts: (white,black)=(%i,%i).\n", wKingCount, bKingCount);
+		goto Error;
 	}
 
 	// Test correct bishop pieces are correct (either light or dark).
@@ -1691,6 +1623,10 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 	Piece capPiece=(pieceGetType(toPiece)!=PieceTypeKing ? posGetPieceOnSq(pos, toSqTrue) : PieceNone);
 	if (capPiece!=PieceNone && pieceGetColour(capPiece)==stm)
+		return false;
+
+	// King capture?
+	if (pieceGetType(capPiece)==PieceTypeKing)
 		return false;
 
 	// Bad moving piece?

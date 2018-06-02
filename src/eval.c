@@ -671,7 +671,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 						break;
 						case 3:
 							if ((wBishopLCount==1 && wBishopDCount==1 && bKnightCount==1) || // KBBvKN (bishop pair)
-							    (wBishopLCount==1 && wBishopDCount==1 && bKnightCount==1))
+							    (bBishopLCount==1 && bBishopDCount==1 && wKnightCount==1))
 								factor/=2;
 							else if ((wKnightCount==1 && wBishopLCount==1 && bBishopLCount==1) || // KBNvKB (same coloured bishops).
 							         (wKnightCount==1 && wBishopDCount==1 && bBishopDCount==1) ||
@@ -729,7 +729,7 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 						case 2:
 							if ((wRookCount==1 && bBishopLCount==1) || // KRvKB
 							    (wRookCount==1 && bBishopDCount==1) ||
-							    (bRookCount==1 && wBishopDCount==1) ||
+							    (bRookCount==1 && wBishopLCount==1) ||
 							    (bRookCount==1 && wBishopDCount==1) ||
 							    (wRookCount==1 && bKnightCount==1) || // KRvKN
 							    (bRookCount==1 && wKnightCount==1))

@@ -543,6 +543,13 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 		opp^=bbSq(toSqRaw^8);
 	}
 
+	// Update occupancy to reflect rook movement if castling.
+	if (posMoveIsCastling(pos, move)) {
+		occ&=~bbSq(toSqRaw); // rook's from sq
+		Sq rookToSq=sqMake((posMoveIsCastlingA(pos, move) ? FileD : FileF), (stm==ColourWhite ? Rank1 : Rank8));
+		occ|=bbSq(rookToSq);
+	}
+
 	// Make a list of squares we need to ensure are unattacked.
 	BB checkSquares=bbSq(kingSq);
 	if (posMoveIsCastling(pos, move)) {

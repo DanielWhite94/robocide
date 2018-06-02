@@ -1521,6 +1521,14 @@ bool posIsConsistent(const Pos *pos) {
 		}
 	}
 
+	// Test we have exactly 1 king of each colour.
+	int wKingCount=bbPopCount(pos->bbPiece[PieceWKing]);
+	int bKingCount=bbPopCount(pos->bbPiece[PieceBKing]);
+	if (wKingCount!=1 || bKingCount!=1) {
+		sprintf(error, "bad king counts: (white,black)=(%i,%i).\n", wKingCount, bKingCount);
+		goto Error;
+	}
+
 	// Test correct bishop pieces are correct (either light or dark).
 	for(sq=0;sq<SqNB;++sq) {
 		if ((posGetPieceOnSq(pos, sq)==PieceWBishopL || posGetPieceOnSq(pos, sq)==PieceBBishopL) && !sqIsLight(sq)) {

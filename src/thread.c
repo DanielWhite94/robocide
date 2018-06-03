@@ -27,8 +27,7 @@ void threadExit(void *dummy);
 // Public functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-Thread *threadNew(void)
-{
+Thread *threadNew(void) {
 	// Allocate memory.
 	Thread *thread=malloc(sizeof(Thread));
 	Lock *lock=lockNew(1);

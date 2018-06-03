@@ -20,8 +20,6 @@
 
 const MoveScore MoveScoreMax=(((MoveScore)1)<<MoveScoreBit);
 
-Thread *searchThread=NULL;
-
 typedef struct {
 	// Search functions should not modify these entries:
 	Pos *pos;
@@ -37,19 +35,30 @@ unsigned long long int searchNodeCount; // Number of nodes entered since beginni
 unsigned long long int searchNodeNext; // Node count at which we should next check the time.
 bool searchStopFlag;
 Lock *searchActivity=NULL; // Once reached depth limit, search will wait for this before printing bestmove command.
-Pos *searchPos=NULL;
 TimeMs searchEndTime;
 TimeMs searchNextRegularOutputTime;
 bool searchShowCurrmove;
 SearchLimit searchLimit;
 unsigned int searchDate; // Incremented after each searchThink() call.
-bool searchOutput;
 
 TUNECONST int searchNullReduction=1;
 TUNECONST int searchIIDMin=2;
 TUNECONST int searchIIDReduction=3;
 
 bool searchPonder=true;
+
+typedef struct {
+	Thread *thread;
+
+	Pos *pos;
+	bool output;
+
+	Node rootNode;
+} SearchThreadData;
+
+const int SearchThreadCountMax=128;
+long long searchThreadCount=0;
+SearchThreadData searchThreads[SearchThreadCountMax];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.
@@ -59,12 +68,12 @@ void searchThinkClear(void);
 
 void searchIDLoop(void *posPtr);
 
-Score searchNode(Node *node);
-Score searchQNode(Node *node);
-void searchNodeInternal(Node *node);
-void searchQNodeInternal(Node *node);
+Score searchNode(const SearchThreadData *threadData, Node *node);
+Score searchQNode(const SearchThreadData *threadData, Node *node);
+void searchNodeInternal(const SearchThreadData *threadData, Node *node);
+void searchQNodeInternal(const SearchThreadData *threadData, Node *node);
 
-bool searchIsTimeUp(void);
+bool searchIsTimeUp(const SearchThreadData *threadData);
 
 void searchOutputRegular(void); // Regular infomation such as hashfull and nps.
 void searchOutputDepthPre(Node *node); // Called at begining of searching a new depth.
@@ -87,6 +96,7 @@ bool searchNodeIsPV(const Node *node);
 bool searchNodeIsQ(const Node *node);
 
 void searchInterfacePonder(void *dummy, bool ponder);
+void searchInterfaceThreads(void *dummy, long long threads);
 
 #ifdef TUNE
 void searchInterfaceValue(void *ptr, long long value);
@@ -97,18 +107,15 @@ void searchInterfaceValue(void *ptr, long long value);
 ////////////////////////////////////////////////////////////////////////////////
 
 void searchInit(void) {
-	// Create worker thread and lock.
-	searchThread=threadNew();
-	if (searchThread==NULL)
-		mainFatalError("Error: Could not start search worker thread.\n");
+	// Create main worker thread and lock.
+	assert(searchThreadCount==0);
+	searchInterfaceThreads(NULL, 1);
+	if (searchThreadCount!=1)
+		mainFatalError("Error: Could not create main worker thread/position.\n");
+
 	searchActivity=lockNew(0);
 	if (searchActivity==NULL)
 		mainFatalError("Error: Could not init lock for search.\n");
-
-	// Create position
-	searchPos=posNew(NULL);
-	if (searchPos==NULL)
-		mainFatalError("Error: Could not create position for search.\n");
 
 	// Set all structures to clean state.
 	searchClear();
@@ -116,8 +123,9 @@ void searchInit(void) {
 	// Set searchThink fields for first search
 	searchThinkClear();
 
-	// Init pondering option.
+	// Init UCI options.
 	uciOptionNewCheck("Ponder", &searchInterfacePonder, NULL, searchPonder);
+	uciOptionNewSpin("Threads", &searchInterfaceThreads, NULL, 1, SearchThreadCountMax, searchThreadCount);
 
 	// Setup callbacks for tuning values.
 # ifdef TUNE
@@ -131,11 +139,10 @@ void searchQuit(void) {
 	// If searching, signal to stop and wait until done.
 	searchStop();
 
-	// Free position
-	posFree(searchPos);
+	// Free threads
+	searchInterfaceThreads(NULL, 0);
 
-	// Free the worker thread and lock;
-	threadFree(searchThread);
+	// Free main lock.
 	lockFree(searchActivity);
 }
 
@@ -150,14 +157,17 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	assert(searchNextRegularOutputTime==0);
 
 	// Prepare for search.
-	if (!posCopy(searchPos, srcPos))
-		return;
+	unsigned i;
+	for(i=0; i<searchThreadCount; ++i) {
+		if (!posCopy(searchThreads[i].pos, srcPos))
+			return;
+		searchThreads[i].output=(i==0 && output);
+	}
 
 	searchStopFlag=false;
 	searchNodeCount=0;
 	searchLimit=*limit;
 	searchLimit.searchMovesNext=searchLimit.searchMoves+(limit->searchMovesNext-limit->searchMoves);
-	searchOutput=output;
 
 	while (lockTryWait(searchActivity)) ; // Reset to 0.
 
@@ -185,15 +195,15 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	// If no search moves given via uci, fill with all legal moves.
 	if (searchLimit.searchMovesNext==searchLimit.searchMoves) {
 		Moves tempMoves;
-		movesInit(&tempMoves, searchPos, 0, MoveTypeAny);
+		movesInit(&tempMoves, searchThreads[0].pos, 0, MoveTypeAny);
 		Move move;
 		while((move=movesNext(&tempMoves))!=MoveInvalid)
-			if (posCanMakeMove(searchPos, move))
+			if (posCanMakeMove(searchThreads[0].pos, move))
 				*searchLimit.searchMovesNext++=move;
 	}
 
-	// Set away worker
-	threadRun(searchThread, &searchIDLoop, NULL);
+	// Set away main worker
+	threadRun(searchThreads[0].thread, &searchIDLoop, &searchThreads[0]);
 }
 
 void searchStop(void) {
@@ -207,7 +217,7 @@ void searchStop(void) {
 }
 
 void searchWaitStop(void) {
-	threadWaitReady(searchThread);
+	threadWaitReady(searchThreads[0].thread);
 }
 
 unsigned long long int searchBenchmark(const Pos *pos, Depth depth) {
@@ -336,39 +346,48 @@ void searchThinkClear(void) {
 }
 
 void searchIDLoop(void *userData) {
-	assert(userData==NULL);
+	assert(userData!=NULL);
+
+	SearchThreadData *threadData=(SearchThreadData *)userData;
+	assert(threadData==&searchThreads[0]);
+	Pos *searchPos=threadData->pos;
 
 	// Only search if more than one legal move available (including restrictions by searchmoves argument), or in infinite/analysis mode.
 	if (searchLimit.searchMovesNext>searchLimit.searchMoves || searchLimit.infinite) {
 		// Make node structure for root node.
-		Node node;
-		node.pos=searchPos;
-		node.ply=0;
-		node.alpha=-ScoreInf;
-		node.beta=ScoreInf;
-		node.inCheck=posIsSTMInCheck(node.pos);
+		threadData->rootNode.pos=searchPos;
+		threadData->rootNode.ply=0;
+		threadData->rootNode.alpha=-ScoreInf;
+		threadData->rootNode.beta=ScoreInf;
+		threadData->rootNode.inCheck=posIsSTMInCheck(threadData->rootNode.pos);
+		unsigned i;
+		for(i=1; i<searchThreadCount; ++i)
+			searchThreads[i].rootNode=threadData->rootNode;
 
 		// Loop, increasing search depth until we run out of 'time'.
-		for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
+		for(threadData->rootNode.depth=1;threadData->rootNode.depth<=searchLimit.depth;++threadData->rootNode.depth) {
+			for(i=1; i<searchThreadCount; ++i)
+				searchThreads[i].rootNode.depth=threadData->rootNode.depth;
+
 			// After 1s start showing 'currmove' info.
-			if (searchOutput && timeGet()>=searchLimit.startTime+1000)
+			if (threadData->output && timeGet()>=searchLimit.startTime+1000)
 				searchShowCurrmove=true;
 
 			// Output pre info.
-			searchOutputDepthPre(&node);
+			searchOutputDepthPre(&threadData->rootNode);
 
 			// Search
-			searchNode(&node);
+			searchNode(threadData, &threadData->rootNode);
 
 			// No info found? (out of time/nodes/etc.).
-			if (node.bound==BoundNone)
+			if (threadData->rootNode.bound==BoundNone)
 				break;
 
 			// Output post info.
-			searchOutputDepthPost(&node);
+			searchOutputDepthPost(&threadData->rootNode);
 
 			// Time to end?
-			if (searchIsTimeUp())
+			if (searchIsTimeUp(threadData))
 				break;
 		}
 	}
@@ -394,7 +413,7 @@ void searchIDLoop(void *userData) {
 		lockWait(searchActivity);
 
 	// Send best move (and potentially ponder move) to GUI.
-	if (searchOutput) {
+	if (threadData->output) {
 		char str[8];
 		posMoveToStr(searchPos, bestMove, str);
 		if (moveIsValid(ponderMove)) {
@@ -415,7 +434,7 @@ void searchIDLoop(void *userData) {
 	searchThinkClear();
 }
 
-Score searchNode(Node *node) {
+Score searchNode(const SearchThreadData *threadData, Node *node) {
 # ifndef NDEBUG
 	// Save node_t structure for post-checks.
 	Node preNode=*node;
@@ -425,7 +444,7 @@ Score searchNode(Node *node) {
 # endif
 
 	// Call main search function.
-	searchNodeInternal(node);
+	searchNodeInternal(threadData, node);
 
 # ifndef NDEBUG
 	// Post-checks.
@@ -435,7 +454,7 @@ Score searchNode(Node *node) {
 	return node->score;
 }
 
-Score searchQNode(Node *node) {
+Score searchQNode(const SearchThreadData *threadData, Node *node) {
 # ifndef NDEBUG
 	// Save node_t structure for post-checks.
 	Node preNode=*node;
@@ -446,7 +465,7 @@ Score searchQNode(Node *node) {
 # endif
 
 	// Call main search function.
-	searchQNodeInternal(node);
+	searchQNodeInternal(threadData, node);
 
 # ifndef NDEBUG
 	// Post-checks.
@@ -456,10 +475,10 @@ Score searchQNode(Node *node) {
 	return node->score;
 }
 
-void searchNodeInternal(Node *node) {
+void searchNodeInternal(const SearchThreadData *threadData, Node *node) {
 	// Q node?
 	if (searchNodeIsQ(node)) {
-		searchQNode(node);
+		searchQNode(threadData, node);
 		return;
 	}
 
@@ -529,7 +548,7 @@ void searchNodeInternal(Node *node) {
 		child.depth=node->depth-1-searchNullReduction;
 		child.alpha=-node->beta;
 		child.beta=1-node->beta;
-		Score score=-searchNode(&child);
+		Score score=-searchNode(threadData, &child);
 		posUndoMove(node->pos);
 
 		if (score>=node->beta)
@@ -545,7 +564,7 @@ void searchNodeInternal(Node *node) {
 		// No hash move available - search current node but with a reduced depth to obtain a good guess at the best move.
 		Node child=*node;
 		child.depth-=searchIIDReduction;
-		searchNode(&child);
+		searchNode(threadData, &child);
 
 		// Re-read 'best' move from TT.
 		if (child.bound!=BoundNone)
@@ -605,26 +624,26 @@ void searchNodeInternal(Node *node) {
 		if (alpha>node->alpha) {
 			// We have found a good move, try zero window search.
 			assert(child.alpha==child.beta-1);
-			score=-searchNode(&child);
+			score=-searchNode(threadData, &child);
 
 			// Research?
 			if (score>alpha && score<node->beta) {
 				child.alpha=-node->beta;
 				child.depth=node->depth-1+extension;
-				score=-searchNode(&child);
+				score=-searchNode(threadData, &child);
 				child.alpha=child.beta-1;
 			}
 		} else {
 			// Full window search.
 			assert(child.alpha==-node->beta);
-			score=-searchNode(&child);
+			score=-searchNode(threadData, &child);
 		}
 
 		// Undo move.
 		posUndoMove(node->pos);
 
 		// Out of time? (previous search result is invalid).
-		if (searchIsTimeUp()) {
+		if (searchIsTimeUp(threadData)) {
 			// No moves searched?
 			if (node->bound==BoundNone) {
 				node->bound=BoundNone;
@@ -704,7 +723,7 @@ void searchNodeInternal(Node *node) {
 	return;
 }
 
-void searchQNodeInternal(Node *node) {
+void searchQNodeInternal(const SearchThreadData *threadData, Node *node) {
 	// Ply limit reached?
 	if (node->ply>=DepthMax) {
 		node->bound=BoundExact;
@@ -753,11 +772,11 @@ void searchQNodeInternal(Node *node) {
 		if (!posMakeMove(node->pos, move))
 			continue;
 		child.inCheck=posIsSTMInCheck(node->pos);
-		Score score=-searchQNode(&child);
+		Score score=-searchQNode(threadData, &child);
 		posUndoMove(node->pos);
 
 		// Out of time? (previous search result is invalid).
-		if (searchIsTimeUp())
+		if (searchIsTimeUp(threadData))
 			return;
 
 		// We have a legal move.
@@ -797,10 +816,14 @@ void searchQNodeInternal(Node *node) {
 	return;
 }
 
-bool searchIsTimeUp(void) {
+bool searchIsTimeUp(const SearchThreadData *threadData) {
 	// If stop flag is set we are expected to quit as soon as possible.
 	if (searchStopFlag)
 		return true;
+
+	// Only the main thread does any futher testing.
+	if (threadData!=&searchThreads[0])
+		return false;
 
 	// Check node count.
 	if (searchNodeCount>=searchLimit.nodes)
@@ -844,7 +867,7 @@ bool searchIsTimeUp(void) {
 }
 
 void searchOutputRegular(void) {
-	if (!searchOutput)
+	if (!searchThreads[0].output)
 		return;
 
 	TimeMs time=timeGet()-searchLimit.startTime;
@@ -855,7 +878,7 @@ void searchOutputRegular(void) {
 }
 
 void searchOutputDepthPre(Node *node) {
-	if (!searchOutput)
+	if (!searchThreads[0].output)
 		return;
 
 	uciWrite("info depth %u\n", (unsigned int)node->depth);
@@ -865,7 +888,7 @@ void searchOutputDepthPost(Node *node) {
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
 
-	if (!searchOutput)
+	if (!searchThreads[0].output)
 		return;
 
 	// Various bits of data
@@ -1205,6 +1228,39 @@ bool searchNodeIsQ(const Node *node) {
 
 void searchInterfacePonder(void *dummy, bool ponder) {
 	searchPonder=ponder;
+}
+
+void searchInterfaceThreads(void *dummy, long long threads) {
+	// Clamp value
+	if (threads<0)
+		threads=0; // Allow 0 to free at quit
+	if (threads>SearchThreadCountMax)
+		threads=SearchThreadCountMax;
+
+	// Remove any threads no longer needed
+	while(searchThreadCount>threads) {
+		SearchThreadData *data=&searchThreads[--searchThreadCount];
+		threadFree(data->thread);
+		posFree(data->pos);
+	}
+
+	// Add any new threads needed
+	while(searchThreadCount<threads) {
+		SearchThreadData *data=&searchThreads[searchThreadCount];
+
+		data->thread=threadNew();
+		data->pos=posNew(NULL);
+
+		if (data->thread==NULL || data->pos==NULL) {
+			threadFree(data->thread);
+			posFree(data->pos);
+			return;
+		}
+
+		++searchThreadCount;
+	}
+
+	assert(searchThreadCount==threads);
 }
 
 #ifdef TUNE

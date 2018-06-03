@@ -59,7 +59,7 @@ HTableKey ttHTableKeyFromPos(const Pos *pos);
 
 void ttInit(void) {
 	// Setup tt as a HTable.
-	tt=htableNew(sizeof(TTCluster), ttDefaultSizeMb);
+	tt=htableNew(sizeof(TTCluster), ttDefaultSizeMb, 0);
 	if (tt==NULL)
 		mainFatalError("Error: Could not allocate transposition table.\n");
 

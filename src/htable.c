@@ -3,12 +3,15 @@
 #include <string.h>
 
 #include "htable.h"
+#include "thread.h"
 #include "util.h"
 
 struct HTable {
 	size_t entrySize;
 	size_t entryCount;
 	void *entries;
+	int lockCount;
+	Lock **locks;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -24,14 +27,17 @@ void *htableKeyToEntry(HTable *table, HTableKey key);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-HTable *htableNew(size_t entrySize, unsigned int sizeMb) {
+HTable *htableNew(size_t entrySize, unsigned int sizeMb, int lockCount) {
 	// Sanity checks.
 	assert(sizeMb>0);
+	assert(lockCount>=0);
 
 	// Allocate memory.
 	HTable *table=malloc(sizeof(HTable));
-	if (table==NULL) {
+	Lock **locks=malloc(lockCount*sizeof(Lock *));
+	if (table==NULL || (locks==NULL && lockCount>0)) {
 		free(table);
+		free(locks);
 		return NULL;
 	}
 
@@ -39,6 +45,20 @@ HTable *htableNew(size_t entrySize, unsigned int sizeMb) {
 	table->entrySize=entrySize;
 	table->entryCount=0;
 	table->entries=NULL;
+	table->lockCount=lockCount;
+	table->locks=locks;
+
+	// Create locks
+	int i;
+	for(i=0; i<table->lockCount; ++i)
+		table->locks[i]=NULL;
+	for(i=0; i<table->lockCount; ++i) {
+		table->locks[i]=lockNew(1);
+		if (table->locks[i]==NULL) {
+			htableFree(table);
+			return NULL;
+		}
+	}
 
 	// Set to desired size.
 	if (!htableResize(table, sizeMb)) {
@@ -50,6 +70,10 @@ HTable *htableNew(size_t entrySize, unsigned int sizeMb) {
 }
 
 void htableFree(HTable *table) {
+	int i;
+	for(i=0; i<table->lockCount; ++i)
+		lockFree(table->locks[i]);
+	free(table->locks);
 	free(table->entries);
 	free(table);
 }
@@ -97,11 +121,18 @@ void htableClearInterface(void *table) {
 }
 
 void *htableGrab(HTable *table, HTableKey key) {
+	if (table->lockCount>0) {
+		unsigned lockIndex=key%table->lockCount;
+		lockWait(table->locks[lockIndex]);
+	}
 	return htableKeyToEntry(table, key);
 }
 
 void htableRelease(HTable *table, HTableKey key) {
-	// No-op (exists in case locks are added later)
+	if (table->lockCount>0) {
+		unsigned lockIndex=key%table->lockCount;
+		lockPost(table->locks[lockIndex]);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

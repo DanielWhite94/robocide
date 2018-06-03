@@ -58,7 +58,7 @@ typedef struct {
 	Node rootNode;
 } SearchThreadData;
 
-const int SearchThreadCountMax=128;
+#define SearchThreadCountMax 128
 long long searchThreadCount=0;
 SearchThreadData searchThreads[SearchThreadCountMax];
 SearchThreadData *searchThreadMain=&searchThreads[0];

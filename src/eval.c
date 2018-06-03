@@ -242,14 +242,14 @@ EvalMatType evalComputeMatType(const Pos *pos);
 
 void evalInit(void) {
 	// Setup pawn hash table.
-	evalPawnTable=htableNew(sizeof(EvalPawnData), evalPawnTableDefaultSizeMb, 1024);
+	evalPawnTable=htableNew(sizeof(EvalPawnData), evalPawnTableDefaultSizeMb, 4096);
 	if (evalPawnTable==NULL)
 		mainFatalError("Error: Could not allocate pawn hash table.\n");
 	uciOptionNewSpin("PawnHash", &htableResizeInterface, evalPawnTable, 1, evalPawnTableMaxSizeMb, evalPawnTableDefaultSizeMb);
 	uciOptionNewButton("Clear PawnHash", &htableClearInterface, evalPawnTable);
 
 	// Setup mat hash table.
-	evalMatTable=htableNew(sizeof(EvalMatData), evalMatTableDefaultSizeMb, 1024);
+	evalMatTable=htableNew(sizeof(EvalMatData), evalMatTableDefaultSizeMb, 4096);
 	if (evalMatTable==NULL)
 		mainFatalError("Error: Could not allocate mat hash table.\n");
 	uciOptionNewSpin("MatHash", &htableResizeInterface, evalMatTable, 1, evalMatTableMaxSizeMb, evalMatTableDefaultSizeMb);

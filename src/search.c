@@ -230,7 +230,7 @@ void searchWaitStop(void) {
 unsigned long long int searchBenchmark(const Pos *pos, Depth depth) {
 	// Set search limit to given depth.
 	SearchLimit limit;
-	searchLimitInit(&limit, 0);
+	searchLimitInit(&limit, timeGet());
 	searchLimitSetDepth(&limit, depth);
 
 	// Search and wait to complete.

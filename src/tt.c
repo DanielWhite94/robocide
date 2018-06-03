@@ -43,8 +43,8 @@ const size_t ttMaxSizeMb=(ttMaxClusters*sizeof(TTCluster))/(1024*1024); // 128gb
 // Private prototypes.
 ////////////////////////////////////////////////////////////////////////////////
 
-bool ttEntryMatch(const Pos *pos, const TTEntry *entry);
-bool ttEntryUnused(const TTEntry *entry);
+bool ttEntryMatch(const Pos *pos, TTEntry entry);
+bool ttEntryUnused(TTEntry entry);
 
 unsigned int ttEntryFitness(unsigned int age, Depth depth, bool exact);
 
@@ -80,29 +80,31 @@ void ttClear(void) {
 bool ttRead(const Pos *pos, Depth ply, Move *move, Depth *depth, Score *score, Bound *bound) {
 	// Grab cluster.
 	HTableKey hTableKey=ttHTableKeyFromPos(pos);
-	TTCluster *cluster=htableGrab(tt, hTableKey);
+	volatile TTCluster *cluster=htableGrab(tt, hTableKey);
+	htableRelease(tt, hTableKey); // There is no locking on the tt so we might as well call this now.
 
 	// Loop over entries in cluster looking for a match.
 	unsigned int i;
-	TTEntry *entry;
-	for(i=0,entry=cluster->entries;i<ttClusterSize;++i,++entry)
-		if (ttEntryMatch(pos, entry)) {
-			// Update entry date (to reset age to 0).
-			entry->date=searchGetDate();
+	for(i=0;i<ttClusterSize;++i) {
+		TTEntry entry=cluster->entries[i];
 
-			// Extract information.
-			*move=entry->move;
-			*depth=entry->depth;
-			*score=ttScoreOut(entry->score, ply);
-			*bound=entry->bound;
+		if (!ttEntryMatch(pos, entry))
+			continue;
 
-			htableRelease(tt, hTableKey);
+		// Update entry date (to reset age to 0).
+		entry.date=searchGetDate();
+		cluster->entries[i]=entry;
 
-			return true;
-		}
+		// Extract information.
+		*move=entry.move;
+		*depth=entry.depth;
+		*score=ttScoreOut(entry.score, ply);
+		*bound=entry.bound;
+
+		return true;
+	}
 
 	// No match.
-	htableRelease(tt, hTableKey);
 	return false;
 }
 
@@ -127,55 +129,61 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 
 	// Grab cluster.
 	HTableKey hTableKey=ttHTableKeyFromPos(pos);
-	TTCluster *cluster=htableGrab(tt, hTableKey);
+	volatile TTCluster *cluster=htableGrab(tt, hTableKey);
+	htableRelease(tt, hTableKey); // See comment in ttRead call to this.
 
 	// Find entry to overwrite.
-	TTEntry *entry, *replace=cluster->entries;
+	unsigned int replaceIndex=0;
 	unsigned int i, replaceScore=0; // Worst possible score.
-	for(i=0,entry=cluster->entries;i<ttClusterSize;++i,++entry) {
+	for(i=0;i<ttClusterSize;++i) {
+		TTEntry entry=cluster->entries[i];
+
 		// If we find an exact match, simply reuse this entry.
 		// We can also be certain that if this entry is unused, we will not find an
 		// exact match in a later entry (otherwise said later entry would have
 		// instead been written to this unused entry).
 		if (ttEntryMatch(pos, entry) || ttEntryUnused(entry)) {
 			// Set key (in case entry was previously unused).
-			entry->keyUpper=(key>>48);
+			entry.keyUpper=(key>>48);
 
 			// Update entry date (to reset age to 0).
-			entry->date=searchGetDate();
+			entry.date=searchGetDate();
 
 			// Update move if we have one and it is from a deeper search (or no move already stored).
-			if (!moveIsValid(entry->move) || (moveIsValid(move) && depth>=entry->depth))
-				entry->move=move;
+			if (!moveIsValid(entry.move) || (moveIsValid(move) && depth>=entry.depth))
+				entry.move=move;
 
 			// Update score, depth and bound if search was at least as deep as the entry depth.
-			if (depth>=entry->depth) {
-				entry->score=ttScoreIn(score, ply);
-				entry->depth=depth;
-				entry->bound=bound;
+			if (depth>=entry.depth) {
+				entry.score=ttScoreIn(score, ply);
+				entry.depth=depth;
+				entry.bound=bound;
 			}
 
-			htableRelease(tt, hTableKey);
+			// Update cluster/table
+			cluster->entries[i]=entry;
+
 			return;
 		}
 
 		// Otherwise check if entry is better to use than replace.
-		unsigned int entryScore=ttEntryFitness(searchDateToAge(entry->date), entry->depth, entry->bound==BoundExact);
+		unsigned int entryScore=ttEntryFitness(searchDateToAge(entry.date), entry.depth, entry.bound==BoundExact);
 		if (entryScore>replaceScore) {
-			replace=entry;
+			replaceIndex=i;
 			replaceScore=entryScore;
 		}
 	}
 
 	// Replace entry.
-	replace->keyUpper=(key>>48);
-	replace->move=move;
-	replace->score=ttScoreIn(score, ply);
-	replace->depth=depth;
-	replace->bound=bound;
-	replace->date=searchGetDate();
+	TTEntry replaceEntry;
+	replaceEntry.keyUpper=(key>>48);
+	replaceEntry.move=move;
+	replaceEntry.score=ttScoreIn(score, ply);
+	replaceEntry.depth=depth;
+	replaceEntry.bound=bound;
+	replaceEntry.date=searchGetDate();
 
-	htableRelease(tt, hTableKey);
+	cluster->entries[replaceIndex]=replaceEntry;
 }
 
 unsigned int ttFull(void) {
@@ -188,7 +196,7 @@ unsigned int ttFull(void) {
 
 		unsigned entry;
 		for(entry=0; entry<ttClusterSize && checked<1000; ++entry,++checked)
-			total+=(!ttEntryUnused(&cluster->entries[entry]));
+			total+=(!ttEntryUnused(cluster->entries[entry]));
 
 		htableRelease(tt, index);
 	}
@@ -200,13 +208,13 @@ unsigned int ttFull(void) {
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-bool ttEntryMatch(const Pos *pos, const TTEntry *entry) {
+bool ttEntryMatch(const Pos *pos, TTEntry entry) {
 	// Key match and move psueudo-legal?
-	return (entry->keyUpper==(posGetKey(pos)>>48) && posMoveIsPseudoLegal(pos, entry->move));
+	return (entry.keyUpper==(posGetKey(pos)>>48) && posMoveIsPseudoLegal(pos, entry.move));
 }
 
-bool ttEntryUnused(const TTEntry *entry) {
-	return (entry->move==MoveInvalid);
+bool ttEntryUnused(TTEntry entry) {
+	return (entry.move==MoveInvalid);
 }
 
 unsigned int ttEntryFitness(unsigned int age, Depth depth, bool exact) {

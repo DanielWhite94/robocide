@@ -4,38 +4,38 @@
 
 #include "history.h"
 
-const History HistoryMax=(((History)1)<<HistoryBit);
+const HistoryCounter HistoryCounterMax=(((HistoryCounter)1)<<HistoryCounterBit);
 
-History history[PieceNB][SqNB];
+History historyDummy;
 
-void historyInc(Piece fromPiece, Sq toSq, unsigned int depth) {
+void historyInc(History *history, Piece fromPiece, Sq toSq, unsigned int depth) {
 	assert(pieceIsValid(fromPiece));
 	assert(sqIsValid(toSq));
 
 	// Increment count in table.
-	History *counter=&history[fromPiece][toSq];
-	*counter+=(((History)1)<<utilMin(depth, HistoryBit-1));
+	HistoryCounter *counter=&history->counters[fromPiece][toSq];
+	*counter+=(((HistoryCounter)1)<<utilMin(depth, HistoryCounterBit-1));
 
 	// Overflow? (not a literal overflow, but beyond desired range).
-	if (*counter>=HistoryMax)
-		historyAge();
-	assert(*counter<HistoryMax);
+	if (*counter>=HistoryCounterMax)
+		historyAge(history);
+	assert(*counter<HistoryCounterMax);
 }
 
-History historyGet(Piece fromPiece, Sq toSq) {
+HistoryCounter historyGet(const History *history, Piece fromPiece, Sq toSq) {
 	assert(pieceIsValid(fromPiece));
 	assert(sqIsValid(toSq));
-	assert(history[fromPiece][toSq]<HistoryMax);
-	return history[fromPiece][toSq];
+	assert(history->counters[fromPiece][toSq]<HistoryCounterMax);
+	return history->counters[fromPiece][toSq];
 }
 
-void historyAge(void) {
+void historyAge(History *history) {
 	unsigned int i, j;
 	for(i=0;i<PieceNB;++i)
 		for(j=0;j<SqNB;++j)
-			history[i][j]/=2;
+			history->counters[i][j]/=2;
 }
 
-void historyClear(void) {
-	memset(history, 0, sizeof(history));
+void historyClear(History *history) {
+	memset(history, 0, sizeof(History));
 }

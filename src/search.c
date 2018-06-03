@@ -4,7 +4,6 @@
 #include "attacks.h"
 #include "bitbase.h"
 #include "eval.h"
-#include "history.h"
 #include "killers.h"
 #include "main.h"
 #include "score.h"
@@ -52,6 +51,7 @@ typedef struct {
 	Thread *thread;
 
 	Killers killers;
+	History history;
 	Pos *pos;
 	bool output;
 
@@ -202,7 +202,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	// If no search moves given via uci, fill with all legal moves.
 	if (searchLimit.searchMovesNext==searchLimit.searchMoves) {
 		Moves tempMoves;
-		movesInit(&tempMoves, searchThreadMain->pos, &searchThreadMain->killers, 0, MoveTypeAny);
+		movesInit(&tempMoves, searchThreadMain->pos, &searchThreadMain->killers, &searchThreadMain->history, 0, MoveTypeAny);
 		Move move;
 		while((move=movesNext(&tempMoves))!=MoveInvalid)
 			if (posCanMakeMove(searchThreadMain->pos, move))
@@ -242,14 +242,16 @@ unsigned long long int searchBenchmark(const Pos *pos, Depth depth) {
 }
 
 void searchClear(void) {
+	unsigned i;
+
 	// Clear history tables.
-	historyClear();
+	for(i=0; i<searchThreadCount; ++i)
+		historyClear(&searchThreads[i].history);
 
 	// Clear transposition table.
 	ttClear();
 
 	// Clear killer moves.
-	unsigned i;
 	for(i=0; i<searchThreadCount; ++i)
 		killersClear(&searchThreads[i].killers);
 
@@ -262,7 +264,7 @@ void searchPonderHit(void) {
 	lockPost(searchActivity);
 }
 
-MoveScore searchScoreMove(const Pos *pos, Move move) {
+MoveScore searchScoreMove(const Pos *pos, const History *history, Move move) {
 	// Sanity checks.
 	assert(moveIsValid(move));
 
@@ -279,10 +281,10 @@ MoveScore searchScoreMove(const Pos *pos, Move move) {
 			sqFile(fromSq)!=sqFile(toSqTrue))
 		capturedPieceType=PieceTypePawn; // En-passent capture.
 	MoveScore score=(capturedPieceType+toPieceType-fromPieceType)*8+(8-toPieceType);
-	score<<=HistoryBit;
+	score<<=HistoryCounterBit;
 
 	// Further sort using history tables
-	score+=historyGet(fromPiece, toSqTrue);
+	score+=historyGet(history, fromPiece, toSqTrue);
 
 	assert(score<MoveScoreMax);
 	return score;
@@ -447,7 +449,8 @@ void searchIDLoop(void *userData) {
 	}
 
 	// Age history table.
-	historyAge();
+	for(i=0; i<searchThreadCount; ++i)
+		historyAge(&searchThreads[i].history);
 
 	// Clear killers (do here to avoid having to spend time at start of next search).
 	for(i=0; i<searchThreadCount; ++i)
@@ -602,7 +605,7 @@ void searchNodeInternal(SearchThreadData *threadData, Node *node) {
 
 	// Move loop.
 	Moves moves;
-	movesInit(&moves, node->pos, &threadData->killers, node->ply, MoveTypeAny);
+	movesInit(&moves, node->pos, &threadData->killers, &searchThreadMain->history, node->ply, MoveTypeAny);
 	movesRewind(&moves, ttMove);
 	Score alpha=node->alpha;
 	node->score=ScoreInvalid;
@@ -743,7 +746,7 @@ void searchNodeInternal(SearchThreadData *threadData, Node *node) {
 		Piece fromPiece=moveGetToPiece(bestMove);
 		assert(fromPiece==posGetPieceOnSq(node->pos, moveGetFromSq(bestMove))); // Could only disagree if move is promotion, but these are classed as captures.
 		Sq toSq=moveGetToSqRaw(bestMove);
-		historyInc(fromPiece, toSq, node->depth);
+		historyInc(&threadData->history, fromPiece, toSq, node->depth);
 	}
 
 	// Update transposition table.
@@ -789,7 +792,7 @@ void searchQNodeInternal(SearchThreadData *threadData, Node *node) {
 	child.alpha=-node->beta;
 	child.beta=-alpha;
 	Moves moves;
-	movesInit(&moves, node->pos, &threadData->killers, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
+	movesInit(&moves, node->pos, &threadData->killers, &searchThreadMain->history, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
 	Move move;
 	bool noLegalMove=true;
 	while((move=movesNext(&moves))!=MoveInvalid) {

@@ -10,6 +10,8 @@ typedef struct {
 	Move moves[DepthMax][KillersPerPly];
 } Killers;
 
+extern Killers killersDummy;
+
 Move killersGet(const Killers *killers, Depth ply, unsigned killerIndex);
 void killersCutoff(Killers *killers, Depth ply, Move move);
 void killersClear(Killers *killers);

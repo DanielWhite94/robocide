@@ -13,7 +13,7 @@ void movesSort(ScoredMove *start, ScoredMove *end); // Descending order (best mo
 // Public functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-void movesInit(Moves *moves, const Pos *pos, const Killers *killers, Depth ply, MoveType type) {
+void movesInit(Moves *moves, const Pos *pos, const Killers *killers, History *history, Depth ply, MoveType type) {
 	assert(type==MoveTypeQuiet || type==MoveTypeCapture || type==MoveTypeAny);
 	assert(killers!=NULL);
 	moves->end=moves->next=moves->list;
@@ -21,6 +21,7 @@ void movesInit(Moves *moves, const Pos *pos, const Killers *killers, Depth ply, 
 	moves->ttMove=MoveInvalid;
 	moves->pos=pos;
 	moves->killers=killers;
+	moves->history=history;
 	moves->ply=ply;
 	moves->allowed=moves->needed=type;
 	moves->next=moves->list;
@@ -128,7 +129,7 @@ void movesPush(Moves *moves, Move move) {
 	assert(moves->end>=moves->list && moves->end<moves->list+MovesMax);
 
 	// Combine with score and add to list
-	MoveScore score=searchScoreMove(moves->pos, move);
+	MoveScore score=searchScoreMove(moves->pos, moves->history, move);
 	*moves->end++=scoredMoveMake(score, move);
 }
 

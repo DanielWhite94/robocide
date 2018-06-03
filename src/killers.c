@@ -2,6 +2,8 @@
 
 #include "killers.h"
 
+Killers killersDummy;
+
 Move killersGet(const Killers *killers, Depth ply, unsigned killerIndex) {
 	assert(ply<DepthMax);
 	assert(killerIndex<KillersPerPly);

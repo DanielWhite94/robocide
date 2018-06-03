@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "depth.h"
+#include "history.h"
 #include "move.h"
 #include "pos.h"
 #include "scoredmove.h"
@@ -38,7 +39,7 @@ void searchClear(void); // Clear any data search has collected (e.g. history tab
 
 void searchPonderHit(void); // Tell the search our pondering guess was correct.
 
-MoveScore searchScoreMove(const Pos *pos, Move move);
+MoveScore searchScoreMove(const Pos *pos, const History *history, Move move);
 
 unsigned int searchGetDate(void);
 unsigned int searchDateToAge(unsigned int date);

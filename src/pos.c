@@ -660,10 +660,8 @@ void posGenPseudoMoves(Moves *moves, MoveType type) {
 }
 
 Move posGenLegalMove(const Pos *pos, MoveType type) {
-	Killers killers;
-	killersClear(&killers);
 	Moves moves;
-	movesInit(&moves, pos, &killers, 0, type);
+	movesInit(&moves, pos, &killersDummy, &historyDummy, 0, type);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid)
 		if (posCanMakeMove(pos, move))
@@ -855,8 +853,10 @@ bool posMoveIsPseudoLegal(const Pos *pos, Move move) {
 #	ifndef NDEBUG
 	Killers killers;
 	killersClear(&killers);
+	History history;
+	historyClear(&history);
 	Moves moves;
-	movesInit(&moves, pos, &killers, 0, MoveTypeAny);
+	movesInit(&moves, pos, &killers, &history, 0, MoveTypeAny);
 	Move move2;
 	bool trueResult=false;
 	while((move2=movesNext(&moves))!=MoveInvalid)
@@ -920,11 +920,9 @@ bool posMoveIsCastlingH(const Pos *pos, Move move) {
 	return (pieceGetType(moveGetToPiece(move))==PieceTypeKing && moveGetToSqRaw(move)==pos->data->castRights.rookSq[posGetSTM(pos)][CastSideH]);
 }
 
-Move posMoveFromStr(const Pos *pos, const char str[static 6]){
-	Killers killers;
-	killersClear(&killers);
+Move posMoveFromStr(const Pos *pos, const char str[static 6]) {
 	Moves moves;
-	movesInit(&moves, pos, &killers, 0, MoveTypeAny);
+	movesInit(&moves, pos, &killersDummy, &historyDummy, 0, MoveTypeAny);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid)
 		if (strcmp(str, POSMOVETOSTR(pos, move))==0)

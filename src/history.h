@@ -6,13 +6,19 @@
 #include "piece.h"
 #include "square.h"
 
-typedef uint64_t History;
-#define HistoryBit 41
-extern const History HistoryMax;
+typedef uint64_t HistoryCounter;
+#define HistoryCounterBit 41
+extern const HistoryCounter HistoryCounterMax;
 
-void historyInc(Piece fromPiece, Sq toSq, unsigned int depth);
-History historyGet(Piece fromPiece, Sq toSq);
-void historyAge(void);
-void historyClear(void);
+typedef struct {
+	HistoryCounter counters[PieceNB][SqNB];
+} History;
+
+extern History historyDummy;
+
+void historyInc(History *history, Piece fromPiece, Sq toSq, unsigned int depth);
+HistoryCounter historyGet(const History *history, Piece fromPiece, Sq toSq);
+void historyAge(History *history);
+void historyClear(History *history);
 
 #endif

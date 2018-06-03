@@ -67,6 +67,7 @@ SearchThreadData searchThreads[SearchThreadCountMax];
 void searchThinkClear(void);
 
 void searchIDLoop(void *posPtr);
+void searchNodeSlaveInterface(void *userData);
 
 Score searchNode(const SearchThreadData *threadData, Node *node);
 Score searchQNode(const SearchThreadData *threadData, Node *node);
@@ -348,6 +349,8 @@ void searchThinkClear(void) {
 void searchIDLoop(void *userData) {
 	assert(userData!=NULL);
 
+	unsigned i;
+
 	SearchThreadData *threadData=(SearchThreadData *)userData;
 	assert(threadData==&searchThreads[0]);
 	Pos *searchPos=threadData->pos;
@@ -360,9 +363,10 @@ void searchIDLoop(void *userData) {
 		threadData->rootNode.alpha=-ScoreInf;
 		threadData->rootNode.beta=ScoreInf;
 		threadData->rootNode.inCheck=posIsSTMInCheck(threadData->rootNode.pos);
-		unsigned i;
-		for(i=1; i<searchThreadCount; ++i)
+		for(i=1; i<searchThreadCount; ++i) {
 			searchThreads[i].rootNode=threadData->rootNode;
+			searchThreads[i].rootNode.pos=searchThreads[i].pos;
+		}
 
 		// Loop, increasing search depth until we run out of 'time'.
 		for(threadData->rootNode.depth=1;threadData->rootNode.depth<=searchLimit.depth;++threadData->rootNode.depth) {
@@ -377,7 +381,14 @@ void searchIDLoop(void *userData) {
 			searchOutputDepthPre(&threadData->rootNode);
 
 			// Search
+			for(i=1; i<searchThreadCount; ++i) {
+				SearchThreadData *threadData=&searchThreads[i];
+				threadWaitReady(threadData->thread);
+				threadRun(threadData->thread, &searchNodeSlaveInterface, threadData);
+			}
 			searchNode(threadData, &threadData->rootNode);
+			for(i=1; i<searchThreadCount; ++i)
+				threadWaitReady(searchThreads[i].thread);
 
 			// No info found? (out of time/nodes/etc.).
 			if (threadData->rootNode.bound==BoundNone)
@@ -432,6 +443,13 @@ void searchIDLoop(void *userData) {
 
 	// Reset searchThink fields for next search
 	searchThinkClear();
+}
+
+void searchNodeSlaveInterface(void *userData) {
+	SearchThreadData *threadData=(SearchThreadData *)userData;
+
+	assert(threadData->rootNode.pos==threadData->pos);
+	searchNode(threadData, &threadData->rootNode);
 }
 
 Score searchNode(const SearchThreadData *threadData, Node *node) {
@@ -596,7 +614,7 @@ void searchNodeInternal(const SearchThreadData *threadData, Node *node) {
 
 		// Find move string for UCI output.
 		char moveStr[8]; // Only used if root node.
-		if (searchShowCurrmove && node->ply==0)
+		if (searchShowCurrmove && threadData->output && node->ply==0)
 			posMoveToStr(node->pos, move, moveStr); // Must do this before making the move.
 
 		// Make move (might leave us in check, if so skip).
@@ -606,7 +624,7 @@ void searchNodeInternal(const SearchThreadData *threadData, Node *node) {
 		++moveNumber;
 
 		// 'currmove' UCI output.
-		if (searchShowCurrmove && node->ply==0)
+		if (searchShowCurrmove && threadData->output && node->ply==0)
 			uciWrite("info depth %u currmove %s currmovenumber %u\n", node->depth, moveStr, moveNumber);
 
 		// Calculate child values.

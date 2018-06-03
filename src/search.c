@@ -605,7 +605,7 @@ void searchNodeInternal(SearchThreadData *threadData, Node *node) {
 
 	// Move loop.
 	Moves moves;
-	movesInit(&moves, node->pos, &threadData->killers, &searchThreadMain->history, node->ply, MoveTypeAny);
+	movesInit(&moves, node->pos, &threadData->killers, &threadData->history, node->ply, MoveTypeAny);
 	movesRewind(&moves, ttMove);
 	Score alpha=node->alpha;
 	node->score=ScoreInvalid;
@@ -792,7 +792,7 @@ void searchQNodeInternal(SearchThreadData *threadData, Node *node) {
 	child.alpha=-node->beta;
 	child.beta=-alpha;
 	Moves moves;
-	movesInit(&moves, node->pos, &threadData->killers, &searchThreadMain->history, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
+	movesInit(&moves, node->pos, &threadData->killers, &threadData->history, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
 	Move move;
 	bool noLegalMove=true;
 	while((move=movesNext(&moves))!=MoveInvalid) {

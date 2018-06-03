@@ -16,6 +16,8 @@ typedef struct {
 
 extern History historyDummy;
 
+void historyInit(void);
+
 void historyInc(History *history, Piece fromPiece, Sq toSq, unsigned int depth);
 HistoryCounter historyGet(const History *history, Piece fromPiece, Sq toSq);
 void historyAge(History *history);

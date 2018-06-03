@@ -8,6 +8,10 @@ const HistoryCounter HistoryCounterMax=(((HistoryCounter)1)<<HistoryCounterBit);
 
 History historyDummy;
 
+void historyInit(void) {
+	historyClear(&historyDummy);
+}
+
 void historyInc(History *history, Piece fromPiece, Sq toSq, unsigned int depth) {
 	assert(pieceIsValid(fromPiece));
 	assert(sqIsValid(toSq));

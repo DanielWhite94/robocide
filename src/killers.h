@@ -12,6 +12,8 @@ typedef struct {
 
 extern Killers killersDummy;
 
+void killersInit(void);
+
 Move killersGet(const Killers *killers, Depth ply, unsigned killerIndex);
 void killersCutoff(Killers *killers, Depth ply, Move move);
 void killersClear(Killers *killers);

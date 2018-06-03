@@ -12,6 +12,8 @@
 #include "uci.h"
 
 int main(int argc, char **argv) {
+	killersInit();
+	historyInit();
 	uciInit();
 	bbInit();
 	attacksInit();

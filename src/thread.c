@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdlib.h>
 #include <semaphore.h>
 #include <pthread.h>
@@ -116,7 +117,10 @@ void lockFree(Lock *lock) {
 }
 
 void lockWait(Lock *lock) {
-	sem_wait(&lock->lock);
+	do {
+		if (sem_wait(&lock->lock)==0)
+			return;
+	} while(errno==EINTR);
 }
 
 void lockPost(Lock *lock) {

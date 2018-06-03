@@ -127,6 +127,20 @@ bool lockTryWait(Lock *lock) {
 	return (sem_trywait(&lock->lock)==0);
 }
 
+bool atomicBoolGet(AtomicBool *abool) {
+	return __sync_xor_and_fetch(abool, 0);
+}
+
+void atomicBoolSet(AtomicBool *abool, bool value) {
+	bool oldValue=*abool;
+	while(1) {
+		bool newOldValue=__sync_val_compare_and_swap(abool, oldValue, value);
+		if (newOldValue==oldValue)
+			break;
+		oldValue=newOldValue;
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////

@@ -5,7 +5,7 @@
 
 typedef struct Thread Thread;
 typedef struct Lock Lock; // A semaphore.
-typedef struct SpinLock SpinLock; // A semaphore.
+typedef struct { volatile int value; } SpinLock;
 
 typedef bool AtomicBool;
 
@@ -23,9 +23,7 @@ void lockWait(Lock *lock);
 void lockPost(Lock *lock);
 bool lockTryWait(Lock *lock);
 
-SpinLock *spinLockNew(bool locked);
-void spinLockFree(SpinLock *spinLock);
-
+void spinLockInit(SpinLock *spinLock, bool locked);
 void spinLockWait(SpinLock *spinLock);
 void spinLockPost(SpinLock *spinLock);
 

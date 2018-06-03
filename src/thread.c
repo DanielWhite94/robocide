@@ -9,10 +9,6 @@ struct Lock {
 	sem_t lock;
 };
 
-struct SpinLock {
-	volatile int value;
-};
-
 struct Thread {
 	Lock *lock, *runFlag;
 	pthread_t id;
@@ -134,14 +130,8 @@ bool lockTryWait(Lock *lock) {
 	return (sem_trywait(&lock->lock)==0);
 }
 
-SpinLock *spinLockNew(bool locked) {
-	SpinLock *spinLock=malloc(sizeof(SpinLock));
+void spinLockInit(SpinLock *spinLock, bool locked) {
 	spinLock->value=(locked ? 1 : 0);
-	return spinLock;
-}
-
-void spinLockFree(SpinLock *spinLock) {
-	free(spinLock);
 }
 
 void spinLockWait(SpinLock *spinLock) {

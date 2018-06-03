@@ -34,6 +34,7 @@ typedef struct {
 unsigned long long int searchNodeCount; // Number of nodes entered since beginning of last search.
 unsigned long long int searchNodeNext; // Node count at which we should next check the time.
 bool searchStopFlag;
+AtomicBool searchHelperStopFlag;
 Lock *searchActivity=NULL; // Once reached depth limit, search will wait for this before printing bestmove command.
 TimeMs searchEndTime;
 TimeMs searchNextRegularOutputTime;
@@ -118,6 +119,9 @@ void searchInit(void) {
 	searchActivity=lockNew(0);
 	if (searchActivity==NULL)
 		mainFatalError("Error: Could not init lock for search.\n");
+
+	// Initialize helper thread stop flag.
+	atomicBoolSet(&searchHelperStopFlag, false);
 
 	// Set all structures to clean state.
 	searchClear();
@@ -386,9 +390,13 @@ void searchIDLoop(void *userData) {
 
 			// Start main thread.
 			searchNode(searchThreadMain, &searchThreadMain->rootNode);
-			// Wait for helper threads to be ready.
+
+			// Stop helper threads and wait until ready.
+			assert(!atomicBoolGet(&searchHelperStopFlag));
+			atomicBoolSet(&searchHelperStopFlag, true);
 			for(i=1; i<searchThreadCount; ++i)
 				threadWaitReady(searchThreads[i].thread);
+			atomicBoolSet(&searchHelperStopFlag, false);
 
 			// No info found? (out of time/nodes/etc.).
 			if (searchThreadMain->rootNode.bound==BoundNone)
@@ -839,9 +847,9 @@ bool searchIsTimeUp(const SearchThreadData *threadData) {
 	if (searchStopFlag)
 		return true;
 
-	// Only the main thread does any futher testing.
+	// Helper threads have simpler check.
 	if (threadData!=searchThreadMain)
-		return false;
+		return atomicBoolGet(&searchHelperStopFlag);
 
 	// Check node count.
 	if (searchNodeCount>=searchLimit.nodes)

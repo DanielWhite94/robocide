@@ -17,7 +17,7 @@ Lock *lockNew(unsigned int value);
 void lockFree(Lock *lock);
 
 void lockWait(Lock *lock);
-bool lockTryWait(Lock *lock);
 void lockPost(Lock *lock);
+bool lockTryWait(Lock *lock);
 
 #endif

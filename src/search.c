@@ -59,6 +59,7 @@ typedef struct {
 const int SearchThreadCountMax=128;
 long long searchThreadCount=0;
 SearchThreadData searchThreads[SearchThreadCountMax];
+SearchThreadData *searchThreadMain=&searchThreads[0];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.
@@ -196,15 +197,15 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	// If no search moves given via uci, fill with all legal moves.
 	if (searchLimit.searchMovesNext==searchLimit.searchMoves) {
 		Moves tempMoves;
-		movesInit(&tempMoves, searchThreads[0].pos, 0, MoveTypeAny);
+		movesInit(&tempMoves, searchThreadMain->pos, 0, MoveTypeAny);
 		Move move;
 		while((move=movesNext(&tempMoves))!=MoveInvalid)
-			if (posCanMakeMove(searchThreads[0].pos, move))
+			if (posCanMakeMove(searchThreadMain->pos, move))
 				*searchLimit.searchMovesNext++=move;
 	}
 
 	// Set away main worker
-	threadRun(searchThreads[0].thread, &searchIDLoop, &searchThreads[0]);
+	threadRun(searchThreadMain->thread, &searchIDLoop, NULL);
 }
 
 void searchStop(void) {
@@ -218,7 +219,7 @@ void searchStop(void) {
 }
 
 void searchWaitStop(void) {
-	threadWaitReady(searchThreads[0].thread);
+	threadWaitReady(searchThreadMain->thread);
 }
 
 unsigned long long int searchBenchmark(const Pos *pos, Depth depth) {
@@ -347,58 +348,57 @@ void searchThinkClear(void) {
 }
 
 void searchIDLoop(void *userData) {
-	assert(userData!=NULL);
+	assert(userData==NULL);
 
 	unsigned i;
 
-	SearchThreadData *threadData=(SearchThreadData *)userData;
-	assert(threadData==&searchThreads[0]);
-	Pos *searchPos=threadData->pos;
+	Pos *searchPos=searchThreadMain->pos;
 
 	// Only search if more than one legal move available (including restrictions by searchmoves argument), or in infinite/analysis mode.
 	if (searchLimit.searchMovesNext>searchLimit.searchMoves || searchLimit.infinite) {
 		// Make node structure for root node.
-		threadData->rootNode.pos=searchPos;
-		threadData->rootNode.ply=0;
-		threadData->rootNode.alpha=-ScoreInf;
-		threadData->rootNode.beta=ScoreInf;
-		threadData->rootNode.inCheck=posIsSTMInCheck(threadData->rootNode.pos);
+		searchThreadMain->rootNode.pos=searchPos;
+		searchThreadMain->rootNode.ply=0;
+		searchThreadMain->rootNode.alpha=-ScoreInf;
+		searchThreadMain->rootNode.beta=ScoreInf;
+		searchThreadMain->rootNode.inCheck=posIsSTMInCheck(searchThreadMain->rootNode.pos);
 		for(i=1; i<searchThreadCount; ++i) {
-			searchThreads[i].rootNode=threadData->rootNode;
+			searchThreads[i].rootNode=searchThreadMain->rootNode;
 			searchThreads[i].rootNode.pos=searchThreads[i].pos;
 		}
 
 		// Loop, increasing search depth until we run out of 'time'.
-		for(threadData->rootNode.depth=1;threadData->rootNode.depth<=searchLimit.depth;++threadData->rootNode.depth) {
-			for(i=1; i<searchThreadCount; ++i)
-				searchThreads[i].rootNode.depth=threadData->rootNode.depth;
-
+		for(searchThreadMain->rootNode.depth=1;searchThreadMain->rootNode.depth<=searchLimit.depth;++searchThreadMain->rootNode.depth) {
 			// After 1s start showing 'currmove' info.
-			if (threadData->output && timeGet()>=searchLimit.startTime+1000)
+			if (searchThreadMain->output && timeGet()>=searchLimit.startTime+1000)
 				searchShowCurrmove=true;
 
 			// Output pre info.
-			searchOutputDepthPre(&threadData->rootNode);
+			searchOutputDepthPre(&searchThreadMain->rootNode);
 
-			// Search
+			// Start any helper threads.
 			for(i=1; i<searchThreadCount; ++i) {
-				SearchThreadData *threadData=&searchThreads[i];
-				threadWaitReady(threadData->thread);
-				threadRun(threadData->thread, &searchNodeSlaveInterface, threadData);
+				SearchThreadData *helperThreadData=&searchThreads[i];
+				threadWaitReady(helperThreadData->thread);
+				helperThreadData->rootNode.depth=searchThreadMain->rootNode.depth;
+				threadRun(helperThreadData->thread, &searchNodeSlaveInterface, helperThreadData);
 			}
-			searchNode(threadData, &threadData->rootNode);
+
+			// Start main thread.
+			searchNode(searchThreadMain, &searchThreadMain->rootNode);
+			// Wait for helper threads to be ready.
 			for(i=1; i<searchThreadCount; ++i)
 				threadWaitReady(searchThreads[i].thread);
 
 			// No info found? (out of time/nodes/etc.).
-			if (threadData->rootNode.bound==BoundNone)
+			if (searchThreadMain->rootNode.bound==BoundNone)
 				break;
 
 			// Output post info.
-			searchOutputDepthPost(&threadData->rootNode);
+			searchOutputDepthPost(&searchThreadMain->rootNode);
 
 			// Time to end?
-			if (searchIsTimeUp(threadData))
+			if (searchIsTimeUp(searchThreadMain))
 				break;
 		}
 	}
@@ -424,7 +424,7 @@ void searchIDLoop(void *userData) {
 		lockWait(searchActivity);
 
 	// Send best move (and potentially ponder move) to GUI.
-	if (threadData->output) {
+	if (searchThreadMain->output) {
 		char str[8];
 		posMoveToStr(searchPos, bestMove, str);
 		if (moveIsValid(ponderMove)) {
@@ -840,7 +840,7 @@ bool searchIsTimeUp(const SearchThreadData *threadData) {
 		return true;
 
 	// Only the main thread does any futher testing.
-	if (threadData!=&searchThreads[0])
+	if (threadData!=searchThreadMain)
 		return false;
 
 	// Check node count.
@@ -885,7 +885,7 @@ bool searchIsTimeUp(const SearchThreadData *threadData) {
 }
 
 void searchOutputRegular(void) {
-	if (!searchThreads[0].output)
+	if (!searchThreadMain->output)
 		return;
 
 	TimeMs time=timeGet()-searchLimit.startTime;
@@ -896,7 +896,7 @@ void searchOutputRegular(void) {
 }
 
 void searchOutputDepthPre(Node *node) {
-	if (!searchThreads[0].output)
+	if (!searchThreadMain->output)
 		return;
 
 	uciWrite("info depth %u\n", (unsigned int)node->depth);
@@ -906,7 +906,7 @@ void searchOutputDepthPost(Node *node) {
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
 
-	if (!searchThreads[0].output)
+	if (!searchThreadMain->output)
 		return;
 
 	// Various bits of data

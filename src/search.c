@@ -577,8 +577,7 @@ void searchNodeInternal(const SearchThreadData *threadData, Node *node) {
 		Score score=-searchNode(threadData, &child);
 		posUndoMove(node->pos);
 
-		if (score>=node->beta)
-		{
+		if (score>=node->beta) {
 			node->bound=BoundLower;
 			node->score=node->beta;
 			return;

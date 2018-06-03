@@ -6,9 +6,12 @@
 
 #define KillersPerPly 4
 
-extern Move killers[DepthMax][KillersPerPly];
+typedef struct {
+	Move moves[DepthMax][KillersPerPly];
+} Killers;
 
-void killersCutoff(Depth ply, Move move);
-void killersClear(void);
+Move killersGet(const Killers *killers, Depth ply, unsigned killerIndex);
+void killersCutoff(Killers *killers, Depth ply, Move move);
+void killersClear(Killers *killers);
 
 #endif

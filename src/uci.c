@@ -229,8 +229,10 @@ void uciLoop(void) {
 		} else if (utilStrEqual(part, "bitbase")) {
 			if (evalGetMatType(pos)==EvalMatTypeKPvK) {
 				uciWrite("BitBase:\n");
+				Killers killers;
+				killersClear(&killers);
 				Moves moves;
-				movesInit(&moves, pos, 0, MoveTypeAny);
+				movesInit(&moves, pos, &killers, 0, MoveTypeAny);
 				Move move;
 				while((move=movesNext(&moves))!=MoveInvalid) {
 					char str[8];
@@ -254,8 +256,10 @@ void uciLoop(void) {
 			unsigned int depth=atoi(part);
 			divide(pos, depth);
 		} else if (utilStrEqual(part, "see")) {
+			Killers killers;
+			killersClear(&killers);
 			Moves moves;
-			movesInit(&moves, pos, 0, MoveTypeAny);
+			movesInit(&moves, pos, &killers, 0, MoveTypeAny);
 			Move move;
 			while((move=movesNext(&moves))!=MoveInvalid) {
 				Sq toSq=posMoveGetToSqTrue(pos, move);

@@ -1,6 +1,5 @@
 #include <assert.h>
 
-#include "killers.h"
 #include "moves.h"
 #include "search.h"
 
@@ -14,12 +13,14 @@ void movesSort(ScoredMove *start, ScoredMove *end); // Descending order (best mo
 // Public functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type) {
+void movesInit(Moves *moves, const Pos *pos, const Killers *killers, Depth ply, MoveType type) {
 	assert(type==MoveTypeQuiet || type==MoveTypeCapture || type==MoveTypeAny);
+	assert(killers!=NULL);
 	moves->end=moves->next=moves->list;
 	moves->stage=MovesStageTT;
 	moves->ttMove=MoveInvalid;
 	moves->pos=pos;
+	moves->killers=killers;
 	moves->ply=ply;
 	moves->allowed=moves->needed=type;
 	moves->next=moves->list;
@@ -68,7 +69,7 @@ Move movesNext(Moves *moves) {
 		case MovesStageKillers:
 			while(moves->killersIndex<KillersPerPly) {
 				// Check if any killers left.
-				Move move=killers[moves->ply][moves->killersIndex++];
+				Move move=killersGet(moves->killers, moves->ply, moves->killersIndex++);
 				if (move==MoveInvalid)
 					break;
 
@@ -104,7 +105,7 @@ Move movesNext(Moves *moves) {
 					continue;
 				int i;
 				for(i=0;i<KillersPerPly;++i)
-					if (move==killers[moves->ply][i])
+					if (move==killersGet(moves->killers, moves->ply, i))
 						break;
 				if (i==KillersPerPly)
 					return move;

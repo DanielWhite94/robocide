@@ -6,6 +6,7 @@
 typedef struct Moves Moves;
 
 #include "depth.h"
+#include "killers.h"
 #include "move.h"
 #include "pos.h"
 #include "scoredmove.h"
@@ -21,11 +22,12 @@ struct Moves
 	Move ttMove;
 	unsigned int killersIndex;
 	const Pos *pos;
+	const Killers *killers;
 	Depth ply;
 	MoveType allowed, needed;
 };
 
-void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type);
+void movesInit(Moves *moves, const Pos *pos, const Killers *killers, Depth ply, MoveType type);
 
 void movesRewind(Moves *moves, Move ttMove);
 

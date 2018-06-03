@@ -660,8 +660,10 @@ void posGenPseudoMoves(Moves *moves, MoveType type) {
 }
 
 Move posGenLegalMove(const Pos *pos, MoveType type) {
+	Killers killers;
+	killersClear(&killers);
 	Moves moves;
-	movesInit(&moves, pos, 0, type);
+	movesInit(&moves, pos, &killers, 0, type);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid)
 		if (posCanMakeMove(pos, move))
@@ -851,8 +853,10 @@ bool posHasPieces(const Pos *pos, Colour colour) {
 bool posMoveIsPseudoLegal(const Pos *pos, Move move) {
 	bool result=posMoveIsPseudoLegalInternal(pos, move);
 #	ifndef NDEBUG
+	Killers killers;
+	killersClear(&killers);
 	Moves moves;
-	movesInit(&moves, pos, 0, MoveTypeAny);
+	movesInit(&moves, pos, &killers, 0, MoveTypeAny);
 	Move move2;
 	bool trueResult=false;
 	while((move2=movesNext(&moves))!=MoveInvalid)
@@ -917,8 +921,10 @@ bool posMoveIsCastlingH(const Pos *pos, Move move) {
 }
 
 Move posMoveFromStr(const Pos *pos, const char str[static 6]){
+	Killers killers;
+	killersClear(&killers);
 	Moves moves;
-	movesInit(&moves, pos, 0, MoveTypeAny);
+	movesInit(&moves, pos, &killers, 0, MoveTypeAny);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid)
 		if (strcmp(str, POSMOVETOSTR(pos, move))==0)

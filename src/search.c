@@ -51,6 +51,7 @@ bool searchPonder=true;
 typedef struct {
 	Thread *thread;
 
+	Killers killers;
 	Pos *pos;
 	bool output;
 
@@ -71,10 +72,10 @@ void searchThinkClear(void);
 void searchIDLoop(void *posPtr);
 void searchNodeSlaveInterface(void *userData);
 
-Score searchNode(const SearchThreadData *threadData, Node *node);
-Score searchQNode(const SearchThreadData *threadData, Node *node);
-void searchNodeInternal(const SearchThreadData *threadData, Node *node);
-void searchQNodeInternal(const SearchThreadData *threadData, Node *node);
+Score searchNode(SearchThreadData *threadData, Node *node);
+Score searchQNode(SearchThreadData *threadData, Node *node);
+void searchNodeInternal(SearchThreadData *threadData, Node *node);
+void searchQNodeInternal(SearchThreadData *threadData, Node *node);
 
 bool searchIsTimeUp(const SearchThreadData *threadData);
 
@@ -201,7 +202,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	// If no search moves given via uci, fill with all legal moves.
 	if (searchLimit.searchMovesNext==searchLimit.searchMoves) {
 		Moves tempMoves;
-		movesInit(&tempMoves, searchThreadMain->pos, 0, MoveTypeAny);
+		movesInit(&tempMoves, searchThreadMain->pos, &searchThreadMain->killers, 0, MoveTypeAny);
 		Move move;
 		while((move=movesNext(&tempMoves))!=MoveInvalid)
 			if (posCanMakeMove(searchThreadMain->pos, move))
@@ -248,7 +249,9 @@ void searchClear(void) {
 	ttClear();
 
 	// Clear killer moves.
-	killersClear();
+	unsigned i;
+	for(i=0; i<searchThreadCount; ++i)
+		killersClear(&searchThreads[i].killers);
 
 	// Reset search date.
 	searchDate=0;
@@ -447,7 +450,8 @@ void searchIDLoop(void *userData) {
 	historyAge();
 
 	// Clear killers (do here to avoid having to spend time at start of next search).
-	killersClear();
+	for(i=0; i<searchThreadCount; ++i)
+		killersClear(&searchThreads[i].killers);
 
 	// Reset searchThink fields for next search
 	searchThinkClear();
@@ -460,7 +464,7 @@ void searchNodeSlaveInterface(void *userData) {
 	searchNode(threadData, &threadData->rootNode);
 }
 
-Score searchNode(const SearchThreadData *threadData, Node *node) {
+Score searchNode(SearchThreadData *threadData, Node *node) {
 # ifndef NDEBUG
 	// Save node_t structure for post-checks.
 	Node preNode=*node;
@@ -480,7 +484,7 @@ Score searchNode(const SearchThreadData *threadData, Node *node) {
 	return node->score;
 }
 
-Score searchQNode(const SearchThreadData *threadData, Node *node) {
+Score searchQNode(SearchThreadData *threadData, Node *node) {
 # ifndef NDEBUG
 	// Save node_t structure for post-checks.
 	Node preNode=*node;
@@ -501,7 +505,7 @@ Score searchQNode(const SearchThreadData *threadData, Node *node) {
 	return node->score;
 }
 
-void searchNodeInternal(const SearchThreadData *threadData, Node *node) {
+void searchNodeInternal(SearchThreadData *threadData, Node *node) {
 	// Q node?
 	if (searchNodeIsQ(node)) {
 		searchQNode(threadData, node);
@@ -598,7 +602,7 @@ void searchNodeInternal(const SearchThreadData *threadData, Node *node) {
 
 	// Move loop.
 	Moves moves;
-	movesInit(&moves, node->pos, node->ply, MoveTypeAny);
+	movesInit(&moves, node->pos, &threadData->killers, node->ply, MoveTypeAny);
 	movesRewind(&moves, ttMove);
 	Score alpha=node->alpha;
 	node->score=ScoreInvalid;
@@ -699,7 +703,7 @@ void searchNodeInternal(const SearchThreadData *threadData, Node *node) {
 				if (score>=node->beta) {
 					// Update killers.
 					if (posMoveGetType(node->pos, bestMove)==MoveTypeQuiet)
-						killersCutoff(node->ply, bestMove);
+						killersCutoff(&threadData->killers, node->ply, bestMove);
 
 					goto cutoff;
 				}
@@ -748,7 +752,7 @@ void searchNodeInternal(const SearchThreadData *threadData, Node *node) {
 	return;
 }
 
-void searchQNodeInternal(const SearchThreadData *threadData, Node *node) {
+void searchQNodeInternal(SearchThreadData *threadData, Node *node) {
 	// Ply limit reached?
 	if (node->ply>=DepthMax) {
 		node->bound=BoundExact;
@@ -785,7 +789,7 @@ void searchQNodeInternal(const SearchThreadData *threadData, Node *node) {
 	child.alpha=-node->beta;
 	child.beta=-alpha;
 	Moves moves;
-	movesInit(&moves, node->pos, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
+	movesInit(&moves, node->pos, &threadData->killers, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
 	Move move;
 	bool noLegalMove=true;
 	while((move=movesNext(&moves))!=MoveInvalid) {

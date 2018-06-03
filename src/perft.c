@@ -29,8 +29,10 @@ void divide(Pos *pos, Depth depth) {
 		return;
 
 	unsigned long long int total=0;
+	Killers killers;
+	killersClear(&killers);
 	Moves moves;
-	movesInit(&moves, pos, 0, MoveTypeAny);
+	movesInit(&moves, pos, &killers, 0, MoveTypeAny);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid) {
 		char str[8];
@@ -52,8 +54,10 @@ unsigned long long int perftRaw(Pos *pos, Depth depth) {
 		return 1;
 
 	unsigned long long int total=0;
+	Killers killers;
+	killersClear(&killers);
 	Moves moves;
-	movesInit(&moves, pos, 0, MoveTypeAny);
+	movesInit(&moves, pos, &killers, 0, MoveTypeAny);
 	Move move;
 
 	if (depth==1) {

@@ -182,16 +182,6 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	if (searchTime!=TimeMsInvalid)
 		searchEndTime=searchLimit.startTime+searchTime;
 
-	// If no search moves given via uci, fill with all legal moves.
-	if (searchLimit.searchMovesNext==searchLimit.searchMoves) {
-		Moves tempMoves;
-		movesInit(&tempMoves, searchPos, 0, MoveTypeAny);
-		Move move;
-		while((move=movesNext(&tempMoves))!=MoveInvalid)
-			if (posCanMakeMove(searchPos, move))
-				*searchLimit.searchMovesNext++=move;
-	}
-
 	// Set away worker
 	threadRun(searchThread, &searchIDLoop, NULL);
 }
@@ -338,45 +328,46 @@ void searchThinkClear(void) {
 void searchIDLoop(void *userData) {
 	assert(userData==NULL);
 
-	// Only search if more than one legal move available (including restrictions by searchmoves argument), or in infinite/analysis mode.
-	if (searchLimit.searchMovesNext>searchLimit.searchMoves || searchLimit.infinite) {
-		// Make node structure for root node.
-		Node node;
-		node.pos=searchPos;
-		node.ply=0;
-		node.alpha=-ScoreInf;
-		node.beta=ScoreInf;
-		node.inCheck=posIsSTMInCheck(node.pos);
+	// Make node structure for root node.
+	Node node;
+	node.pos=searchPos;
+	node.ply=0;
+	node.alpha=-ScoreInf;
+	node.beta=ScoreInf;
+	node.inCheck=posIsSTMInCheck(node.pos);
 
-		// Loop, increasing search depth until we run out of 'time'.
-		for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
-			// After 1s start showing 'currmove' info.
-			if (searchOutput && timeGet()>=searchLimit.startTime+1000)
-				searchShowCurrmove=true;
+	// Loop, increasing search depth until we run out of 'time'.
+	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
+		// After 1s start showing 'currmove' info.
+		if (searchOutput && timeGet()>=searchLimit.startTime+1000)
+			searchShowCurrmove=true;
 
-			// Output pre info.
-			searchOutputDepthPre(&node);
+		// Output pre info.
+		searchOutputDepthPre(&node);
 
-			// Search
-			searchNode(&node);
+		// Search
+		searchNode(&node);
 
-			// No info found? (out of time/nodes/etc.).
-			if (node.bound==BoundNone)
-				break;
+		// No info found? (out of time/nodes/etc.).
+		if (node.bound==BoundNone)
+			break;
 
-			// Output post info.
-			searchOutputDepthPost(&node);
+		// Output post info.
+		searchOutputDepthPost(&node);
 
-			// Time to end?
-			if (searchIsTimeUp())
-				break;
-		}
+		// Time to end?
+		if (searchIsTimeUp())
+			break;
 	}
 
-	// Grab best move from TT if available, otherwise choose a legal move from searchmoves given.
+	// Grab best move from TT if available, otherwise choose a legal move at random (potentially restricted by searchmoves if given).
 	Move bestMove=ttReadMove(searchPos);
-	if ((!moveIsValid(bestMove) || !posCanMakeMove(searchPos, bestMove)) && searchLimit.searchMovesNext>searchLimit.searchMoves)
-		bestMove=searchLimit.searchMoves[0];
+	if (!moveIsValid(bestMove) || !posCanMakeMove(searchPos, bestMove)) {
+		if (searchLimit.searchMovesNext>searchLimit.searchMoves)
+			bestMove=searchLimit.searchMoves[0];
+		else
+			bestMove=posGenLegalMove(searchPos, MoveTypeAny);
+	}
 
 	// If in pondering mode try to extract ponder move.
 	Move ponderMove=MoveInvalid;
@@ -566,7 +557,7 @@ void searchNodeInternal(Node *node) {
 	unsigned moveNumber=0;
 	while((move=movesNext(&moves))!=MoveInvalid) {
 		// If we are the root ensure this move is one that was specified (if any restriction given)
-		if (node->ply==0) {
+		if (node->ply==0 && searchLimit.searchMovesNext>searchLimit.searchMoves) {
 			Move *movePtr;
 			for(movePtr=searchLimit.searchMoves; movePtr!=searchLimit.searchMovesNext; ++movePtr)
 				if (move==*movePtr)

@@ -10,7 +10,7 @@ struct HTable {
 	size_t entrySize;
 	size_t entryCount;
 	void *entries;
-	int lockCount;
+	unsigned lockCountMask;
 	SpinLock *locks;
 };
 
@@ -27,10 +27,11 @@ uint64_t htableKeyToIndex(const HTable *table, HTableKey key);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-HTable *htableNew(size_t entrySize, unsigned int sizeMb, int lockCount) {
+HTable *htableNew(size_t entrySize, unsigned int sizeMb, unsigned lockCountShift) {
 	// Sanity checks.
 	assert(sizeMb>0);
-	assert(lockCount>=0);
+
+	unsigned lockCount=(lockCountShift>0 ? (1u<<((unsigned)lockCountShift)) : 0);
 
 	// Allocate memory.
 	HTable *table=malloc(sizeof(HTable));
@@ -45,12 +46,12 @@ HTable *htableNew(size_t entrySize, unsigned int sizeMb, int lockCount) {
 	table->entrySize=entrySize;
 	table->entryCount=0;
 	table->entries=NULL;
-	table->lockCount=lockCount;
+	table->lockCountMask=(lockCount>0 ? lockCount-1 : 0);
 	table->locks=locks;
 
 	// Create locks
 	int i;
-	for(i=0; i<table->lockCount; ++i)
+	for(i=0; i<lockCount; ++i)
 		spinLockInit(&table->locks[i], false);
 
 	// Set to desired size.
@@ -113,16 +114,16 @@ void htableClearInterface(void *table) {
 void *htableGrab(HTable *table, HTableKey key) {
 	uint64_t index=htableKeyToIndex(table, key);
 
-	if (table->lockCount>0)
-		spinLockWait(&table->locks[index%table->lockCount]);
+	if (table->lockCountMask)
+		spinLockWait(&table->locks[index&table->lockCountMask]);
 
 	return htableIndexToEntry(table, index);
 }
 
 void htableRelease(HTable *table, HTableKey key) {
-	if (table->lockCount>0) {
+	if (table->lockCountMask) {
 		uint64_t index=htableKeyToIndex(table, key);
-		spinLockPost(&table->locks[index%table->lockCount]);
+		spinLockPost(&table->locks[index&table->lockCountMask]);
 	}
 }
 

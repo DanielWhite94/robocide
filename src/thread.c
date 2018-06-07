@@ -158,6 +158,20 @@ void atomicBoolSet(AtomicBool *abool, bool value) {
 	}
 }
 
+uint64_t atomicUInt64Get(AtomicUInt64 *auint64) {
+	return __sync_xor_and_fetch(auint64, 0);
+}
+
+void atomicUInt64Set(AtomicUInt64 *auint64, uint64_t value) {
+	uint64_t oldValue=*auint64;
+	while(1) {
+		uint64_t newOldValue=__sync_val_compare_and_swap(auint64, oldValue, value);
+		if (newOldValue==oldValue)
+			break;
+		oldValue=newOldValue;
+	}
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////

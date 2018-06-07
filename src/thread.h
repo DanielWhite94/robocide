@@ -2,12 +2,14 @@
 #define THREAD_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct Thread Thread;
 typedef struct Lock Lock; // A semaphore.
 typedef struct { volatile int value; } SpinLock;
 
-typedef bool AtomicBool;
+typedef volatile bool AtomicBool;
+typedef volatile uint64_t AtomicUInt64;
 
 Thread *threadNew(void);
 void threadFree(Thread *thread); // Waits until thread is ready.
@@ -29,5 +31,8 @@ void spinLockPost(SpinLock *spinLock);
 
 bool atomicBoolGet(AtomicBool *abool);
 void atomicBoolSet(AtomicBool *abool, bool value);
+
+uint64_t atomicUInt64Get(AtomicUInt64 *auint64);
+void atomicUInt64Set(AtomicUInt64 *auint64, uint64_t value);
 
 #endif

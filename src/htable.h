@@ -10,7 +10,7 @@ typedef uint32_t HTableKey;
 
 typedef struct HTable HTable;
 
-HTable *htableNew(size_t entrySize, unsigned int sizeMb, unsigned lockCountShift); // if lockCount is 0, no locking, otherwise use 2^lockCountShift locks
+HTable *htableNew(size_t entrySize, unsigned int sizeMb, unsigned lockCountShift); // use 2^lockCountShift locks
 void htableFree(HTable *table);
 
 bool htableResize(HTable *table, unsigned int sizeMb); // SizeMb>0.

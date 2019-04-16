@@ -7,7 +7,7 @@ UCI protocol.
 In addition to the usual features of modern chess engines such as a
 transposition table and null-move-pruning, Robocide also tries to implement much
 special case knowledge. An example of this can be seen in blocked/fortress
-positions such as 3B4/1r2p3/r2p1p2/bkp1P1p1/1p1P1PPp/p1P1K2P/PPB5/8 w - -.
+positions such as `3B4/1r2p3/r2p1p2/bkp1P1p1/1p1P1PPp/p1P1K2P/PPB5/8 w - -`.
 Another non-standard feature is the ability to compile a 'tuning' version, where
 many of the search and evaluation parameters can be adjusted, see the section on
 UCI options for more information.

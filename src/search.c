@@ -523,8 +523,7 @@ void searchNodeInternal(Node *node) {
 		Score score=-searchNode(&child);
 		posUndoMove(node->pos);
 
-		if (score>=node->beta)
-		{
+		if (score>=node->beta) {
 			node->bound=BoundLower;
 			node->score=node->beta;
 			return;

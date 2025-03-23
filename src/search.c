@@ -172,8 +172,8 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 		if (searchLimit.incTime==TimeMsInvalid)
 			searchLimit.incTime=0;
 		if (searchLimit.movesToGo==0)
-			searchLimit.movesToGo=25;
-		TimeMs maxTime=searchLimit.totalTime-25;
+			searchLimit.movesToGo=20;
+		TimeMs maxTime=searchLimit.totalTime-20;
 		searchTime=utilMin(searchTime, searchLimit.totalTime/searchLimit.movesToGo+searchLimit.incTime);
 		searchTime=utilMin(searchTime, maxTime);
 	}

@@ -85,7 +85,7 @@ bool posIsSqAttackedByColour(const Pos *pos, Sq sq, Colour colour);
 
 bool posIsSTMInCheck(const Pos *pos);
 
-bool posIsDraw(const Pos *pos, unsigned int ply);
+bool posIsDraw(const Pos *pos);
 bool posIsMate(const Pos *pos);
 bool posIsStalemate(const Pos *pos);
 

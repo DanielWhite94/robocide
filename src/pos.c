@@ -708,7 +708,7 @@ bool posIsSTMInCheck(const Pos *pos) {
 	return posIsSqAttackedByColour(pos, posGetKingSq(pos, pos->stm), colourSwap(pos->stm));
 }
 
-bool posIsDraw(const Pos *pos, unsigned int ply) {
+bool posIsDraw(const Pos *pos) {
 	// False positives are bad, false negatives are OK.
 
 	// Repetition (2-fold).

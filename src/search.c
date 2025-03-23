@@ -891,7 +891,7 @@ void searchOutputDepthPost(Node *node) {
 		uciWrite(" %s", str);
 
 		// Draw? (don't want infinite PVs in case of repetition).
-		if (posIsDraw(node->pos, ply))
+		if (posIsDraw(node->pos))
 			break;
 	}
 
@@ -979,7 +979,7 @@ bool searchInteriorRecog(Node *node) {
 	assert(depthIsValid(node->ply));
 
 	// Test for draws by rule (and rare checkmates).
-	if (posIsDraw(node->pos, node->ply)) {
+	if (posIsDraw(node->pos)) {
 		node->bound=BoundExact;
 
 		// In rare cases checkmate can be given on 100th half move.

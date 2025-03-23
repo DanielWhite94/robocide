@@ -9,7 +9,7 @@
 #include "uci.h"
 #include "util.h"
 
-// Transposition table entry - 128 bits.
+// Transposition table entry - 64 bits.
 STATICASSERT(MoveBit<=16);
 STATICASSERT(ScoreBit<=16);
 STATICASSERT(DepthBit<=8);

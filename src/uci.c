@@ -133,12 +133,12 @@ void uciLoop(void) {
 			bool inSearchMoves=false;
 			while((part=strtok_r(NULL, " ", &savePtr))!=NULL) {
 				if ((utilStrEqual(part, "wtime") && posGetSTM(pos)==ColourWhite) ||
-						(utilStrEqual(part, "btime") && posGetSTM(pos)==ColourBlack)) {
+				    (utilStrEqual(part, "btime") && posGetSTM(pos)==ColourBlack)) {
 					inSearchMoves=false;
 					if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
 						searchLimitSetTotalTime(&limit, atoll(part));
 				} else if ((utilStrEqual(part, "winc") && posGetSTM(pos)==ColourWhite) ||
-								 (utilStrEqual(part, "binc") && posGetSTM(pos)==ColourBlack)) {
+				           (utilStrEqual(part, "binc") && posGetSTM(pos)==ColourBlack)) {
 					inSearchMoves=false;
 					if ((part=strtok_r(NULL, " ", &savePtr))!=NULL)
 						searchLimitSetIncTime(&limit, atoll(part));

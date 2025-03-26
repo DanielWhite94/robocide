@@ -369,7 +369,7 @@ void searchIDLoop(void *userData) {
 	}
 
 	// Grab best move from TT if available, otherwise choose a legal move at random (potentially restricted by searchmoves if given).
-	Move bestMove=ttReadMove(searchPos);
+	Move bestMove=ttReadMove(searchPos, 0);
 	if (!moveIsValid(bestMove) || !posCanMakeMove(searchPos, bestMove)) {
 		if (searchLimit.searchMovesNext>searchLimit.searchMoves)
 			bestMove=searchLimit.searchMoves[0];
@@ -382,7 +382,7 @@ void searchIDLoop(void *userData) {
 	if (searchPonder && moveIsValid(bestMove)) {
 		assert(posCanMakeMove(searchPos, bestMove));
 		posMakeMove(searchPos, bestMove);
-		ponderMove=ttReadMove(searchPos);
+		ponderMove=ttReadMove(searchPos, 1);
 		if (!moveIsValid(ponderMove) || !posCanMakeMove(searchPos, ponderMove))
 			ponderMove=posGenLegalMove(searchPos, MoveTypeAny);
 		posUndoMove(searchPos);
@@ -547,7 +547,7 @@ void searchNodeInternal(Node *node) {
 
 		// Re-read 'best' move from TT.
 		if (child.bound!=BoundNone)
-			ttMove=ttReadMove(node->pos);
+			ttMove=ttReadMove(node->pos, node->ply);
 	}
 
 	// Move loop.
@@ -881,7 +881,7 @@ void searchOutputDepthPost(Node *node) {
 	unsigned int ply=0;
 	while(1) {
 		// Read move from TT.
-		Move move=ttReadMove(node->pos);
+		Move move=ttReadMove(node->pos, ply);
 		if (move==MoveInvalid)
 			break;
 

@@ -106,12 +106,15 @@ bool ttRead(const Pos *pos, Depth ply, Move *move, Depth *depth, Score *score, B
 	return false;
 }
 
-Move ttReadMove(const Pos *pos) {
+Move ttReadMove(const Pos *pos, Depth ply) {
+	// Sanity checks.
+	assert(depthIsValid(ply));
+
 	Move move=MoveInvalid;
 	Depth dummyDepth;
 	Score dummyScore;
 	Bound dummyBound;
-	ttRead(pos, 0, &move, &dummyDepth, &dummyScore, &dummyBound);
+	ttRead(pos, ply, &move, &dummyDepth, &dummyScore, &dummyBound);
 	return move;
 }
 

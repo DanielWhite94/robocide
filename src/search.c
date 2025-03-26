@@ -681,6 +681,11 @@ void searchNodeInternal(Node *node) {
 
 	node->bound|=BoundUpper; // We have searched all moves.
 
+	// Single legal move in root?
+	// (continue searching anyway if in infinite/pondering mode)
+	if (node->ply==0 && moveNumber==1 && !searchLimit.infinite)
+		searchStopInternal();
+
 	cutoff:
 
 	// We now know the best move.

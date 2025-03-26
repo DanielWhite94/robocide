@@ -14,6 +14,7 @@
 #define DateMax (1u<<DateBit)
 
 // Entries should be considered private - only here to allow easy allocation on the stack.
+// Use searchLimit* functions instead.
 typedef struct {
 	bool infinite; // Either directly by 'infinite' or during pondering (before changing to false after ponderhit/miss).
 	TimeMs startTime; // Time we first noticed the 'go' command.

@@ -56,6 +56,7 @@ bool searchPonder=true;
 ////////////////////////////////////////////////////////////////////////////////
 
 void searchThinkClear(void);
+void searchStopInternal(void); // indicate search should stop asap - sets stop flag and updates activity lock. Can be called by worker thread (as opposed to external version searchStop).
 
 void searchIDLoop(void *posPtr);
 
@@ -129,7 +130,7 @@ void searchInit(void) {
 
 void searchQuit(void) {
 	// If searching, signal to stop and wait until done.
-	searchStop();
+	searchStopAndWait();
 
 	// Free position
 	posFree(searchPos);
@@ -141,7 +142,7 @@ void searchQuit(void) {
 
 void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	// Make sure we are not already searching (and if we are, set stop flag and wait until finished).
-	searchStop();
+	searchStopAndWait();
 
 	// Sanity checks
 	assert(searchNodeNext==1);
@@ -186,17 +187,16 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	threadRun(searchThread, &searchIDLoop, NULL);
 }
 
-void searchStop(void) {
+void searchStopAndWait(void) {
 	// Signal for search to stop.
 	searchLimit.infinite=false;
-	searchStopFlag=true;
-	lockPost(searchActivity);
+	searchStopInternal();
 
 	// Wait until actually finished.
-	searchWaitStop();
+	searchWait();
 }
 
-void searchWaitStop(void) {
+void searchWait(void) {
 	threadWaitReady(searchThread);
 }
 
@@ -208,7 +208,7 @@ unsigned long long int searchBenchmark(const Pos *pos, Depth depth) {
 
 	// Search and wait to complete.
 	searchThink(pos, &limit, false);
-	searchWaitStop();
+	searchWait();
 
 	// Return node count.
 	return searchNodeCount;
@@ -323,6 +323,14 @@ void searchThinkClear(void) {
 	searchEndTime=TimeMsInvalid;
 	searchNextRegularOutputTime=0;
 	searchDate=(searchDate+1)%DateMax;
+}
+
+void searchStopInternal(void) {
+	// Set flag to indicate to return asap
+	searchStopFlag=true;
+
+	// Update activity lock
+	lockPost(searchActivity);
 }
 
 void searchIDLoop(void *userData) {
@@ -827,8 +835,7 @@ bool searchIsTimeUp(void) {
 	return false;
 
 	timeup:
-	lockPost(searchActivity);
-	searchStopFlag=true;
+	searchStopInternal();
 
 	return true;
 }

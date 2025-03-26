@@ -208,7 +208,7 @@ void uciLoop(void) {
 		else if (utilStrEqual(part, "isready"))
 			uciWrite("readyok\n");
 		else if (utilStrEqual(part, "stop"))
-			searchStop();
+			searchStopAndWait();
 		else if (utilStrEqual(part, "ucinewgame")) {
 			searchClear();
 			evalClear();

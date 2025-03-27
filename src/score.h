@@ -5,6 +5,9 @@
 
 #include "bound.h"
 
+#define SCORETOSTRMAXLEN 32
+#define SCORETOSTR(score, bound) ({char *sstr=alloca(SCORETOSTRMAXLEN); scoreToStr((score), (bound), sstr); (const char *)sstr;})
+
 typedef enum {
 	ScoreInvalid=-0x8000,
 	ScoreDraw=0,
@@ -19,7 +22,7 @@ bool scoreIsValid(Score score);
 
 int scoreValue(Score score); // Returns value in centi-pawns. Score should not be a mate score.
 
-void scoreToStr(Score score, Bound bound, char str[static 32]); // "cp/mate VALUE/DISTANCE [lowerbound/upperbound]"
+void scoreToStr(Score score, Bound bound, char str[static SCORETOSTRMAXLEN]); // "cp/mate VALUE/DISTANCE [lowerbound/upperbound]"
 
 bool scoreIsMate(Score score);
 Score scoreMateIn(unsigned int ply);

@@ -163,7 +163,7 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 		}
 
 		// Otherwise check if entry is better to use than replace.
-		unsigned int entryScore=ttEntryFitness(searchDateToAge(entry->date), entry->depth, entry->bound==BoundExact);
+		unsigned int entryScore=ttEntryFitness(searchDateToAge(entry->date), entry->depth, (entry->bound==BoundExact));
 		if (entryScore>replaceScore) {
 			replace=entry;
 			replaceScore=entryScore;

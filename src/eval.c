@@ -548,8 +548,9 @@ VPair evaluateKPvK(EvalData *data) {
 			return VPairZero;
 		break;
 		case BitBaseResultWin: {
+			const Value bonus=1000; // makes displayed score more sensible
 			Colour attacker=(posGetBBPiece(data->pos, PieceWPawn)!=BBNone ? ColourWhite : ColourBlack);
-			data->matData.scoreOffset+=(attacker==ColourWhite ? ScoreHardWin : -ScoreHardWin);
+			data->matData.scoreOffset+=(attacker==ColourWhite ? ScoreHardWin+bonus : -(ScoreHardWin+bonus));
 			return evaluateDefault(data);
 		} break;
 	}

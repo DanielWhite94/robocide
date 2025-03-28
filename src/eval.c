@@ -440,6 +440,11 @@ Score evaluateInternal(const Pos *pos) {
 	// Evaluation function depends on material combination.
 	evalGetMatData(pos, &data.matData);
 
+	// Extra info
+#ifdef EVALINFO
+	printf("Evalution info:\n");
+#endif
+
 	// Evaluate.
 	VPair score;
 	switch(data.matData.type) {
@@ -451,8 +456,18 @@ Score evaluateInternal(const Pos *pos) {
 		break;
 	}
 
+	// Extra info
+#ifdef EVALINFO
+	printf("    default eval (%i,%i)\n", score.mg, score.eg);
+#endif
+
 	// Material combination offset.
 	evalVPairAddTo(&score, &data.matData.offset);
+
+	// Extra info
+#ifdef EVALINFO
+	printf("    mat combo offset (%i,%i)\n", data.matData.offset.mg, data.matData.offset.eg);
+#endif
 
 	// Tempo bonus.
 	if (posGetSTM(pos)==ColourWhite)
@@ -460,31 +475,65 @@ Score evaluateInternal(const Pos *pos) {
 	else
 		evalVPairSubFrom(&score, &evalTempoDefault);
 
+	// Extra info
+#ifdef EVALINFO
+	printf("    post adding tempo bonus (%i,%i) (bonus is (%i,%i))\n", score.mg, score.eg, evalTempoDefault.mg, evalTempoDefault.eg);
+#endif
+
 	// Interpolate score based on phase of the game and special material combination considerations.
 	Score scalarScore=evalInterpolate(&data, &score);
+
+	// Extra info
+#ifdef EVALINFO
+	printf("    interpolated scalar score %i (mg weight %i, eg weight %i)\n", scalarScore, data.matData.weightMG, data.matData.weightEG);
+#endif
 
 	// Drag score towards 0 as we approach 50-move rule
 	unsigned int halfMoves=posGetHalfMoveNumber(data.pos);
 	assert(halfMoves<128);
 	scalarScore=(scalarScore*evalHalfMoveFactors[halfMoves])/256;
 
+	// Extra info
+#ifdef EVALINFO
+	printf("    post scaling for 50 move rule %i (half moves %u)\n", scalarScore, halfMoves);
+#endif
+
 	// Add score offset
 	scalarScore+=data.matData.scoreOffset;
+
+	// Extra info
+#ifdef EVALINFO
+	printf("    post adding matdata score offset %i (offset value %i)\n", scalarScore, data.matData.scoreOffset);
+#endif
 
 	// Adjust for side to move
 	if (posGetSTM(data.pos)==ColourBlack)
 		scalarScore=-scalarScore;
 
+	// Extra info
+#ifdef EVALINFO
+	printf("Final evaluation result: %i\n\n", scalarScore);
+#endif
+
 	return scalarScore;
 }
 
 VPair evaluateDefault(EvalData *data) {
+#ifdef EVALINFO
+	VPair tempScore;
+#endif
 	const Pos *pos=data->pos;
 
 	BB pieceSet;
 
 	// 'Global' calculations (includes pawns)
 	VPair score=evaluateDefaultGlobal(data);
+
+	// Extra info
+#ifdef EVALINFO
+	printf("        default global score (%i,%i)\n", score.mg, score.eg);
+	tempScore=score;
+#endif
 
 	// Bishop mobility
 	pieceSet=posGetBBPiece(pos, PieceWBishopL);
@@ -512,6 +561,12 @@ VPair evaluateDefault(EvalData *data) {
 		evalVPairSubMulFrom(&score, &evalBishopMob, bbPopCount(attacks));
 	}
 
+	// Extra info
+#ifdef EVALINFO
+	printf("        bishop mobility (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
+
 	// Rook mobilty
 	pieceSet=posGetBBPiece(pos, PieceWRook);
 	while(pieceSet) {
@@ -528,12 +583,24 @@ VPair evaluateDefault(EvalData *data) {
 		evalVPairSubMulFrom(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(sq))));
 	}
 
+	// Extra info
+#ifdef EVALINFO
+	printf("        rook mobility (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
+
 	// Kings
 	VPair kingScoreWhite=evaluateDefaultKing(data, ColourWhite);
 	evalVPairAddTo(&score, &kingScoreWhite);
 
 	VPair kingScoreBlack=evaluateDefaultKing(data, ColourBlack);
 	evalVPairSubFrom(&score, &kingScoreBlack);
+
+	// Extra info
+#ifdef EVALINFO
+	printf("        king scores: white (%i,%i), black (%i,%i)\n", kingScoreWhite.mg, kingScoreWhite.eg, kingScoreBlack.mg, kingScoreBlack.eg);
+	tempScore=score;
+#endif
 
 	return score;
 }
@@ -871,6 +938,9 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	pawnData->openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
 
 	// Loop over each pawn.
+#ifdef EVALINFO
+	printf("            pawn types (DIP):\n");
+#endif
 	Colour colour;
 	for(colour=ColourWhite;colour<=ColourBlack;++colour) {
 		Piece piece=pieceMake(PieceTypePawn, colour);
@@ -883,8 +953,12 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 			               (((pawnData->passed[colour]>>sq)&1)<<PawnTypeShiftPassed));
 			assert(type>=0 && type<PawnTypeNB);
 			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][sq]);
+#ifdef EVALINFO
+			printf("                %c%c %u%u%u (%i,%i)\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)),
+			       (((doubled[colour]>>sq)&1)!=0), (((isolated[colour]>>sq)&1)!=0), (((pawnData->passed[colour]>>sq)&1)!=0),
+			       evalPawnValue[colour][type][sq].mg, evalPawnValue[colour][type][sq].eg);
+#endif
 		}
-
 	}
 }
 
@@ -898,14 +972,29 @@ HTableKey evalGetPawnDataHTableKeyFromPos(const Pos *pos) {
 VPair evaluateDefaultGlobal(EvalData *data) {
 	assert(data!=NULL);
 
+#ifdef EVALINFO
+	VPair tempScore=VPairZero;
+#endif
 	const Pos *pos=data->pos;
 
 	// Start with incrementally updated PST score.
 	VPair score=posGetPstScore(pos);
 
+	// Extra info
+#ifdef EVALINFO
+	printf("            pst scores: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
+
 	// Pawns
 	evalGetPawnData(pos, &data->pawnData);
 	evalVPairAddTo(&score, &data->pawnData.score);
+
+	// Extra info
+#ifdef EVALINFO
+	printf("            pawns scores: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
 
 	// Rook stuff
 	for(Colour colour=ColourWhite; colour<=ColourBlack; ++colour,evalVPairNegate(&score)) {
@@ -936,6 +1025,12 @@ VPair evaluateDefaultGlobal(EvalData *data) {
 		}
 	}
 
+	// Extra info
+#ifdef EVALINFO
+	printf("            rook stuff: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
+
 	// King castling 'mobility'.
 	CastRights castRights=posGetCastRights(pos);
 	if (castRights.rookSq[ColourWhite][CastSideA]!=SqInvalid)
@@ -946,6 +1041,12 @@ VPair evaluateDefaultGlobal(EvalData *data) {
 		evalVPairSubFrom(&score, &evalKingCastlingMobility);
 	if (castRights.rookSq[ColourBlack][CastSideH]!=SqInvalid)
 		evalVPairSubFrom(&score, &evalKingCastlingMobility);
+
+	// Extra info
+#ifdef EVALINFO
+	printf("            king castling mobility: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
 
 	return score;
 }

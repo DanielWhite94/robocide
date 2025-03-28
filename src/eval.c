@@ -58,7 +58,7 @@ struct EvalData {
 
 TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeNone]={0,0},
-	[PieceTypePawn]={900,1300},
+	[PieceTypePawn]={900,1200},
 	[PieceTypeKnight]={3100,3100},
 	[PieceTypeBishopL]={3010,3070},
 	[PieceTypeBishopD]={3010,3070},
@@ -74,8 +74,8 @@ TUNECONST VPair evalPawnDoubled={-100,-200};
 TUNECONST VPair evalPawnIsolated={-300,-200};
 TUNECONST VPair evalPawnBlocked={-100,-100};
 TUNECONST VPair evalPawnPassedQuadA={56,50}; // Coefficients used in quadratic formula for passed pawn score (with rank as the input).
-TUNECONST VPair evalPawnPassedQuadB={-109,50};
-TUNECONST VPair evalPawnPassedQuadC={155,50};
+TUNECONST VPair evalPawnPassedQuadB={-109,-100};
+TUNECONST VPair evalPawnPassedQuadC={155,150};
 TUNECONST VPair evalKnightPawnAffinity={30,30}; // Bonus each knight receives for each friendly pawn on the board.
 TUNECONST VPair evalBishopPair={500,500};
 TUNECONST VPair evalBishopMob={40,30};

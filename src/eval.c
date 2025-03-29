@@ -833,6 +833,21 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 						break;
 					}
 				}
+			} else {
+				if (totalXKingsCount==2) {
+					if (wPawnCount==1 && (bBishopLCount==1 || bBishopDCount==1)) { // KBvKP
+						matData->scoreOffset+=220; // side with bishop can at most draw so adjust score to try and reflect this situation better
+						factor/=32; // almost always a draw unless pawn can promote immediately without capture - let search deal with it
+					}
+					if (bPawnCount==1 && (wBishopLCount==1 || wBishopDCount==1)) { // KBvKP
+						matData->scoreOffset-=220; // side with bishop can at most draw so adjust score to try and reflect this situation better
+						factor/=32; // almost always a draw unless pawn can promote immediately without capture - let search deal with it
+					}
+					if (wPawnCount==1 && bKnightCount==1) // KNvKP
+						matData->scoreOffset+=250; // side with knight can at most draw so adjust score to try and reflect this situation better
+					if (bPawnCount==1 && wKnightCount==1) // KNvKP
+						matData->scoreOffset-=250; // side with knight can at most draw so adjust score to try and reflect this situation better
+				}
 			}
 		break;
 		case EvalMatTypeDraw:

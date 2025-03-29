@@ -48,6 +48,11 @@ bool searchOutput;
 TUNECONST int searchNullReduction=1;
 TUNECONST int searchIIDMin=2;
 TUNECONST int searchIIDReduction=3;
+TUNECONST bool searchHistoryHeuristic=true;
+TUNECONST bool searchKillersHeuristic=true;
+TUNECONST int searchLmrReduction=1;
+TUNECONST int searchLmrReductionDepthLimit=3;
+TUNECONST int searchLmrReductionMoveLimit=4;
 
 bool searchPonder=true;
 
@@ -90,7 +95,8 @@ bool searchNodeIsQ(const Node *node);
 void searchInterfacePonder(void *dummy, bool ponder);
 
 #ifdef TUNE
-void searchInterfaceValue(void *ptr, long long value);
+void searchInterfaceSpinValue(void *ptr, long long value);
+void searchInterfaceCheckValue(void *ptr, bool value);
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -122,9 +128,14 @@ void searchInit(void) {
 
 	// Setup callbacks for tuning values.
 # ifdef TUNE
-	uciOptionNewSpin("NullReduction", &searchInterfaceValue, &searchNullReduction, 0, 8, searchNullReduction);
-	uciOptionNewSpin("IIDMin", &searchInterfaceValue, &searchIIDMin, 0, 32, searchIIDMin);
-	uciOptionNewSpin("IIDReduction", &searchInterfaceValue, &searchIIDReduction, 0, 32, searchIIDReduction);
+	uciOptionNewSpin("NullReduction", &searchInterfaceSpinValue, &searchNullReduction, 0, 8, searchNullReduction);
+	uciOptionNewSpin("IIDMin", &searchInterfaceSpinValue, &searchIIDMin, 0, 32, searchIIDMin);
+	uciOptionNewSpin("IIDReduction", &searchInterfaceSpinValue, &searchIIDReduction, 0, 32, searchIIDReduction);
+	uciOptionNewCheck("HistoryHeuristic", &searchInterfaceCheckValue, &searchHistoryHeuristic, searchHistoryHeuristic);
+	uciOptionNewCheck("KillersHeuristic", &searchInterfaceCheckValue, &searchKillersHeuristic, searchKillersHeuristic);
+	uciOptionNewSpin("LmrReduction", &searchInterfaceSpinValue, &searchLmrReduction, 0, 32, searchLmrReduction);
+	uciOptionNewSpin("LmrReductionDepthLimit", &searchInterfaceSpinValue, &searchLmrReductionDepthLimit, 0, 32, searchLmrReductionDepthLimit);
+	uciOptionNewSpin("LmrReductionMoveLimit", &searchInterfaceSpinValue, &searchLmrReductionMoveLimit, 0, 256, searchLmrReductionMoveLimit);
 # endif
 }
 
@@ -253,7 +264,8 @@ MoveScore searchScoreMove(const Pos *pos, Move move) {
 	score<<=HistoryBit;
 
 	// Further sort using history tables
-	score+=historyGet(fromPiece, toSqTrue);
+	if (searchHistoryHeuristic)
+		score+=historyGet(fromPiece, toSqTrue);
 
 	assert(score<MoveScoreMax);
 	return score;
@@ -409,10 +421,12 @@ void searchIDLoop(void *userData) {
 	}
 
 	// Age history table.
-	historyAge();
+	if (searchHistoryHeuristic)
+		historyAge();
 
 	// Clear killers (do here to avoid having to spend time at start of next search).
-	killersClear();
+	if (searchKillersHeuristic)
+		killersClear();
 
 	// Reset searchThink fields for next search
 	searchThinkClear();
@@ -601,8 +615,8 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 		// Calculate search depth.
 		int extension=0, reduction=0;
 		extension+=child.inCheck; // Check extension;
-		if (extension==0 && !node->inCheck && !child.inCheck && !searchNodeIsPV(node) && node->depth>=3 && moveType==MoveTypeQuiet && moveNumber>4)
-			reduction+=1; // Late-move-reductions.
+		if (extension==0 && !node->inCheck && !child.inCheck && !searchNodeIsPV(node) && node->depth>=searchLmrReductionDepthLimit && moveType==MoveTypeQuiet && moveNumber>searchLmrReductionMoveLimit)
+			reduction+=searchLmrReduction; // Late-move-reductions.
 		child.depth=node->depth-1+extension-reduction;
 
 		// PVS search
@@ -659,7 +673,7 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 				// Cutoff?
 				if (score>=node->beta) {
 					// Update killers.
-					if (posMoveGetType(node->pos, *bestMove)==MoveTypeQuiet)
+					if (searchKillersHeuristic && posMoveGetType(node->pos, *bestMove)==MoveTypeQuiet)
 						killersCutoff(node->ply, *bestMove);
 
 					goto cutoff;
@@ -701,7 +715,7 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 	assert(node->bound!=BoundNone);
 
 	// Update history table.
-	if (posMoveGetType(node->pos, *bestMove)==MoveTypeQuiet) {
+	if (searchHistoryHeuristic && posMoveGetType(node->pos, *bestMove)==MoveTypeQuiet) {
 		Piece fromPiece=moveGetToPiece(*bestMove);
 		assert(fromPiece==posGetPieceOnSq(node->pos, moveGetFromSq(*bestMove))); // Could only disagree if move is promotion, but these are classed as captures.
 		Sq toSq=moveGetToSqRaw(*bestMove);
@@ -1217,9 +1231,17 @@ void searchInterfacePonder(void *dummy, bool ponder) {
 }
 
 #ifdef TUNE
-void searchInterfaceValue(void *ptr, long long value) {
+void searchInterfaceSpinValue(void *ptr, long long value) {
 	// Set value.
 	*((int *)ptr)=value;
+
+	// Clear now-invalid TT and history etc.
+	searchClear();
+}
+
+void searchInterfaceCheckValue(void *ptr, bool value) {
+	// Set value.
+	*((bool *)ptr)=value;
 
 	// Clear now-invalid TT and history etc.
 	searchClear();

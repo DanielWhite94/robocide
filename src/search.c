@@ -565,11 +565,8 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 		// No hash move available - search current node but with a reduced depth to obtain a good guess at the best move.
 		Node child=*node;
 		child.depth-=searchIIDReduction;
-		searchNode(&child, &tempChildMove);
-
-		// Re-read 'best' move from TT.
-		if (child.bound!=BoundNone)
-			ttMove=ttReadMove(node->pos, node->ply);
+		assert(ttMove==MoveInvalid);
+		searchNode(&child, &ttMove);
 	}
 
 	// Move loop.

@@ -847,6 +847,11 @@ void evalComputeMatData(const Pos *pos, EvalMatData *matData) {
 						matData->scoreOffset+=250; // side with knight can at most draw so adjust score to try and reflect this situation better
 					if (bPawnCount==1 && wKnightCount==1) // KNvKP
 						matData->scoreOffset-=250; // side with knight can at most draw so adjust score to try and reflect this situation better
+				} else if (totalXKingsCount==3) {
+					if (wPawnCount==1 && bKnightCount==2) // KNNvKP
+						matData->scoreOffset+=500; // side with knights can at most draw so adjust score to try and reflect this situation better
+					if (bPawnCount==1 && wKnightCount==2) // KNNvKP
+						matData->scoreOffset-=500; // side with knights can at most draw so adjust score to try and reflect this situation better
 				}
 			}
 		break;

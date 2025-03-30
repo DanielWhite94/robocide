@@ -488,14 +488,6 @@ Score evaluateInternal(const Pos *pos) {
 	printf("    interpolated scalar score %i (mg weight %i, eg weight %i)\n", scalarScore, data.matData.weightMG, data.matData.weightEG);
 #endif
 
-	// Add score offset
-	scalarScore+=data.matData.scoreOffset;
-
-	// Extra info
-#ifdef EVALINFO
-	printf("    post adding matdata score offset %i (offset value %i)\n", scalarScore, data.matData.scoreOffset);
-#endif
-
 	// Drag score towards 0 as we approach 50-move rule
 	unsigned int halfMoves=posGetHalfMoveNumber(data.pos);
 	assert(halfMoves<128);
@@ -504,6 +496,14 @@ Score evaluateInternal(const Pos *pos) {
 	// Extra info
 #ifdef EVALINFO
 	printf("    post scaling for 50 move rule %i (half moves %u)\n", scalarScore, halfMoves);
+#endif
+
+	// Add score offset
+	scalarScore+=data.matData.scoreOffset;
+
+	// Extra info
+#ifdef EVALINFO
+	printf("    post adding matdata score offset %i (offset value %i)\n", scalarScore, data.matData.scoreOffset);
 #endif
 
 	// Adjust for side to move

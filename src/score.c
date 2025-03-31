@@ -9,18 +9,6 @@ bool scoreIsValid(Score score) {
 	return (score>=-ScoreInf && score<=ScoreInf);
 }
 
-int scoreValue(Score score) {
-	assert(scoreIsValid(score));
-	assert(!scoreIsMate(score));
-
-	score%=0x2000;
-	if (score>4096)
-		score-=8192;
-	else if (score<-4096)
-		score+=8192;
-	return score;
-}
-
 void scoreToStr(Score score, Bound bound, char str[static 32]) {
 	assert(scoreIsValid(score));
 	assert(boundIsValid(bound));
@@ -30,7 +18,7 @@ void scoreToStr(Score score, Bound bound, char str[static 32]) {
 	if (scoreIsMate(score))
 		sprintf(str, "mate %i", ((score<0) ? -scoreMateDistance(score) : scoreMateDistance(score)));
 	else
-		sprintf(str, "cp %i", scoreValue(score));
+		sprintf(str, "cp %i", score);
 
 	// Upper/lowerbound?
 	if (bound==BoundLower)

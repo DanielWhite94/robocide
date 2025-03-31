@@ -895,9 +895,6 @@ void searchOutputDepthPost(Node *node, Move bestMove) {
 	uciWrite("info depth %u score %s nodes %llu time %llu", (unsigned int)node->depth, str, searchNodeCount, (unsigned long long int)time);
 	if (time>0)
 		uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
-# ifndef NDEBUG
-	uciWrite(" rawscore %i", (int)node->score);
-# endif
 
 	// PV (extracted from TT)
 	uciWrite(" pv");

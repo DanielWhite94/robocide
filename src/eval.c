@@ -62,7 +62,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeKnight]={3100,3100},
 	[PieceTypeBishopL]={3161,3070},
 	[PieceTypeBishopD]={3161,3070},
-	[PieceTypeRook]={5350,5350},
+	[PieceTypeRook]={4815,5350},
 	[PieceTypeQueen]={9500,11025},
 	[PieceTypeKing]={0,0}
 };

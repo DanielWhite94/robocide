@@ -405,11 +405,21 @@ void searchIDLoop(void *userData) {
 	}
 
 	// This is to handle infinite mode - wait until told to stop.
-	while(searchLimit.infinite)
-		lockWait(searchActivity);
+	bool doExtraInfoCommand=false;
+	if (searchLimit.infinite && !lockTryWait(searchActivity)) {
+		// Set flag to indicate we will have to repeat last proper 'info' command right before we send bestmove command
+		doExtraInfoCommand=true;
+
+		// Wait until told to stop
+		while(searchLimit.infinite)
+			lockWait(searchActivity);
+	}
 
 	// Send best move (and potentially ponder move) to GUI.
 	if (searchOutput) {
+		if (doExtraInfoCommand)
+			searchOutputDepthPost(&node, bestMove);
+
 		char str[8];
 		posMoveToStr(searchPos, bestMove, str);
 		if (moveIsValid(ponderMove)) {

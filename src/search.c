@@ -699,10 +699,24 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 
 	node->bound|=BoundUpper; // We have searched all moves.
 
-	// Single legal move in root?
+	// Root node - no need to continue searching?
 	// (continue searching anyway if in infinite/pondering mode)
-	if (node->ply==0 && moveNumber==1 && !searchLimit.infinite)
-		searchStopInternal();
+	if (!searchLimit.infinite && node->ply==0) {
+		// Single legal move?
+		if (moveNumber==1)
+			searchStopInternal();
+
+		// 'Good enough' mate?
+		// We say 'good' rather than 'unbeatable' because of depth reductions within nodes (such as LMR).
+		// This means we cannot be certain there is not an even better mate (which we might have discovered if we keep searching).
+		// This change should not affect engine strength but will avoid unnecessary output from searching all the way to depth 127.
+		if (node->score>0 && scoreIsMate(node->score)) {
+			// Note: +1 is because if we find a depth n+1 mate at depth n then continuing to search is only going to find a depth n+1 mate at depth n+1
+			// (again with same caveat as above)
+			if (scoreMateDistancePly(node->score)<=node->depth+1)
+				searchStopInternal();
+		}
+	}
 
 	cutoff:
 

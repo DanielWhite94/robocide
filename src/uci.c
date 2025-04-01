@@ -221,9 +221,7 @@ void uciLoop(void) {
 			posDraw(pos);
 
 			Score evalScore=evaluate(pos);
-			char evalStr[32];
-			scoreToStr(evalScore, BoundExact, evalStr);
-			uciWrite("Eval: %s (raw score %i)\n", evalStr, (int)evalScore);
+			uciWrite("Eval: %s (raw score %i)\n", SCORETOSTR(evalScore, BoundExact), (int)evalScore);
 
 			uciWrite("MatType: %s\n", evalMatTypeToStr(evalGetMatType(pos)));
 		} else if (utilStrEqual(part, "bitbase")) {

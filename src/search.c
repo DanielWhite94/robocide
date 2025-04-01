@@ -890,9 +890,7 @@ void searchOutputDepthPost(Node *node, Move bestMove) {
 
 	// Various bits of data
 	TimeMs time=timeGet()-searchLimit.startTime;
-	char str[32];
-	scoreToStr(node->score, node->bound, str);
-	uciWrite("info depth %u score %s nodes %llu time %llu", (unsigned int)node->depth, str, searchNodeCount, (unsigned long long int)time);
+	uciWrite("info depth %u score %s nodes %llu time %llu", (unsigned int)node->depth, SCORETOSTR(node->score, node->bound), searchNodeCount, (unsigned long long int)time);
 	if (time>0)
 		uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
 
@@ -906,6 +904,7 @@ void searchOutputDepthPost(Node *node, Move bestMove) {
 			break;
 
 		// Compute move string before we make the move.
+		char str[32];
 		posMoveToStr(node->pos, move, str);
 
 		// Make move.

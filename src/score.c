@@ -51,5 +51,5 @@ int scoreMateDistancePly(Score score) {
 int scoreMateDistanceMoves(Score score) {
 	assert(scoreIsValid(score));
 	assert(scoreIsMate(score));
-	return scoreMateDistancePly(score)/2;
+	return (scoreMateDistancePly(score)+1)/2;
 }

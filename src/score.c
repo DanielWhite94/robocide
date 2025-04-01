@@ -45,5 +45,5 @@ Score scoreMatedIn(unsigned int ply) {
 int scoreMateDistance(Score score) {
 	assert(scoreIsValid(score));
 	assert(scoreIsMate(score));
-	return ((1-abs(score)-scoreMatedIn(0))/2);
+	return -abs(score)-scoreMatedIn(0);
 }

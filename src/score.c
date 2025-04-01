@@ -16,7 +16,7 @@ void scoreToStr(Score score, Bound bound, char str[static 32]) {
 
 	// Basic score (either in centipawns or distance to mate).
 	if (scoreIsMate(score))
-		sprintf(str, "mate %i", ((score<0) ? -scoreMateDistance(score) : scoreMateDistance(score)));
+		sprintf(str, "mate %i", ((score<0) ? -scoreMateDistanceMoves(score) : scoreMateDistanceMoves(score)));
 	else
 		sprintf(str, "cp %i", score);
 
@@ -42,8 +42,14 @@ Score scoreMatedIn(unsigned int ply) {
 	return -ScoreMate+ply; // -ScoreMate to indicate being checkmated, +ply to give longer mates a higher score (i.e. delay).
 }
 
-int scoreMateDistance(Score score) {
+int scoreMateDistancePly(Score score) {
 	assert(scoreIsValid(score));
 	assert(scoreIsMate(score));
 	return -abs(score)-scoreMatedIn(0);
+}
+
+int scoreMateDistanceMoves(Score score) {
+	assert(scoreIsValid(score));
+	assert(scoreIsMate(score));
+	return scoreMateDistancePly(score)/2;
 }

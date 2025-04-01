@@ -24,6 +24,7 @@ void scoreToStr(Score score, Bound bound, char str[static SCORETOSTRMAXLEN]); //
 bool scoreIsMate(Score score);
 Score scoreMateIn(unsigned int ply);
 Score scoreMatedIn(unsigned int ply);
-int scoreMateDistance(Score score);
+int scoreMateDistancePly(Score score);
+int scoreMateDistanceMoves(Score score);
 
 #endif

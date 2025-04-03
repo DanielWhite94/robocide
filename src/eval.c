@@ -62,8 +62,8 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeKnight]={3100,3100},
 	[PieceTypeBishopL]={3161,3147},
 	[PieceTypeBishopD]={3161,3147},
-	[PieceTypeRook]={4815,5350},
-	[PieceTypeQueen]={9500,11025},
+	[PieceTypeRook]={4815,4185},
+	[PieceTypeQueen]={9500,9923},
 	[PieceTypeKing]={0,0}
 };
 TUNECONST VPair evalPawnFiles[FileNB]={{-100,-50},{-50,0},{0,0},{50,50},{50,50},{0,0},{-50,0},{-100,-50}};

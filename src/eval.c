@@ -76,7 +76,7 @@ TUNECONST VPair evalPawnBlocked={-90,-100};
 TUNECONST VPair evalPawnPassedQuadA={56,50}; // Coefficients used in quadratic formula for passed pawn score (with rank as the input).
 TUNECONST VPair evalPawnPassedQuadB={-109,-100};
 TUNECONST VPair evalPawnPassedQuadC={155,150};
-TUNECONST VPair evalKnightPawnAffinity={30,30}; // Bonus each knight receives for each friendly pawn on the board.
+TUNECONST VPair evalKnightPawnAffinity={30,32}; // Bonus each knight receives for each friendly pawn on the board.
 TUNECONST VPair evalBishopPair={500,520};
 TUNECONST VPair evalBishopMob={38,32};
 TUNECONST VPair evalOppositeBishopFactor={256,192}; // /256.
@@ -93,7 +93,7 @@ TUNECONST VPair evalKingNearPasserFactor={0,200};
 TUNECONST VPair evalKingCastlingMobility={100,0};
 TUNECONST VPair evalTempoDefault={35,0};
 TUNECONST Value evalHalfMoveFactor=2048;
-TUNECONST Value evalWeightFactor=144;
+TUNECONST Value evalWeightFactor=151;
 
 VPair evalPST[PieceNB][SqNB]={
 	[PieceNone]={

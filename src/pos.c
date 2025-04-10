@@ -76,8 +76,6 @@ bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq 
 
 bool posIsConsistent(const Pos *pos);
 
-unsigned int matInfoShift(Piece piece);
-
 bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move);
 
 bool posLegalMoveExistsPiece(const Pos *pos, PieceType type, BB allowed);
@@ -1594,11 +1592,6 @@ bool posIsConsistent(const Pos *pos) {
 	uciWrite("---------------------------------\n");
 #	endif
 	return false;
-}
-
-unsigned int matInfoShift(Piece piece) {
-	assert(pieceIsValid(piece));
-	return 4*(2*pieceGetType(piece)+pieceGetColour(piece));
 }
 
 bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {

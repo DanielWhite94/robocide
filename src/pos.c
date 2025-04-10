@@ -48,8 +48,7 @@ const char *posStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 
 
 Key posKeySTM, posKeyPiece[16][SqNB], posKeyEP[SqMax], posKeyCastling[SqMax];
 Key posPawnKeyPiece[PieceNB][SqNB];
-Key posMatKey[PieceNB][16];
-Key posMatKeyXOR[PieceNB][16];
+Key posMatKey[PieceNB];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.
@@ -119,18 +118,13 @@ void posInit(void) {
 		posKeyCastling[sqMake(i, Rank8)]=posRandKey();
 	}
 
-	memset(posMatKey, 0, PieceNB*16*sizeof(Key));
-	memset(posMatKeyXOR, 0, PieceNB*16*sizeof(Key));
+	memset(posMatKey, 0, PieceNB*sizeof(Key));
 	Colour colour;
 	PieceType pieceType;
 	for(colour=ColourWhite; colour<=ColourBlack; ++colour)
 		for(pieceType=PieceTypePawn; pieceType<=PieceTypeQueen; ++pieceType) {
 			Piece piece=pieceMake(pieceType, colour);
-			for(i=1; i<16; ++i)
-				posMatKey[piece][i]=posRandKey();
-
-			for(i=1; i<16; ++i)
-				posMatKeyXOR[piece][i]=posMatKey[piece][i]^posMatKey[piece][i-1];
+			posMatKey[piece]=posRandKey();
 		}
 }
 
@@ -1144,7 +1138,6 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate) {
 
 	// Update position.
 	pos->bbPiece[piece]^=bbSq(sq);
-	unsigned postMoveCount=bbPopCount(pos->bbPiece[piece]);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(sq);
 	pos->bbAll^=bbSq(sq);
 	pos->array64[sq]=piece;
@@ -1153,7 +1146,7 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate) {
 	if (!skipMainKeyUpdate)
 		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
-	pos->matKey^=posMatKeyXOR[piece][postMoveCount];
+	pos->matKey+=posMatKey[piece];
 
 	// Update PST score.
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
@@ -1166,7 +1159,6 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 
 	// Update position.
 	Piece piece=posGetPieceOnSq(pos, sq);
-	unsigned postMoveCount=bbPopCount(pos->bbPiece[piece]);
 	pos->bbPiece[piece]^=bbSq(sq);
 	pos->bbColour[pieceGetColour(piece)]^=bbSq(sq);
 	pos->bbAll^=bbSq(sq);
@@ -1176,7 +1168,7 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 	if (!skipMainKeyUpdate)
 		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
-	pos->matKey^=posMatKeyXOR[piece][postMoveCount];
+	pos->matKey-=posMatKey[piece];
 
 	// Update PST score.
 	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
@@ -1408,7 +1400,7 @@ Key posComputeMatKey(const Pos *pos) {
 		for(pieceType=PieceTypePawn; pieceType<=PieceTypeQueen; ++pieceType) {
 			Piece piece=pieceMake(pieceType, colour);
 			unsigned count=posGetPieceCount(pos, piece);
-			key^=posMatKey[piece][count];
+			key+=count*posMatKey[piece];
 		}
 
 	return key;

@@ -456,8 +456,10 @@ bool posMakeMove(Pos *pos, Move move) {
 		// If double pawn move check set EP capture square (for next move).
 		if (abs(((int)sqRank(toSqRaw))-((int)sqRank(fromSq)))==2) {
 			Sq epSq=toSqRaw^8;
-			if (posIsEPCap(pos, epSq))
+			if (posIsEPCap(pos, epSq)) {
 				pos->data->epSq=epSq;
+				pos->data->key^=posKeyEP[epSq];
+			}
 		}
 	} else {
 		// Standard piece move
@@ -477,23 +479,22 @@ bool posMakeMove(Pos *pos, Move move) {
 	}
 
 	// Update castling rights
-	if (pos->data->castRights.rookSq[movingSide][CastSideA]==fromSq || pieceGetType(fromPiece)==PieceTypeKing)
+	if (pos->data->castRights.rookSq[movingSide][CastSideA]==fromSq || pieceGetType(fromPiece)==PieceTypeKing) {
+		pos->data->key^=posKeyCastling[pos->data->castRights.rookSq[movingSide][CastSideA]];
 		pos->data->castRights.rookSq[movingSide][CastSideA]=SqInvalid;
-	if (pos->data->castRights.rookSq[movingSide][CastSideH]==fromSq || pieceGetType(fromPiece)==PieceTypeKing)
+	}
+	if (pos->data->castRights.rookSq[movingSide][CastSideH]==fromSq || pieceGetType(fromPiece)==PieceTypeKing) {
+		pos->data->key^=posKeyCastling[pos->data->castRights.rookSq[movingSide][CastSideH]];
 		pos->data->castRights.rookSq[movingSide][CastSideH]=SqInvalid;
-	if (pos->data->castRights.rookSq[nonMovingSide][CastSideA]==toSqRaw)
+	}
+	if (pos->data->castRights.rookSq[nonMovingSide][CastSideA]==toSqRaw) {
+		pos->data->key^=posKeyCastling[pos->data->castRights.rookSq[nonMovingSide][CastSideA]];
 		pos->data->castRights.rookSq[nonMovingSide][CastSideA]=SqInvalid;
-	if (pos->data->castRights.rookSq[nonMovingSide][CastSideH]==toSqRaw)
+	}
+	if (pos->data->castRights.rookSq[nonMovingSide][CastSideH]==toSqRaw) {
+		pos->data->key^=posKeyCastling[pos->data->castRights.rookSq[nonMovingSide][CastSideH]];
 		pos->data->castRights.rookSq[nonMovingSide][CastSideH]=SqInvalid;
-
-	// Update key.
-	pos->data->key^=posKeyEP[pos->data->epSq];
-	unsigned i, j;
-	for(i=ColourWhite; i<=ColourBlack; ++i)
-		for(j=CastSideA; j<=CastSideH; ++j) {
-			pos->data->key^=posKeyCastling[(pos->data-1)->castRights.rookSq[i][j]];
-			pos->data->key^=posKeyCastling[pos->data->castRights.rookSq[i][j]];
-		}
+	}
 
 	assert(posIsConsistent(pos));
 

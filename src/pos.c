@@ -1702,7 +1702,7 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 			return ((dX==0 || dY==0) && fromPiece==toPiece && (bbBetween(fromSq, toSqTrue) & occ)==BBNone);
 		break;
 		case PieceTypeQueen:
-			return (fromPiece==toPiece && (bbBetween(fromSq, toSqTrue) & occ)==BBNone);
+			return ((dX==0 || dY==0 || dX==dY) && fromPiece==toPiece && (bbBetween(fromSq, toSqTrue) & occ)==BBNone);
 		break;
 		case PieceTypeKing: {
 			// King cannot change.

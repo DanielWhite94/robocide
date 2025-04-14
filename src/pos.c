@@ -1692,7 +1692,7 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 				return (toPieceType==PieceTypePawn);
 		} break;
 		case PieceTypeKnight:
-			return (((dX==2 && dY==1) || (dX==1 && dY==2)) && fromPiece==toPiece && (bbBetween(fromSq, toSqTrue) & occ)==BBNone);
+			return (((dX==2 && dY==1) || (dX==1 && dY==2)) && fromPiece==toPiece);
 		break;
 		case PieceTypeBishopL:
 		case PieceTypeBishopD:

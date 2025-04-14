@@ -122,7 +122,7 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 	// Sanity checks.
 	assert(depthIsValid(ply));
 	assert(depthIsValid(depth));
-	assert(moveIsValid(move) || move==MoveNone);
+	assert(moveIsValid(move));
 	assert(scoreIsValid(score));
 	assert(bound!=BoundNone);
 

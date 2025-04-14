@@ -10,7 +10,7 @@
 // 6 bits - From square.
 // 6 bits - To square.
 // Castling is represented soley by the king movement.
-// 'Special' moves such as MoveInvalid and MoveNone are encoded with
+// 'Special' moves such as MoveInvalid are encoded with
 // fromSq==toSq and toPiece undefined (these can never be real moves).
 
 STATICASSERT(SqNB<=(1u<<6));
@@ -20,7 +20,6 @@ STATICASSERT(PieceNB<=(1u<<4));
 #define MoveShiftToPiece 12
 
 const Move MoveInvalid=((((Move)SqA1)<<MoveShiftFromSq)|(((Move)SqA1)<<MoveShiftToSq));
-const Move MoveNone=((((Move)SqB1)<<MoveShiftFromSq)|(((Move)SqB1)<<MoveShiftToSq));
 
 const char MovePromoChar[PieceTypeNB]={
 	[PieceTypeNone]='\0',

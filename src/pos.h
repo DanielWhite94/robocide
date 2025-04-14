@@ -77,6 +77,8 @@ VPair posGetPstScore(const Pos *pos);
 bool posMakeMove(Pos *pos, Move move);
 bool posCanMakeMove(const Pos *pos, Move move); // Returns the same result as posMakeMove() but does not actually make the move on the board.
 void posUndoMove(Pos *pos);
+bool posMakeNullMove(Pos *pos);
+void posUndoNullMove(Pos *pos);
 
 void posGenPseudoMoves(Moves *moves, MoveType type);
 Move posGenLegalMove(const Pos *pos, MoveType type);
@@ -93,7 +95,7 @@ bool posLegalMoveExists(const Pos *pos, MoveType type);
 
 bool posHasPieces(const Pos *pos, Colour colour); // Non-pawn material?
 
-bool posMoveIsPseudoLegal(const Pos *pos, Move move); // If side-to-move is not in check will also permit MoveNone.
+bool posMoveIsPseudoLegal(const Pos *pos, Move move);
 
 MoveType posMoveGetType(const Pos *pos, Move move); // Assumes move is pseudo-legal in the current position.
 bool posMoveIsPromotion(const Pos *pos, Move move);

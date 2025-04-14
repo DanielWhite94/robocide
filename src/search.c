@@ -553,15 +553,15 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 	child.ply=node->ply+1;
 	if (!searchNodeIsPV(node) && searchNullReduction>0 && node->depth>1+searchNullReduction &&
 	    !scoreIsMate(node->beta) && !searchIsZugzwang(node) && evaluate(node->pos)>=node->beta) {
-		assert(!node->inCheck);
+		assert(!node->inCheck); // searchIsZugzwang returning false ensures this is the case
 
-		posMakeMove(node->pos, MoveNone);
+		posMakeNullMove(node->pos);
 		child.inCheck=false;
 		child.depth=node->depth-1-searchNullReduction;
 		child.alpha=-node->beta;
 		child.beta=1-node->beta;
 		Score score=-searchNode(&child, &tempChildMove);
-		posUndoMove(node->pos);
+		posUndoNullMove(node->pos);
 
 		if (score>=node->beta) {
 			node->bound=BoundLower;

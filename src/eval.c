@@ -219,6 +219,7 @@ Score evalInterpolate(const EvalData *data, const VPair *score);
 #ifdef TUNE
 void evalSetValue(void *varPtr, long long value);
 bool evalOptionNewVPair(const char *name, VPair *score);
+bool evalOptionNewVPairF(const char *nameFormat, VPair *score, ...);
 #endif
 
 void evalRecalc(void);
@@ -1133,6 +1134,28 @@ bool evalOptionNewVPair(const char *name, VPair *score) {
 	const Value min=-32767, max=32767;
 	return uciOptionNewSpinF("%sMG", &evalSetValue, &score->mg, min, max, score->mg, name) &&
 	       uciOptionNewSpinF("%sEG", &evalSetValue, &score->eg, min, max, score->eg, name);
+}
+
+bool evalOptionNewVPairF(const char *nameFormat, VPair *score, ...) {
+	const Value min=-32767, max=32767;
+
+	char nameFormat1[1024]; // TODO: avoid hardcoded size
+	char nameFormat2[1024]; // TODO: avoid hardcoded size
+	sprintf(nameFormat1, "%sMG", nameFormat);
+	sprintf(nameFormat2, "%sEG", nameFormat);
+
+	va_list ap1, ap2;
+	va_start(ap1, score);
+	va_copy(ap2, ap1);
+
+	bool result=true;
+	result&=!uciOptionNewSpinFV(nameFormat1, &evalSetValue, &score->mg, min, max, score->mg, ap1);
+	result&=!uciOptionNewSpinFV(nameFormat2, &evalSetValue, &score->eg, min, max, score->eg, ap2);
+
+	va_end(ap2);
+	va_end(ap1);
+
+	return result;
 }
 
 #endif

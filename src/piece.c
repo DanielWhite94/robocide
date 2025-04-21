@@ -10,6 +10,15 @@ const char PieceChar[PieceNB]={
 const char PromoChar[PieceTypeNB]={
 	[PieceTypeKnight]='n', [PieceTypeBishopL]='b', [PieceTypeBishopD]='b', [PieceTypeRook]='r', [PieceTypeQueen]='q'
 };
+const char PieceTypeStr[PieceTypeNB][8]={
+	[PieceTypePawn]="Pawn",
+	[PieceTypeKnight]="Knight",
+	[PieceTypeBishopL]="Bishop",
+	[PieceTypeBishopD]="Bishop",
+	[PieceTypeRook]="Rook",
+	[PieceTypeQueen]="Queen",
+	[PieceTypeKing]="King"
+};
 
 bool pieceTypeIsValid(PieceType type) {
 	return (type>=PieceTypePawn && type<=PieceTypeKing);
@@ -48,4 +57,9 @@ char pieceToChar(Piece piece) {
 char pieceTypeToPromoChar(PieceType type) {
 	assert(type==PieceTypeKnight || type==PieceTypeBishopL || type==PieceTypeBishopD || type==PieceTypeRook || type==PieceTypeQueen);
 	return PromoChar[type];
+}
+
+const char *pieceTypeToStr(PieceType type) {
+	assert(pieceTypeIsValid(type));
+	return PieceTypeStr[type];
 }

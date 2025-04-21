@@ -58,5 +58,6 @@ Piece pieceMake(PieceType type, Colour colour);
 
 char pieceToChar(Piece piece);
 char pieceTypeToPromoChar(PieceType type);
+const char *pieceTypeToStr(PieceType type);
 
 #endif

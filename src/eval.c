@@ -1149,22 +1149,9 @@ void evalSetValue(void *varPtr, long long value) {
 }
 
 bool evalOptionNewVPair(const char *name, VPair *score) {
-	// Allocate string to hold name with 'MG'/'EG' appended
-	size_t nameLen=strlen(name);
-	char *fullName=malloc(nameLen+2+1);
-	if (fullName==NULL)
-		return false;
-
-	// Add option for each of mg/eg
-	bool success=true;
 	const Value min=-32767, max=32767;
-	sprintf(fullName, "%sMG", name);
-	success&=uciOptionNewSpin(fullName, &evalSetValue, &score->mg, min, max, score->mg);
-	sprintf(fullName, "%sEG", name);
-	success&=uciOptionNewSpin(fullName, &evalSetValue, &score->eg, min, max, score->eg);
-
-	free(fullName);
-	return success;
+	return uciOptionNewSpinF("%sMG", &evalSetValue, &score->mg, min, max, score->mg, name) &&
+	       uciOptionNewSpinF("%sEG", &evalSetValue, &score->eg, min, max, score->eg, name);
 }
 
 void evalSetValue16(void *varPtr, long long value) {

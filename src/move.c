@@ -10,8 +10,7 @@
 // 6 bits - From square.
 // 6 bits - To square.
 // Castling is represented soley by the king movement.
-// 'Special' moves such as MoveInvalid and MoveNone are encoded with
-// fromSq==toSq and toPiece undefined (these can never be real moves).
+// MoveInvalid is encoded with fromSq=toSq=A1 and toPiece=PieceNone (these can never be real moves).
 
 STATICASSERT(SqNB<=(1u<<6));
 STATICASSERT(PieceNB<=(1u<<4));
@@ -19,8 +18,7 @@ STATICASSERT(PieceNB<=(1u<<4));
 #define MoveShiftFromSq 6
 #define MoveShiftToPiece 12
 
-const Move MoveInvalid=((((Move)SqA1)<<MoveShiftFromSq)|(((Move)SqA1)<<MoveShiftToSq));
-const Move MoveNone=((((Move)SqB1)<<MoveShiftFromSq)|(((Move)SqB1)<<MoveShiftToSq));
+const Move MoveInvalid=((((Move)SqA1)<<MoveShiftFromSq)|(((Move)SqA1)<<MoveShiftToSq)|(((Move)PieceNone)<<MoveShiftToPiece)); // i.e. 0
 
 const char MovePromoChar[PieceTypeNB]={
 	[PieceTypeNone]='\0',
@@ -34,7 +32,8 @@ const char MovePromoChar[PieceTypeNB]={
 };
 
 bool moveIsValid(Move move) {
-	return (moveGetFromSq(move)!=moveGetToSqRaw(move));
+	assert(MoveInvalid==0); // not required for the function, but cannot be put as static assert at definition
+	return (move!=MoveInvalid);
 }
 
 Move moveMake(Sq fromSq, Sq toSq, Piece toPiece) {

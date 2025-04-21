@@ -11,7 +11,6 @@ typedef unsigned int Move;
 
 #define MoveBit 16 // Number of bits Move actually uses.
 extern const Move MoveInvalid; // i.e. undefined/not set.
-extern const Move MoveNone; // i.e. no/null move (e.g. in null move pruning one makes a move like this).
 
 bool moveIsValid(Move move);
 

@@ -5,7 +5,7 @@
 #include "util.h"
 
 bool sqIsValid(Sq sq) {
-	return (sq>=SqA1 && sq<=SqH8);
+	return (sq!=SqInvalid);
 }
 
 Sq sqMake(File file, Rank rank) {

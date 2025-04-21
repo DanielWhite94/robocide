@@ -341,6 +341,19 @@ bool uciOptionNewSpin(const char *name, void(*function)(void *userData, long lon
 	return true;
 }
 
+bool uciOptionNewSpinF(const char *nameFormat, void(*function)(void *userData, long long int value), void *userData, long long int min, long long int max, long long int initial, ...) {
+	// Create name
+	va_list ap;
+	va_start(ap, initial);
+	char name[1024]; // TODO: avoid hardcoded size
+	vsnprintf(name, 1024, nameFormat, ap); // TODO: check return?
+	name[1023]=0;
+	va_end(ap);
+
+	// Add option using base version of this function
+	return uciOptionNewSpin(name, function, userData, min, max, initial);
+}
+
 bool uciOptionNewCombo(const char *name, void(*function)(void *userData, const char *value), void *userData, const char *initial, size_t optionCount, ...) {
 	// Allocate any memory needed.
 	char *nameMem=malloc(strlen(name)+1);

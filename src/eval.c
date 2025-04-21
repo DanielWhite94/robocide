@@ -236,6 +236,8 @@ void evalVerify(void);
 
 EvalMatType evalComputeMatType(const Pos *pos);
 
+void evalPstDraw(PieceType type);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
 ////////////////////////////////////////////////////////////////////////////////
@@ -1391,3 +1393,19 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 #	undef MAKE
 }
 
+
+void evalPstDraw(PieceType type) {
+	for(int y=7; y>=0; --y) {
+		for(int x=0; x<8; ++x) {
+			Sq sq=sqMake(x, y);
+			printf("%5i ", evalPST[pieceMake(type, ColourWhite)][sq].mg-evalMaterial[type].mg);
+		}
+		printf("     ");
+		for(int x=0; x<8; ++x) {
+			Sq sq=sqMake(x, y);
+			printf("%5i ", evalPST[pieceMake(type, ColourWhite)][sq].eg-evalMaterial[type].eg);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}

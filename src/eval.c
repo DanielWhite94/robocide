@@ -58,12 +58,12 @@ struct EvalData {
 
 TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeNone]={0,0},
-	[PieceTypePawn]={936,1176},
+	[PieceTypePawn]={936,1247},
 	[PieceTypeKnight]={3100,3100},
 	[PieceTypeBishopL]={3161,3147},
 	[PieceTypeBishopD]={3161,3147},
-	[PieceTypeRook]={4815,4185},
-	[PieceTypeQueen]={9500,9923},
+	[PieceTypeRook]={4526,4185},
+	[PieceTypeQueen]={9025,10143},
 	[PieceTypeKing]={0,0}
 };
 TUNECONST VPair evalPawnFiles[FileNB]={{-100,-50},{-50,0},{0,0},{50,50},{50,50},{0,0},{-50,0},{-100,-50}};
@@ -77,7 +77,7 @@ TUNECONST VPair evalPawnPassedQuadA={56,50}; // Coefficients used in quadratic f
 TUNECONST VPair evalPawnPassedQuadB={-109,-100};
 TUNECONST VPair evalPawnPassedQuadC={155,150};
 TUNECONST VPair evalKnightPawnAffinity={30,32}; // Bonus each knight receives for each friendly pawn on the board.
-TUNECONST VPair evalBishopPair={500,520};
+TUNECONST VPair evalBishopPair={500,489};
 TUNECONST VPair evalBishopMob={38,32};
 TUNECONST VPair evalOppositeBishopFactor={256,192}; // /256.
 TUNECONST VPair evalRookPawnAffinity={-70,-70}; // Bonus each rook receives for each friendly pawn on the board.

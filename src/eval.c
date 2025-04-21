@@ -16,10 +16,6 @@
 
 const VPair VPairZero={0,0};
 
-typedef int16_t Value16;
-typedef struct { Value16 mg, eg; } VPair16;
-const VPair16 VPair16Zero={0,0};
-
 typedef struct EvalData EvalData;
 
 typedef struct {
@@ -220,14 +216,9 @@ VPair evaluateDefaultKing(EvalData *data, Colour colour);
 
 Score evalInterpolate(const EvalData *data, const VPair *score);
 
-void evalVPairAddVPair16To(VPair *a, const VPair16 *b);
-void evalVPairSubVPair16From(VPair *a, const VPair16 *b);
-
 #ifdef TUNE
 void evalSetValue(void *varPtr, long long value);
 bool evalOptionNewVPair(const char *name, VPair *score);
-void evalSetValue16(void *varPtr, long long value);
-bool evalOptionNewVPair16(const char *name, VPair16 *score);
 #endif
 
 void evalRecalc(void);
@@ -1113,16 +1104,6 @@ Score evalInterpolate(const EvalData *data, const VPair *score) {
 	return ((data->matData.weightMG*score->mg+data->matData.weightEG*score->eg)*100)/(evalMaterial[PieceTypePawn].mg*256);
 }
 
-void evalVPairAddVPair16To(VPair *a, const VPair16 *b) {
-	a->mg+=b->mg;
-	a->eg+=b->eg;
-}
-
-void evalVPairSubVPair16From(VPair *a, const VPair16 *b) {
-	a->mg-=b->mg;
-	a->eg-=b->eg;
-}
-
 #ifdef TUNE
 void evalSetValue(void *varPtr, long long value) {
 	// Set value.
@@ -1154,33 +1135,6 @@ bool evalOptionNewVPair(const char *name, VPair *score) {
 	       uciOptionNewSpinF("%sEG", &evalSetValue, &score->eg, min, max, score->eg, name);
 }
 
-void evalSetValue16(void *varPtr, long long value) {
-	// Set value.
-	Value16 *var=(Value16 *)varPtr;
-	*var=value;
-
-	// Recalculate dervied values (such as passed pawn table).
-	evalRecalc();
-}
-
-bool evalOptionNewVPair16(const char *name, VPair16 *score) {
-	// Allocate string to hold name with 'MG'/'EG' appended
-	size_t nameLen=strlen(name);
-	char *fullName=malloc(nameLen+2+1);
-	if (fullName==NULL)
-		return false;
-
-	// Add option for each of mg/eg
-	bool success=true;
-	const Value16 min=INT16_MIN, max=INT16_MAX;
-	sprintf(fullName, "%sMG", name);
-	success&=uciOptionNewSpin(fullName, &evalSetValue16, &score->mg, min, max, score->mg);
-	sprintf(fullName, "%sEG", name);
-	success&=uciOptionNewSpin(fullName, &evalSetValue16, &score->eg, min, max, score->eg);
-
-	free(fullName);
-	return success;
-}
 #endif
 
 void evalRecalc(void) {
@@ -1379,7 +1333,6 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 #	undef MASK
 #	undef MAKE
 }
-
 
 void evalPstDraw(PieceType type) {
 	for(int y=7; y>=0; --y) {

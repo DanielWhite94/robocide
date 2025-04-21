@@ -54,16 +54,23 @@ struct EvalData {
 
 TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeNone]={0,0},
-	[PieceTypePawn]={936,1247},
-	[PieceTypeKnight]={3100,3100},
-	[PieceTypeBishopL]={3161,3147},
-	[PieceTypeBishopD]={3161,3147},
-	[PieceTypeRook]={4526,4185},
-	[PieceTypeQueen]={9025,10143},
-	[PieceTypeKing]={0,0}
+	[PieceTypePawn]={826,1192},
+	[PieceTypeKnight]={2930,2980},
+	[PieceTypeBishopL]={3241,3207},
+	[PieceTypeBishopD]={3241,3207},
+	[PieceTypeRook]={4511,4185},
+	[PieceTypeQueen]={8975,10143},
+	[PieceTypeKing]={600,-460} // these values exist soley to make PSTs look nicer (both sides always have exactly one king of course)
 };
-TUNECONST VPair evalPawnFiles[FileNB]={{-100,-50},{-50,0},{0,0},{50,50},{50,50},{0,0},{-50,0},{-100,-50}};
-TUNECONST VPair evalPawnRanks[RankNB]={{0,0},{0,0},{10,10},{20,35},{30,80},{40,110},{50,150},{0,0}};
+TUNECONST VPair evalPstParams[PieceTypeNB][3]={
+	[PieceTypePawn]={{50,33}, {0,0}, {10,25}},
+	[PieceTypeKnight]={{36,31}, {9,31}, {25,0}},
+	[PieceTypeBishopL]={{14,9}, {14,9}, {0,0}},
+	[PieceTypeBishopD]={{14,9}, {14,9}, {0,0}},
+	[PieceTypeRook]={{15,0}, {0,0}, {0,0}},
+	[PieceTypeQueen]={{0,0}, {-14,0}, {14,0}},
+	[PieceTypeKing]={{-200,120}, {-250,120}, {-50,0}},
+};
 TUNECONST VPair evalPawnCentre={200,0};
 TUNECONST VPair evalPawnOuterCentre={50,0};
 TUNECONST VPair evalPawnDoubled={-110,-190};
@@ -91,92 +98,11 @@ TUNECONST VPair evalTempoDefault={35,0};
 TUNECONST Value evalHalfMoveFactor=2048;
 TUNECONST Value evalWeightFactor=151;
 
-VPair evalPST[PieceNB][SqNB]={
-	[PieceNone]={
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}
-	},
-	[PieceWPawn]={
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0}
-	},
-	[PieceWKnight]={
-		{ -170, -120},{ -120,  -60},{  -80,  -30},{  -60,  -10},{  -60,  -10},{  -80,  -30},{ -120,  -60},{ -170, -120},
-		{ -110,  -60},{  -60,  -10},{  -30,   20},{  -10,   30},{  -10,   30},{  -30,   20},{  -60,  -10},{ -110,  -60},
-		{  -70,  -30},{  -20,   20},{   10,   50},{   20,   60},{   20,   60},{   10,   50},{  -20,   20},{  -70,  -30},
-		{  -40,  -10},{   10,   30},{   30,   60},{   40,   70},{   40,   70},{   30,   60},{   10,   30},{  -40,  -10},
-		{  -10,  -10},{   30,   30},{   60,   60},{   60,   70},{   60,   70},{   60,   60},{   30,   30},{  -10,  -10},
-		{    0,  -30},{   40,   20},{   70,   50},{   80,   60},{   80,   60},{   70,   50},{   40,   20},{    0,  -30},
-		{  -10,  -60},{   40,  -10},{   70,   20},{   90,   30},{   90,   30},{   70,   20},{   40,  -10},{  -10,  -60},
-		{  -20, -120},{   20,  -60},{   60,  -30},{   80,  -10},{   80,  -10},{   60,  -30},{   20,  -60},{  -20, -120}
-	},
-	[PieceWBishopL]={
-		{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  160,  120},{  160,  120},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  160,  120},{  160,  120},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60}
-	},
-	[PieceWBishopD]={
-		{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  160,  120},{  160,  120},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  160,  120},{  160,  120},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{  120,   90},{   80,   60},
-		{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60},{   80,   60}
-	},
-	[PieceWRook]={
-		{  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-		{  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-		{  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-		{  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-		{  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-		{  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-		{  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0},
-		{  -15,    0},{    0,    0},{   15,    0},{   30,    0},{   30,    0},{   15,    0},{    0,    0},{  -15,    0}
-	},
-	[PieceWQueen]={
-		{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},
-		{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},
-		{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},
-		{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},{  -50,    0},
-		{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},{  -25,    0},
-		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},
-		{   25,    0},{   25,    0},{   25,    0},{   25,    0},{   25,    0},{   25,    0},{   25,    0},{   25,    0},
-		{   50,    0},{   50,    0},{   50,    0},{   50,    0},{   50,    0},{   50,    0},{   50,    0},{   50,    0}
-	},
-	[PieceWKing]={
-		{  570, -460},{  570, -240},{  350, -120},{  200,  -40},{  200,  -40},{  350, -120},{  570, -240},{  570, -460},
-		{  350, -240},{  320,  -40},{  140,   60},{   30,  120},{   30,  120},{  140,   60},{  320,  -40},{  350, -240},
-		{  100, -120},{   50,   60},{ -110,  180},{ -260,  240},{ -260,  240},{ -110,  180},{   50,   60},{  100, -120},
-		{    0,  -40},{  -40,  120},{ -320,  240},{ -790,  260},{ -790,  260},{ -320,  240},{  -40,  120},{    0,  -40},
-		{  -50,  -40},{ -110,  120},{ -390,  240},{ -860,  260},{ -860,  260},{ -390,  240},{ -110,  120},{  -50,  -40},
-		{  160, -120},{ -100,   60},{ -320,  180},{ -480,  240},{ -480,  240},{ -320,  180},{ -100,   60},{  160, -120},
-		{  200, -240},{  -30,  -40},{ -210,   60},{ -310,  120},{ -310,  120},{ -210,   60},{  -30,  -40},{  200, -240},
-		{  290, -460},{   70, -240},{  -80, -120},{ -160,  -40},{ -160,  -40},{  -80, -120},{   70, -240},{  290, -460}
-	}
-};
-
 ////////////////////////////////////////////////////////////////////////////////
 // Derived values
 ////////////////////////////////////////////////////////////////////////////////
+
+VPair evalPST[PieceNB][SqNB];
 
 typedef enum {
 	PawnTypeStandard=0,
@@ -261,16 +187,6 @@ void evalInit(void) {
 	evalOptionNewVPair("Queen", &evalMaterial[PieceTypeQueen]);
 	evalOptionNewVPair("PawnCentre", &evalPawnCentre);
 	evalOptionNewVPair("PawnOuterCentre", &evalPawnOuterCentre);
-	evalOptionNewVPair("PawnFilesAH", &evalPawnFiles[FileA]);
-	evalOptionNewVPair("PawnFilesBG", &evalPawnFiles[FileB]);
-	evalOptionNewVPair("PawnFilesCF", &evalPawnFiles[FileC]);
-	evalOptionNewVPair("PawnFilesDE", &evalPawnFiles[FileD]);
-	evalOptionNewVPair("PawnRank2", &evalPawnRanks[Rank2]);
-	evalOptionNewVPair("PawnRank3", &evalPawnRanks[Rank3]);
-	evalOptionNewVPair("PawnRank4", &evalPawnRanks[Rank4]);
-	evalOptionNewVPair("PawnRank5", &evalPawnRanks[Rank5]);
-	evalOptionNewVPair("PawnRank6", &evalPawnRanks[Rank6]);
-	evalOptionNewVPair("PawnRank7", &evalPawnRanks[Rank7]);
 	evalOptionNewVPair("PawnDoubled", &evalPawnDoubled);
 	evalOptionNewVPair("PawnIsolated", &evalPawnIsolated);
 	evalOptionNewVPair("PawnBlocked", &evalPawnBlocked);
@@ -296,6 +212,15 @@ void evalInit(void) {
 	evalOptionNewVPair("Tempo", &evalTempoDefault);
 	uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 32768, evalHalfMoveFactor);
 	uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 1024, evalWeightFactor);
+	PieceType type;
+	for(type=PieceTypePawn;type<=PieceTypeKing;++type) {
+		if (type==PieceTypeBishopD)
+			continue;
+		const char *typeStr=pieceTypeToStr(type);
+		evalOptionNewVPairF("Pst%sH", &evalPstParams[type][0], typeStr);
+		evalOptionNewVPairF("Pst%sV", &evalPstParams[type][1], typeStr);
+		evalOptionNewVPairF("Pst%sA", &evalPstParams[type][2], typeStr);
+	}
 # endif
 }
 
@@ -1116,15 +1041,18 @@ void evalSetValue(void *varPtr, long long value) {
 		evalMaterial[PieceTypeBishopD].mg=value;
 	else if (var==&evalMaterial[PieceTypeBishopL].eg)
 		evalMaterial[PieceTypeBishopD].eg=value;
-
-	// Hack to reflect pawn files.
-	File file;
-	for(file=FileA;file<=FileD;++file) {
-		if (var==&evalPawnFiles[file].mg)
-			evalPawnFiles[fileMirror(file)].mg=value;
-		else if (var==&evalPawnFiles[file].eg)
-			evalPawnFiles[fileMirror(file)].eg=value;
-	}
+	else if (var==&evalPstParams[PieceTypeBishopD][0].mg)
+		evalPstParams[PieceTypeBishopD][0].mg=value;
+	else if (var==&evalPstParams[PieceTypeBishopD][0].eg)
+		evalPstParams[PieceTypeBishopD][0].eg=value;
+	else if (var==&evalPstParams[PieceTypeBishopD][1].mg)
+		evalPstParams[PieceTypeBishopD][1].mg=value;
+	else if (var==&evalPstParams[PieceTypeBishopD][1].eg)
+		evalPstParams[PieceTypeBishopD][1].eg=value;
+	else if (var==&evalPstParams[PieceTypeBishopD][2].mg)
+		evalPstParams[PieceTypeBishopD][2].mg=value;
+	else if (var==&evalPstParams[PieceTypeBishopD][2].eg)
+		evalPstParams[PieceTypeBishopD][2].eg=value;
 
 	// Recalculate dervied values (such as passed pawn table).
 	evalRecalc();
@@ -1165,26 +1093,49 @@ void evalRecalc(void) {
 
 	// White pawn PST.
 	Sq sq;
-	const BB centre=(bbSq(SqD4)|bbSq(SqE4)|
-	                 bbSq(SqD5)|bbSq(SqE5));
-	const BB outerCentre=(bbSq(SqC3)|bbSq(SqD3)|bbSq(SqE3)|bbSq(SqF3)|
-	                      bbSq(SqC4)|                      bbSq(SqF4)|
-	                      bbSq(SqC5)|                      bbSq(SqF5)|
-	                      bbSq(SqC6)|bbSq(SqD6)|bbSq(SqE6)|bbSq(SqF6));
 	VPair whitePawnPst[SqNB];
 	for(sq=0;sq<SqNB;++sq) {
 		whitePawnPst[sq]=VPairZero;
 		if (sqRank(sq)==Rank1 || sqRank(sq)==Rank8)
 			continue;
-		BB bb=bbSq(sq);
-		evalVPairAddTo(&whitePawnPst[sq], &evalMaterial[PieceTypePawn]);
-		evalVPairAddTo(&whitePawnPst[sq], &evalPawnFiles[sqFile(sq)]);
-		evalVPairAddTo(&whitePawnPst[sq], &evalPawnRanks[sqRank(sq)]);
-		if (bb & centre)
+
+		unsigned y=sqRank(sq);
+		unsigned ya=(y<4 ? y : 7-y);
+		VPair rankScore=evalVPairMul(&evalPstParams[PieceTypePawn][1], ya);
+		VPair advScore=evalVPairMul(&evalPstParams[PieceTypePawn][2], y);
+		VPair yScore=evalVPairAdd(&rankScore, &advScore);
+		unsigned x=sqFile(sq);
+		unsigned xa=(x<4 ? x : 7-x);
+		VPair fileScore=evalVPairMul(&evalPstParams[PieceTypePawn][0], xa);
+		whitePawnPst[sq]=evalVPairAdd(&yScore, &fileScore);
+
+		if (xa==3 && ya==3)
 			evalVPairAddTo(&whitePawnPst[sq], &evalPawnCentre);
-		else if (bb & outerCentre)
+		else if (xa>=2 && ya>=2)
 			evalVPairAddTo(&whitePawnPst[sq], &evalPawnOuterCentre);
+
+		evalVPairAddTo(&whitePawnPst[sq], &evalMaterial[PieceTypePawn]);
 	}
+
+	// White piece PSTs
+	for(PieceType type=PieceTypeKnight; type<=PieceTypeKing; ++type) {
+		for(unsigned y=0; y<8; ++y) {
+			unsigned ya=(y<4 ? y : 7-y);
+			VPair rankScore=evalVPairMul(&evalPstParams[type][1], ya);
+			VPair advScore=evalVPairMul(&evalPstParams[type][2], y);
+			VPair yScore=evalVPairAdd(&rankScore, &advScore);
+			for(unsigned x=0; x<8; ++x) {
+				unsigned xa=(x<4 ? x : 7-x);
+				VPair fileScore=evalVPairMul(&evalPstParams[type][0], xa);
+				Sq sq=sqMake(x,y);
+				evalPST[pieceMake(type, ColourWhite)][sq]=evalVPairAdd(&yScore, &fileScore);
+			}
+		}
+	}
+
+	// Manually fix king PST for friendly corner squares
+	evalPST[PieceWKing][SqA1].mg=evalPST[PieceWKing][SqB1].mg;
+	evalPST[PieceWKing][SqH1].mg=evalPST[PieceWKing][SqG1].mg;
 
 	// Pawn table.
 	PawnType type;
@@ -1216,7 +1167,7 @@ void evalRecalc(void) {
 	}
 
 	// Add material to white PSTs
-	for(pieceType=PieceTypeKnight; pieceType<=PieceTypeQueen; ++pieceType) {
+	for(pieceType=PieceTypeKnight; pieceType<=PieceTypeKing; ++pieceType) {
 		Piece piece=pieceMake(pieceType, ColourWhite);
 		Sq sq;
 		for(sq=0; sq<SqNB; ++sq)
@@ -1270,18 +1221,34 @@ void evalRecalc(void) {
 }
 
 void evalVerify(void) {
-	// Check evalPawnFiles is symmetrical.
-	File file;
-	for(file=0; file<FileNB; ++file) {
-		assert(evalPawnFiles[file].mg==evalPawnFiles[fileMirror(file)].mg);
-		assert(evalPawnFiles[file].eg==evalPawnFiles[fileMirror(file)].eg);
+	// Check light/dark bishop entries match
+	assert(evalMaterial[PieceTypeBishopL].mg==evalMaterial[PieceTypeBishopD].mg);
+	assert(evalMaterial[PieceTypeBishopL].eg==evalMaterial[PieceTypeBishopD].eg);
+	for(unsigned i=0; i<3; ++i) {
+		assert(evalPstParams[PieceTypeBishopL][i].mg==evalPstParams[PieceTypeBishopD][i].mg);
+		assert(evalPstParams[PieceTypeBishopL][i].eg==evalPstParams[PieceTypeBishopD][i].eg);
+	}
+	for(Sq sq=0; sq<SqNB; ++sq) {
+		assert(evalPST[PieceWBishopL][sq].mg==evalPST[PieceWBishopD][sq].mg);
+		assert(evalPST[PieceWBishopL][sq].eg==evalPST[PieceWBishopD][sq].eg);
+		assert(evalPST[PieceBBishopL][sq].mg==evalPST[PieceBBishopD][sq].mg);
+		assert(evalPST[PieceBBishopL][sq].eg==evalPST[PieceBBishopD][sq].eg);
+	}
+
+	// Check pawn table is symmetrical
+	for(Sq sq=0; sq<SqNB; ++sq) {
+		for(unsigned i=0; i<PawnTypeNB; ++i) {
+			assert(evalPawnValue[ColourWhite][i][sq].mg==evalPawnValue[ColourWhite][i][sqMirror(sq)].mg);
+			assert(evalPawnValue[ColourWhite][i][sq].eg==evalPawnValue[ColourWhite][i][sqMirror(sq)].eg);
+			assert(evalPawnValue[ColourBlack][i][sq].mg==evalPawnValue[ColourBlack][i][sqMirror(sq)].mg);
+			assert(evalPawnValue[ColourBlack][i][sq].eg==evalPawnValue[ColourBlack][i][sqMirror(sq)].eg);
+		}
 	}
 
 	// Check PSTs are symmetrical.
 	PieceType pieceType;
-	Sq sq;
 	for(pieceType=PieceTypePawn; pieceType<=PieceTypeKing; ++pieceType)
-		for(sq=0; sq<SqNB; ++sq) {
+		for(Sq sq=0; sq<SqNB; ++sq) {
 			assert(evalPST[pieceMake(pieceType, ColourWhite)][sq].mg==evalPST[pieceMake(pieceType, ColourWhite)][sqMirror(sq)].mg);
 			assert(evalPST[pieceMake(pieceType, ColourWhite)][sq].eg==evalPST[pieceMake(pieceType, ColourWhite)][sqMirror(sq)].eg);
 

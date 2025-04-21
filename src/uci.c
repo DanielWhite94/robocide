@@ -342,13 +342,19 @@ bool uciOptionNewSpin(const char *name, void(*function)(void *userData, long lon
 }
 
 bool uciOptionNewSpinF(const char *nameFormat, void(*function)(void *userData, long long int value), void *userData, long long int min, long long int max, long long int initial, ...) {
-	// Create name
+	// Simply use uciOptionNewSpinFV
 	va_list ap;
 	va_start(ap, initial);
+	bool result=uciOptionNewSpinFV(nameFormat, function, userData, min, max, initial, ap);
+	va_end(ap);
+	return result;
+}
+
+bool uciOptionNewSpinFV(const char *nameFormat, void(*function)(void *userData, long long int value), void *userData, long long int min, long long int max, long long int initial, va_list ap) {
+	// Create name
 	char name[1024]; // TODO: avoid hardcoded size
 	vsnprintf(name, 1024, nameFormat, ap); // TODO: check return?
 	name[1023]=0;
-	va_end(ap);
 
 	// Add option using base version of this function
 	return uciOptionNewSpin(name, function, userData, min, max, initial);

@@ -46,6 +46,7 @@ void evalVPairNegate(VPair *a);
 
 VPair evalVPairAdd(const VPair *a, const VPair *b);
 VPair evalVPairSub(const VPair *a, const VPair *b);
+VPair evalVPairMul(const VPair *a, int c);
 VPair evalVPairNegation(const VPair *a);
 
 #endif

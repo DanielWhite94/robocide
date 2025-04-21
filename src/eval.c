@@ -423,6 +423,11 @@ VPair evalVPairSub(const VPair *a, const VPair *b) {
 	return result;
 }
 
+VPair evalVPairMul(const VPair *a, int c) {
+	VPair result={.mg=a->mg*c, .eg=a->eg*c};
+	return result;
+}
+
 VPair evalVPairNegation(const VPair *a) {
 	VPair result=*a;
 	evalVPairNegate(&result);

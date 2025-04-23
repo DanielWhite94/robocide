@@ -144,8 +144,8 @@ Score evalInterpolate(const EvalData *data, const VPair *score);
 
 #ifdef TUNE
 void evalSetValue(void *varPtr, long long value);
-bool evalOptionNewVPair(const char *name, VPair *score);
-bool evalOptionNewVPairF(const char *nameFormat, VPair *score, ...);
+bool evalOptionNewVPair(const char *name, VPair *score, Value min, Value max);
+bool evalOptionNewVPairF(const char *nameFormat, VPair *score, Value min, Value max, ...);
 #endif
 
 void evalRecalc(void);
@@ -180,47 +180,49 @@ void evalInit(void) {
 
 	// Setup callbacks for tuning values.
 # ifdef TUNE
-	evalOptionNewVPair("Pawn", &evalMaterial[PieceTypePawn]);
-	evalOptionNewVPair("Knight", &evalMaterial[PieceTypeKnight]);
-	evalOptionNewVPair("Bishop", &evalMaterial[PieceTypeBishopL]);
-	evalOptionNewVPair("Rook", &evalMaterial[PieceTypeRook]);
-	evalOptionNewVPair("Queen", &evalMaterial[PieceTypeQueen]);
-	evalOptionNewVPair("PawnCentre", &evalPawnCentre);
-	evalOptionNewVPair("PawnOuterCentre", &evalPawnOuterCentre);
-	evalOptionNewVPair("PawnDoubled", &evalPawnDoubled);
-	evalOptionNewVPair("PawnIsolated", &evalPawnIsolated);
-	evalOptionNewVPair("PawnBlocked", &evalPawnBlocked);
-	evalOptionNewVPair("PawnPassedQuadA", &evalPawnPassedQuadA);
-	evalOptionNewVPair("PawnPassedQuadB", &evalPawnPassedQuadB);
-	evalOptionNewVPair("PawnPassedQuadC", &evalPawnPassedQuadC);
-	evalOptionNewVPair("KnightPawnAffinity", &evalKnightPawnAffinity);
-	evalOptionNewVPair("BishopPair", &evalBishopPair);
-	evalOptionNewVPair("BishopMobility", &evalBishopMob);
+	evalOptionNewVPair("Pawn", &evalMaterial[PieceTypePawn], 0, 2000);
+	evalOptionNewVPair("Knight", &evalMaterial[PieceTypeKnight], 0, 6000);
+	evalOptionNewVPair("Bishop", &evalMaterial[PieceTypeBishopL], 0, 6000);
+	evalOptionNewVPair("Rook", &evalMaterial[PieceTypeRook], 0, 10000);
+	evalOptionNewVPair("Queen", &evalMaterial[PieceTypeQueen], 0, 18000);
+	evalOptionNewVPair("PawnCentre", &evalPawnCentre, 0, 1000);
+	evalOptionNewVPair("PawnOuterCentre", &evalPawnOuterCentre, 0, 500);
+	evalOptionNewVPair("PawnDoubled", &evalPawnDoubled, -1000, 0);
+	evalOptionNewVPair("PawnIsolated", &evalPawnIsolated, -1000, 0);
+	evalOptionNewVPair("PawnBlocked", &evalPawnBlocked, -1000, 0);
+	evalOptionNewVPair("PawnPassedQuadA", &evalPawnPassedQuadA, 0, 100);
+	evalOptionNewVPair("PawnPassedQuadB", &evalPawnPassedQuadB, -400, 400);
+	evalOptionNewVPair("PawnPassedQuadC", &evalPawnPassedQuadC, -1000, 1000);
+	evalOptionNewVPair("KnightPawnAffinity", &evalKnightPawnAffinity, -100, 100);
+	evalOptionNewVPair("BishopPair", &evalBishopPair, 0, 1000);
+	evalOptionNewVPair("BishopMobility", &evalBishopMob, 0, 100);
 	uciOptionNewSpin("OppositeBishopFactorMG", &evalSetValue, &evalOppositeBishopFactor.mg, 0, 512, evalOppositeBishopFactor.mg);
 	uciOptionNewSpin("OppositeBishopFactorEG", &evalSetValue, &evalOppositeBishopFactor.eg, 0, 512, evalOppositeBishopFactor.eg);
-	evalOptionNewVPair("RookPawnAffinity", &evalRookPawnAffinity);
-	evalOptionNewVPair("RookMobilityFile", &evalRookMobFile);
-	evalOptionNewVPair("RookMobilityRank", &evalRookMobRank);
-	evalOptionNewVPair("RookOpenFile", &evalRookOpenFile);
-	evalOptionNewVPair("RookSemiOpenFile", &evalRookSemiOpenFile);
-	evalOptionNewVPair("RookOn7th", &evalRookOn7th);
-	evalOptionNewVPair("RookTrapped", &evalRookTrapped);
-	evalOptionNewVPair("KingShieldClose", &evalKingShieldClose);
-	evalOptionNewVPair("KingShieldFar", &evalKingShieldFar);
-	evalOptionNewVPair("KingNearPasser", &evalKingNearPasserFactor);
-	evalOptionNewVPair("KingCastlingMobility", &evalKingCastlingMobility);
-	evalOptionNewVPair("Tempo", &evalTempoDefault);
-	uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 32768, evalHalfMoveFactor);
-	uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 1024, evalWeightFactor);
-	PieceType type;
-	for(type=PieceTypePawn;type<=PieceTypeKing;++type) {
+	evalOptionNewVPair("RookPawnAffinity", &evalRookPawnAffinity, -200, 200);
+	evalOptionNewVPair("RookMobilityFile", &evalRookMobFile, 0, 50);
+	evalOptionNewVPair("RookMobilityRank", &evalRookMobRank, 0, 50);
+	evalOptionNewVPair("RookOpenFile", &evalRookOpenFile, -200, 200);
+	evalOptionNewVPair("RookSemiOpenFile", &evalRookSemiOpenFile, 150, 150);
+	evalOptionNewVPair("RookOn7th", &evalRookOn7th, -200, 200);
+	evalOptionNewVPair("RookTrapped", &evalRookTrapped, -3000, 0);
+	evalOptionNewVPair("KingShieldClose", &evalKingShieldClose, 0, 500);
+	evalOptionNewVPair("KingShieldFar", &evalKingShieldFar, 0, 300);
+	evalOptionNewVPair("KingNearPasser", &evalKingNearPasserFactor, 0, 500);
+	evalOptionNewVPair("KingCastlingMobility", &evalKingCastlingMobility, 0, 200);
+	evalOptionNewVPair("Tempo", &evalTempoDefault, 0, 100);
+	uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 4096, evalHalfMoveFactor);
+	uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 512, evalWeightFactor);
+	for(PieceType type=PieceTypePawn;type<=PieceTypeQueen;++type) {
 		if (type==PieceTypeBishopD)
 			continue;
 		const char *typeStr=pieceTypeToStr(type);
-		evalOptionNewVPairF("Pst%sH", &evalPstParams[type][0], typeStr);
-		evalOptionNewVPairF("Pst%sV", &evalPstParams[type][1], typeStr);
-		evalOptionNewVPairF("Pst%sA", &evalPstParams[type][2], typeStr);
+		evalOptionNewVPairF("Pst%sH", &evalPstParams[type][0], -200, 200, typeStr);
+		evalOptionNewVPairF("Pst%sV", &evalPstParams[type][1], -200, 200, typeStr);
+		evalOptionNewVPairF("Pst%sA", &evalPstParams[type][2], -200, 200, typeStr);
 	}
+	evalOptionNewVPairF("PstKingH", &evalPstParams[PieceTypeKing][0], -500, 500);
+	evalOptionNewVPairF("PstKingV", &evalPstParams[PieceTypeKing][1], -500, 500);
+	evalOptionNewVPairF("PstKingA", &evalPstParams[PieceTypeKing][2], -500, 500);
 # endif
 }
 
@@ -1058,22 +1060,19 @@ void evalSetValue(void *varPtr, long long value) {
 	evalRecalc();
 }
 
-bool evalOptionNewVPair(const char *name, VPair *score) {
-	const Value min=-32767, max=32767;
+bool evalOptionNewVPair(const char *name, VPair *score, Value min, Value max) {
 	return uciOptionNewSpinF("%sMG", &evalSetValue, &score->mg, min, max, score->mg, name) &&
 	       uciOptionNewSpinF("%sEG", &evalSetValue, &score->eg, min, max, score->eg, name);
 }
 
-bool evalOptionNewVPairF(const char *nameFormat, VPair *score, ...) {
-	const Value min=-32767, max=32767;
-
+bool evalOptionNewVPairF(const char *nameFormat, VPair *score, Value min, Value max, ...) {
 	char nameFormat1[1024]; // TODO: avoid hardcoded size
 	char nameFormat2[1024]; // TODO: avoid hardcoded size
 	sprintf(nameFormat1, "%sMG", nameFormat);
 	sprintf(nameFormat2, "%sEG", nameFormat);
 
 	va_list ap1, ap2;
-	va_start(ap1, score);
+	va_start(ap1, max);
 	va_copy(ap2, ap1);
 
 	bool result=true;

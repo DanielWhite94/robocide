@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "attacks.h"
 #include "bitbase.h"
@@ -42,6 +43,8 @@ bool searchShowCurrmove;
 SearchLimit searchLimit;
 unsigned int searchDate; // Incremented after each searchThink() call.
 bool searchOutput;
+STATICASSERT(MoveBit<=16);
+uint16_t searchPv[DepthMax][DepthMax];
 
 TUNECONST int searchNullReduction=1;
 TUNECONST int searchIIDMin=2;
@@ -63,16 +66,16 @@ void searchStopInternal(void); // indicate search should stop asap - sets stop f
 
 void searchIDLoop(void *posPtr);
 
-Score searchNode(Node *node, Move *bestMove);
+Score searchNode(Node *node);
 Score searchQNode(Node *node);
-void searchNodeInternal(Node *node, Move *bestMove);
+void searchNodeInternal(Node *node);
 void searchQNodeInternal(Node *node);
 
 bool searchIsTimeUp(void);
 
 void searchOutputRegular(void); // Regular infomation such as hashfull and nps.
 void searchOutputDepthPre(Node *node); // Called at begining of searching a new depth.
-void searchOutputDepthPost(Node *node, Move bestMove); // Called at end of searching a particular depth.
+void searchOutputDepthPost(Node *node); // Called at end of searching a particular depth.
 
 bool searchIsZugzwang(const Node *node);
 
@@ -235,6 +238,10 @@ void searchClear(void) {
 
 	// Reset search date.
 	searchDate=0;
+
+	// Clear PV array
+	assert(MoveInvalid==0);
+	memset(searchPv, 0, sizeof(searchPv));
 }
 
 void searchPonderHit(void) {
@@ -355,7 +362,7 @@ void searchIDLoop(void *userData) {
 	node.inCheck=posIsSTMInCheck(node.pos);
 
 	// Loop, increasing search depth until we run out of 'time'.
-	Move bestMove=MoveInvalid;
+	Move bestMove=MoveInvalid, ponderMove=MoveInvalid;
 	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
 		// After 1s start showing 'currmove' info.
 		if (searchOutput && timeGet()>=searchLimit.startTime+1000)
@@ -365,18 +372,18 @@ void searchIDLoop(void *userData) {
 		searchOutputDepthPre(&node);
 
 		// Search
-		Move tempBestMove;
-		searchNode(&node, &tempBestMove);
+		searchNode(&node);
 
 		// No info found? (out of time/nodes/etc.).
 		if (node.bound==BoundNone)
 			break;
 
 		// Update bestMove
-		bestMove=tempBestMove;
+		bestMove=searchPv[node.ply][0];
+		ponderMove=(bestMove!=MoveInvalid ? searchPv[node.ply][1] : MoveInvalid);
 
 		// Output post info.
-		searchOutputDepthPost(&node, bestMove);
+		searchOutputDepthPost(&node);
 
 		// Time to end?
 		if (searchIsTimeUp())
@@ -392,8 +399,7 @@ void searchIDLoop(void *userData) {
 	}
 
 	// If in pondering mode try to extract ponder move.
-	Move ponderMove=MoveInvalid;
-	if (searchPonder && moveIsValid(bestMove)) {
+	if (searchPonder && moveIsValid(bestMove) && !moveIsValid(ponderMove)) {
 		assert(posCanMakeMove(searchPos, bestMove));
 		posMakeMove(searchPos, bestMove);
 		ponderMove=ttReadMove(searchPos, 1);
@@ -416,7 +422,7 @@ void searchIDLoop(void *userData) {
 	// Send best move (and potentially ponder move) to GUI.
 	if (searchOutput) {
 		if (doExtraInfoCommand)
-			searchOutputDepthPost(&node, bestMove);
+			searchOutputDepthPost(&node);
 
 		char str[8];
 		posMoveToStr(searchPos, bestMove, str);
@@ -440,7 +446,7 @@ void searchIDLoop(void *userData) {
 	searchThinkClear();
 }
 
-Score searchNode(Node *node, Move *bestMove) {
+Score searchNode(Node *node) {
 # ifndef NDEBUG
 	// Save node_t structure for post-checks.
 	Node preNode=*node;
@@ -450,7 +456,7 @@ Score searchNode(Node *node, Move *bestMove) {
 # endif
 
 	// Call main search function.
-	searchNodeInternal(node, bestMove);
+	searchNodeInternal(node);
 
 # ifndef NDEBUG
 	// Post-checks.
@@ -481,12 +487,13 @@ Score searchQNode(Node *node) {
 	return node->score;
 }
 
-void searchNodeInternal(Node *node, Move *bestMove) {
-	Move tempChildMove;
-	*bestMove=MoveInvalid;
-
+void searchNodeInternal(Node *node) {
 	// Q node?
 	if (searchNodeIsQ(node)) {
+		// Don't collect PV in qsearch
+		if (node->ply<DepthMax)
+			searchPv[node->ply][0]=MoveInvalid;
+
 		searchQNode(node);
 		return;
 	}
@@ -499,6 +506,7 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 	}
 
 	// Node begins.
+	searchPv[node->ply][0]=MoveInvalid;
 	++searchNodeCount;
 
 	// Mate distance pruning.
@@ -540,7 +548,8 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 		    (ttBound==BoundUpper && (ttScore<=node->alpha)))) {
 			node->bound=ttBound;
 			node->score=ttScore;
-			*bestMove=ttMove;
+			searchPv[node->ply][0]=ttMove;
+			searchPv[node->ply][1]=MoveInvalid;
 			return;
 		}
 	}
@@ -558,7 +567,7 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 		child.depth=node->depth-1-searchNullReduction;
 		child.alpha=-node->beta;
 		child.beta=1-node->beta;
-		Score score=-searchNode(&child, &tempChildMove);
+		Score score=-searchNode(&child);
 		posUndoNullMove(node->pos);
 
 		if (score>=node->beta) {
@@ -570,11 +579,13 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 
 	// Internal iterative deepening.
 	if (searchIIDReduction>0 && node->depth>=searchIIDMin && node->depth>searchIIDReduction && searchNodeIsPV(node) && !moveIsValid(ttMove)) {
+		assert(ttMove==MoveInvalid);
+
 		// No hash move available - search current node but with a reduced depth to obtain a good guess at the best move.
 		Node child=*node;
 		child.depth-=searchIIDReduction;
-		assert(ttMove==MoveInvalid);
-		searchNode(&child, &ttMove);
+		searchNode(&child);
+		ttMove=searchPv[child.ply][0];
 	}
 
 	// Move loop.
@@ -629,19 +640,19 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 		if (alpha>node->alpha) {
 			// We have found a good move, try zero window search.
 			assert(child.alpha==child.beta-1);
-			score=-searchNode(&child, &tempChildMove);
+			score=-searchNode(&child);
 
 			// Research?
 			if (score>alpha && score<node->beta) {
 				child.alpha=-node->beta;
 				child.depth=node->depth-1+extension;
-				score=-searchNode(&child, &tempChildMove);
+				score=-searchNode(&child);
 				child.alpha=child.beta-1;
 			}
 		} else {
 			// Full window search.
 			assert(child.alpha==-node->beta);
-			score=-searchNode(&child, &tempChildMove);
+			score=-searchNode(&child);
 		}
 
 		// Undo move.
@@ -656,19 +667,28 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 				return;
 			}
 			assert(scoreIsValid(node->score));
-			assert(moveIsValid(*bestMove));
+			assert(moveIsValid(searchPv[node->ply][0]));
 
 			// We may have useful info, update TT.
-			ttWrite(node->pos, node->ply, node->depth, *bestMove, node->score, node->bound);
+			ttWrite(node->pos, node->ply, node->depth, searchPv[node->ply][0], node->score, node->bound);
 
 			return;
 		}
 
 		// Better move?
 		if (score>node->score) {
-			// Update best score and move.
+			// Update best score and update PV.
 			node->score=score;
-			*bestMove=move;
+			searchPv[node->ply][0]=move;
+			if (node->ply+1<DepthMax) {
+				for(unsigned i=0; i<DepthMax-1; ++i) {
+					searchPv[node->ply][i+1]=searchPv[node->ply+1][i];
+					if (searchPv[node->ply+1][i]==MoveInvalid)
+						break;
+				}
+				searchPv[node->ply][DepthMax-1]=MoveInvalid; // ensure array in terminated even if copied a large sub-PV
+			} else
+				searchPv[node->ply][1]=MoveInvalid;
 
 			// Alpha improvement?
 			if (score>alpha) {
@@ -678,8 +698,8 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 				// Cutoff?
 				if (score>=node->beta) {
 					// Update killers.
-					if (searchKillersHeuristic && posMoveGetType(node->pos, *bestMove)==MoveTypeQuiet)
-						killersCutoff(node->ply, *bestMove);
+					if (searchKillersHeuristic && posMoveGetType(node->pos, searchPv[node->ply][0])==MoveTypeQuiet)
+						killersCutoff(node->ply, searchPv[node->ply][0]);
 
 					goto cutoff;
 				}
@@ -729,20 +749,20 @@ void searchNodeInternal(Node *node, Move *bestMove) {
 	cutoff:
 
 	// We now know the best move.
-	assert(moveIsValid(*bestMove));
+	assert(moveIsValid(searchPv[node->ply][0]));
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
 
 	// Update history table.
-	if (searchHistoryHeuristic && posMoveGetType(node->pos, *bestMove)==MoveTypeQuiet) {
-		Piece fromPiece=moveGetToPiece(*bestMove);
-		assert(fromPiece==posGetPieceOnSq(node->pos, moveGetFromSq(*bestMove))); // Could only disagree if move is promotion, but these are classed as captures.
-		Sq toSq=moveGetToSqRaw(*bestMove);
+	if (searchHistoryHeuristic && posMoveGetType(node->pos, searchPv[node->ply][0])==MoveTypeQuiet) {
+		Piece fromPiece=moveGetToPiece(searchPv[node->ply][0]);
+		assert(fromPiece==posGetPieceOnSq(node->pos, moveGetFromSq(searchPv[node->ply][0]))); // Could only disagree if move is promotion, but these are classed as captures.
+		Sq toSq=moveGetToSqRaw(searchPv[node->ply][0]);
 		historyInc(fromPiece, toSq, node->depth);
 	}
 
 	// Update transposition table.
-	ttWrite(node->pos, node->ply, node->depth, *bestMove, node->score, node->bound);
+	ttWrite(node->pos, node->ply, node->depth, searchPv[node->ply][0], node->score, node->bound);
 
 	return;
 }
@@ -903,7 +923,7 @@ void searchOutputDepthPre(Node *node) {
 	uciWrite("info depth %u\n", (unsigned int)node->depth);
 }
 
-void searchOutputDepthPost(Node *node, Move bestMove) {
+void searchOutputDepthPost(Node *node) {
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
 
@@ -916,11 +936,29 @@ void searchOutputDepthPost(Node *node, Move bestMove) {
 	if (time>0)
 		uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
 
-	// PV (extracted from TT)
+	// PV (extracted from array and also potentially the TT)
 	uciWrite(" pv");
 	unsigned int ply=0;
-	while(1) {
-		// Read move from TT.
+	while(ply<node->depth && searchPv[0][ply]!=MoveInvalid) {
+		// Compute move string before we make the move.
+		char str[32];
+		posMoveToStr(node->pos, searchPv[0][ply], str);
+
+		// Make move.
+		if (!posMakeMove(node->pos, searchPv[0][ply]))
+			break;
+		++ply;
+
+		// Print move string.
+		uciWrite(" %s", str);
+
+		// Draw? (don't want infinite PVs in case of repetition).
+		if (posIsDraw(node->pos))
+			break;
+	}
+
+	while(ply<node->depth) {
+		// Attempt to read move from TT
 		Move move=ttReadMove(node->pos, ply);
 		if (move==MoveInvalid)
 			break;

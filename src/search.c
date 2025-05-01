@@ -16,8 +16,6 @@
 #include "uci.h"
 #include "util.h"
 
-#define SearchMaxPly 128
-
 const MoveScore MoveScoreMax=(((MoveScore)1)<<MoveScoreBit);
 
 Thread *searchThread=NULL;

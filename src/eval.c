@@ -472,16 +472,20 @@ VPair evaluateDefault(EvalData *data) {
 #endif
 
 	// Bishop mobility
+	BB bishopMobOcc[ColourNB];
+	bishopMobOcc[ColourWhite]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceWQueen)));
+	bishopMobOcc[ColourBlack]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD)|posGetBBPiece(pos, PieceBQueen)));
+
 	pieceSet=(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD));
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
-		BB attacks=attacksBishop(sq, posGetBBAll(pos));
+		BB attacks=attacksBishop(sq, bishopMobOcc[ColourWhite]);
 		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount(attacks & mobilityAllowed[ColourWhite]));
 	}
 	pieceSet=(posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD));
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
-		BB attacks=attacksBishop(sq, posGetBBAll(pos));
+		BB attacks=attacksBishop(sq, bishopMobOcc[ColourBlack]);
 		evalVPairSubMulFrom(&score, &evalBishopMob, bbPopCount(attacks & mobilityAllowed[ColourBlack]));
 	}
 
@@ -492,19 +496,23 @@ VPair evaluateDefault(EvalData *data) {
 #endif
 
 	// Rook mobilty
+	BB rookMobOcc[ColourNB];
+	rookMobOcc[ColourWhite]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceWRook)|posGetBBPiece(pos, PieceWQueen)));
+	rookMobOcc[ColourBlack]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceBRook)|posGetBBPiece(pos, PieceBQueen)));
+
 	pieceSet=posGetBBPiece(pos, PieceWRook);
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
-		BB attacks=attacksRook(sq, posGetBBAll(pos));
-		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(sq)) & mobilityAllowed[ColourWhite]));
-		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(sq)) & mobilityAllowed[ColourWhite]));
+		BB attacks=attacksRook(sq, rookMobOcc[ColourWhite]);
+		evalVPairAddMulTo(&score, &evalRookMobFile, bbPopCount(attacks & mobilityAllowed[ColourWhite] & bbFile(sqFile(sq))));
+		evalVPairAddMulTo(&score, &evalRookMobRank, bbPopCount(attacks & mobilityAllowed[ColourWhite] & bbRank(sqRank(sq))));
 	}
 	pieceSet=posGetBBPiece(pos, PieceBRook);
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
-		BB attacks=attacksRook(sq, posGetBBAll(pos));
-		evalVPairSubMulFrom(&score, &evalRookMobFile, bbPopCount(attacks & bbFile(sqFile(sq)) & mobilityAllowed[ColourBlack]));
-		evalVPairSubMulFrom(&score, &evalRookMobRank, bbPopCount(attacks & bbRank(sqRank(sq)) & mobilityAllowed[ColourBlack]));
+		BB attacks=attacksRook(sq, rookMobOcc[ColourBlack]);
+		evalVPairSubMulFrom(&score, &evalRookMobFile, bbPopCount(attacks & mobilityAllowed[ColourBlack] & bbFile(sqFile(sq))));
+		evalVPairSubMulFrom(&score, &evalRookMobRank, bbPopCount(attacks & mobilityAllowed[ColourBlack] & bbRank(sqRank(sq))));
 	}
 
 	// Extra info

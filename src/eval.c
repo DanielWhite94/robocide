@@ -64,7 +64,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 };
 TUNECONST VPair evalPstParams[PieceTypeNB][3]={
 	[PieceTypePawn]={{50,33}, {-23,-15}, {10,25}},
-	[PieceTypeKnight]={{36,31}, {9,31}, {25,0}},
+	[PieceTypeKnight]={{36,31}, {9,31}, {46,0}},
 	[PieceTypeBishopL]={{14,9}, {14,9}, {0,0}},
 	[PieceTypeBishopD]={{14,9}, {14,9}, {0,0}},
 	[PieceTypeRook]={{26,0}, {0,0}, {0,16}},

@@ -64,7 +64,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 };
 TUNECONST VPair evalPstParams[PieceTypeNB][3]={
 	[PieceTypePawn]={{50,33}, {-23,-15}, {10,25}},
-	[PieceTypeKnight]={{36,31}, {9,31}, {46,0}},
+	[PieceTypeKnight]={{18,16}, {5,16}, {23,0}},
 	[PieceTypeBishopL]={{14,9}, {14,9}, {0,0}},
 	[PieceTypeBishopD]={{14,9}, {14,9}, {0,0}},
 	[PieceTypeRook]={{26,0}, {0,0}, {0,16}},
@@ -79,6 +79,7 @@ TUNECONST VPair evalPawnBlocked={-22,-100};
 TUNECONST VPair evalPawnPassedQuadA={56,46}; // Coefficients used in quadratic formula for passed pawn score (with rank as the input).
 TUNECONST VPair evalPawnPassedQuadB={-125,-100};
 TUNECONST VPair evalPawnPassedQuadC={90,150};
+TUNECONST VPair evalKnightMob={21,16};
 TUNECONST VPair evalKnightPawnAffinity={30,32}; // Bonus each knight receives for each friendly pawn on the board.
 TUNECONST VPair evalBishopPair={500,489};
 TUNECONST VPair evalBishopMob={38,32};
@@ -193,6 +194,7 @@ void evalInit(void) {
 	evalOptionNewVPair("PawnPassedQuadA", &evalPawnPassedQuadA, 0, 100);
 	evalOptionNewVPair("PawnPassedQuadB", &evalPawnPassedQuadB, -400, 400);
 	evalOptionNewVPair("PawnPassedQuadC", &evalPawnPassedQuadC, -1000, 1000);
+	evalOptionNewVPair("KnightMob", &evalKnightMob, 0, 100);
 	evalOptionNewVPair("KnightPawnAffinity", &evalKnightPawnAffinity, -100, 100);
 	evalOptionNewVPair("BishopPair", &evalBishopPair, 0, 1000);
 	evalOptionNewVPair("BishopMobility", &evalBishopMob, 0, 100);
@@ -468,6 +470,26 @@ VPair evaluateDefault(EvalData *data) {
 	// Extra info
 #ifdef EVALINFO
 	printf("        default global score (%i,%i)\n", score.mg, score.eg);
+	tempScore=score;
+#endif
+
+	// Knight mobility
+	pieceSet=posGetBBPiece(pos, PieceWKnight);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksKnight(sq);
+		evalVPairAddMulTo(&score, &evalKnightMob, bbPopCount(attacks & mobilityAllowed[ColourWhite]));
+	}
+	pieceSet=posGetBBPiece(pos, PieceBKnight);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksKnight(sq);
+		evalVPairSubMulFrom(&score, &evalKnightMob, bbPopCount(attacks & mobilityAllowed[ColourBlack]));
+	}
+
+	// Extra info
+#ifdef EVALINFO
+	printf("        knight mobility (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
 	tempScore=score;
 #endif
 

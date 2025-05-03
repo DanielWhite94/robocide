@@ -645,7 +645,14 @@ void searchNodeInternal(Node *node) {
 			assert(child.alpha==child.beta-1);
 			score=-searchNode(&child);
 
-			// Research?
+			// Fail high - if search was reduced, do it again without reduction but still zero window
+			if (score>alpha && reduction>0) {
+				assert(child.alpha==child.beta-1);
+				child.depth=node->depth-1+extension;
+				score=-searchNode(&child);
+			}
+
+			// Full width research?
 			if (score>alpha && score<node->beta) {
 				child.alpha=-node->beta;
 				child.depth=node->depth-1+extension;

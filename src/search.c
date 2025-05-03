@@ -598,7 +598,7 @@ void searchNodeInternal(Node *node) {
 	child.alpha=-node->beta;
 	child.beta=-alpha;
 	Move move;
-	unsigned moveNumber=0;
+	unsigned moveNumber=0, lmrMoveNumber=0;
 	while((move=movesNext(&moves))!=MoveInvalid) {
 		// If we are the root ensure this move is one that was specified (if any restriction given)
 		if (node->ply==0 && searchLimit.searchMovesNext>searchLimit.searchMoves) {
@@ -631,8 +631,11 @@ void searchNodeInternal(Node *node) {
 		// Calculate search depth.
 		int extension=0, reduction=0;
 		extension+=child.inCheck; // Check extension;
-		if (extension==0 && !node->inCheck && !child.inCheck && !searchNodeIsPV(node) && node->depth>=searchLmrReductionDepthLimit && moveType==MoveTypeQuiet && moveNumber>searchLmrReductionMoveLimit)
-			reduction+=searchLmrReduction; // Late-move-reductions.
+		if (extension==0 && !node->inCheck && !child.inCheck && !searchNodeIsPV(node) && node->depth>=searchLmrReductionDepthLimit && moveType==MoveTypeQuiet) {
+			++lmrMoveNumber;
+			if (lmrMoveNumber>searchLmrReductionMoveLimit)
+				reduction+=searchLmrReduction; // Late-move-reductions.
+		}
 		child.depth=node->depth-1+extension-reduction;
 
 		// PVS search

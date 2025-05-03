@@ -202,7 +202,7 @@ void evalInit(void) {
 	evalOptionNewVPair("RookMobilityFile", &evalRookMobFile, 0, 50);
 	evalOptionNewVPair("RookMobilityRank", &evalRookMobRank, 0, 50);
 	evalOptionNewVPair("RookOpenFile", &evalRookOpenFile, -200, 200);
-	evalOptionNewVPair("RookSemiOpenFile", &evalRookSemiOpenFile, 150, 150);
+	evalOptionNewVPair("RookSemiOpenFile", &evalRookSemiOpenFile, 0, 150);
 	evalOptionNewVPair("RookOn7th", &evalRookOn7th, -200, 200);
 	evalOptionNewVPair("RookTrapped", &evalRookTrapped, -3000, 0);
 	evalOptionNewVPair("KingShieldClose", &evalKingShieldClose, 0, 500);

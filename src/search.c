@@ -53,7 +53,7 @@ TUNECONST bool searchHistoryHeuristic=true;
 TUNECONST bool searchKillersHeuristic=true;
 TUNECONST int searchLmrReduction=1;
 TUNECONST int searchLmrReductionDepthLimit=3;
-TUNECONST int searchLmrReductionMoveLimit=4;
+TUNECONST int searchLmrReductionMoveLimit=2;
 
 bool searchPonder=true;
 

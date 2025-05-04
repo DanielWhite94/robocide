@@ -631,7 +631,7 @@ void searchNodeInternal(Node *node) {
 		// Calculate search depth.
 		int extension=0, reduction=0;
 		extension+=child.inCheck; // Check extension;
-		if (extension==0 && !node->inCheck && !child.inCheck && !searchNodeIsPV(node) && node->depth>=searchLmrReductionDepthLimit && moveType==MoveTypeQuiet) {
+		if (extension==0 && !node->inCheck && !child.inCheck && node->depth>=searchLmrReductionDepthLimit && moveType==MoveTypeQuiet) {
 			++lmrMoveNumber;
 			if (lmrMoveNumber>searchLmrReductionMoveLimit)
 				reduction+=searchLmrReduction; // Late-move-reductions.

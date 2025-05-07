@@ -6,9 +6,11 @@
 
 #define KillersPerPly 4
 
-extern Move killers[DepthMax][KillersPerPly];
+Move killersGetN(Depth ply, unsigned index);
+bool killersMoveIsKiller(Depth ply, Move move);
 
 void killersCutoff(Depth ply, Move move);
+
 void killersClear(void);
 
 #endif

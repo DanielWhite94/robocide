@@ -68,7 +68,7 @@ Move movesNext(Moves *moves) {
 		case MovesStageKillers:
 			while(moves->killersIndex<KillersPerPly) {
 				// Check if any killers left.
-				Move move=killers[moves->ply][moves->killersIndex++];
+				Move move=killersGetN(moves->ply, moves->killersIndex++);
 				if (move==MoveInvalid)
 					break;
 
@@ -98,15 +98,9 @@ Move movesNext(Moves *moves) {
 		case MovesStageQuiets:
 			// Return moves one at a time.
 			while (moves->next<moves->end) {
-				Move move=scoredMoveGetMove(*moves->next++);
 				// Exclude TT and killer moves as these are searched earlier.
-				if (move==moves->ttMove)
-					continue;
-				int i;
-				for(i=0;i<KillersPerPly;++i)
-					if (move==killers[moves->ply][i])
-						break;
-				if (i==KillersPerPly)
+				Move move=scoredMoveGetMove(*moves->next++);
+				if (move!=moves->ttMove && !killersMoveIsKiller(moves->ply, move))
 					return move;
 			}
 

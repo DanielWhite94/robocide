@@ -19,6 +19,7 @@ bool moveSetContains(MoveSet set, Move move) {
 	m^=set;
 
 	// Use classic SWAR method to find (first) zero word
+	STATICASSERT(MoveBit==16);
 	MoveSet m7=m-0x0001000100010001llu;
 	return (m7 & ~m & 0x8000800080008000llu)!=0;
 }

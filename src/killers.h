@@ -3,8 +3,9 @@
 
 #include "depth.h"
 #include "move.h"
+#include "moveset.h"
 
-#define KillersPerPly 4
+#define KillersPerPly MoveSetSize
 
 Move killersGetN(Depth ply, unsigned index);
 bool killersMoveIsKiller(Depth ply, Move move);

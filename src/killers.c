@@ -1,41 +1,31 @@
 #include <assert.h>
+#include <string.h>
 
 #include "killers.h"
 
-Move killers[DepthMax][KillersPerPly];
+MoveSet killers[DepthMax];
 
 Move killersGetN(Depth ply, unsigned index) {
+	assert(ply<DepthMax);
 	assert(index<KillersPerPly);
-	return killers[ply][index];
+
+	return moveSetGetN(killers[ply], index);
 }
 
 bool killersMoveIsKiller(Depth ply, Move move) {
-	for(unsigned i=0; i<KillersPerPly; ++i)
-		if (move==killers[ply][i])
-			return true;
-	return false;
+	assert(ply<DepthMax);
+
+	return moveSetContains(killers[ply], move);
 }
 
 void killersCutoff(Depth ply, Move move) {
+	assert(ply<DepthMax);
 	assert(moveIsValid(move));
 
-	int i;
-
-	// Find which slot to overwrite.
-	// (we may have an empty slot, or the move may already be in the list)
-	for(i=0;i<KillersPerPly-1;++i)
-		if (move==killers[ply][i] || killers[ply][i]==MoveInvalid)
-			break;
-
-	// Move entries down, and insert 'new' move at front.
-	for(;i>0;--i)
-		killers[ply][i]=killers[ply][i-1];
-	killers[ply][0]=move;
+	moveSetAdd(&killers[ply], move);
 }
 
 void killersClear(void) {
-	int i, j;
-	for(i=0;i<DepthMax;++i)
-		for(j=0;j<KillersPerPly;++j)
-			killers[i][j]=MoveInvalid;
+	STATICASSERT(MoveSetEmpty==0);
+	memset(killers, 0, sizeof(killers));
 }

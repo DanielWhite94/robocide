@@ -30,7 +30,7 @@ void moveSetAdd(MoveSet *set, Move move) {
 	for(unsigned i=0; i<MoveSetSize; ++i) {
 		if (moveSetGetN(*set, i)==move) {
 			// Shift moves 'before' existing killer 'down one' (overwriting it), and move said killer to the 'front'.
-			MoveSet keepMask =(0xFFFFFFFFFFFFFFFFllu<<(MoveBit+MoveBit*i-1))<<1;
+			MoveSet keepMask=(0xFFFFFFFFFFFFFFFFllu<<(MoveBit*i))<<MoveBit;
 			MoveSet shiftMask=(0xFFFFFFFFFFFFFFFFllu>>(63-MoveBit*i))>>1;
 			*set=(*set & keepMask)|((*set & shiftMask)<<MoveBit)|move;
 			return;

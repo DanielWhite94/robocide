@@ -18,6 +18,7 @@ STATICASSERT(PieceNB<=(1u<<4));
 
 // These next two defines are intended to be used externally if needed
 #define MoveBit 16 // Number of bits Move actually uses.
+#define MoveMask ((((Move)1)<<MoveBit)-1)
 #define MoveInvalid ((((Move)SqA1)<<MoveShiftFromSq)|(((Move)SqA1)<<MoveShiftToSq)|(((Move)PieceNone)<<MoveShiftToPiece)) // i.e. 0
 STATICASSERT(MoveInvalid==0);
 

@@ -55,7 +55,7 @@ struct EvalData {
 TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeNone]={0,0},
 	[PieceTypePawn]={793,1124},
-	[PieceTypeKnight]={2956,2370},
+	[PieceTypeKnight]={2807,2370},
 	[PieceTypeBishopL]={3241,3207},
 	[PieceTypeBishopD]={3241,3207},
 	[PieceTypeRook]={5072,4185},
@@ -64,7 +64,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 };
 TUNECONST VPair evalPstParams[PieceTypeNB][3]={
 	[PieceTypePawn]={{50,33}, {-23,-15}, {10,25}},
-	[PieceTypeKnight]={{55,26}, {39,27}, {36,0}},
+	[PieceTypeKnight]={{55,26}, {39,49}, {36,0}},
 	[PieceTypeBishopL]={{14,9}, {14,9}, {0,0}},
 	[PieceTypeBishopD]={{14,9}, {14,9}, {0,0}},
 	[PieceTypeRook]={{26,0}, {0,0}, {0,16}},

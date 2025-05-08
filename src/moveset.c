@@ -33,6 +33,7 @@ void moveSetAdd(MoveSet *set, Move move) {
 			MoveSet keepMask=(0xFFFFFFFFFFFFFFFFllu<<(MoveBit*i))<<MoveBit;
 			MoveSet shiftMask=(0xFFFFFFFFFFFFFFFFllu>>(63-MoveBit*i))>>1;
 			*set=(*set & keepMask)|((*set & shiftMask)<<MoveBit)|move;
+
 			return;
 		}
 	}

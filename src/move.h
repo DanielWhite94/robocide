@@ -9,8 +9,17 @@
 
 typedef unsigned int Move;
 
+// These first three defines should not need to be used outside of this module
+STATICASSERT(SqNB<=(1u<<6));
+STATICASSERT(PieceNB<=(1u<<4));
+#define MoveShiftToSq 0
+#define MoveShiftFromSq 6
+#define MoveShiftToPiece 12
+
+// These next two defines are intended to be used externally if needed
 #define MoveBit 16 // Number of bits Move actually uses.
-extern const Move MoveInvalid; // i.e. undefined/not set.
+#define MoveInvalid ((((Move)SqA1)<<MoveShiftFromSq)|(((Move)SqA1)<<MoveShiftToSq)|(((Move)PieceNone)<<MoveShiftToPiece)) // i.e. 0
+STATICASSERT(MoveInvalid==0);
 
 bool moveIsValid(Move move);
 

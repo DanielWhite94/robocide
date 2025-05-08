@@ -12,14 +12,6 @@
 // Castling is represented soley by the king movement.
 // MoveInvalid is encoded with fromSq=toSq=A1 and toPiece=PieceNone (these can never be real moves).
 
-STATICASSERT(SqNB<=(1u<<6));
-STATICASSERT(PieceNB<=(1u<<4));
-#define MoveShiftToSq 0
-#define MoveShiftFromSq 6
-#define MoveShiftToPiece 12
-
-const Move MoveInvalid=((((Move)SqA1)<<MoveShiftFromSq)|(((Move)SqA1)<<MoveShiftToSq)|(((Move)PieceNone)<<MoveShiftToPiece)); // i.e. 0
-
 const char MovePromoChar[PieceTypeNB]={
 	[PieceTypeNone]='\0',
 	[PieceTypePawn]='\0',
@@ -32,7 +24,6 @@ const char MovePromoChar[PieceTypeNB]={
 };
 
 bool moveIsValid(Move move) {
-	assert(MoveInvalid==0); // not required for the function, but cannot be put as static assert at definition
 	return (move!=MoveInvalid);
 }
 

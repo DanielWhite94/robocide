@@ -10,11 +10,17 @@ Move moveSetGetN(MoveSet set, unsigned index) {
 }
 
 bool moveSetContains(MoveSet set, Move move) {
-	// TODO: try SWAR to do 4 comparisons in parallel
-	for(unsigned i=0; i<MoveSetSize; ++i)
-		if (move==moveSetGetN(set, i))
-			return true;
-	return false;
+	// Create a MoveSet with 4 copies of the given move
+	MoveSet m=move;
+	m=(m<<MoveBit)|m;
+	m=(m<<2*MoveBit)|m;
+
+	// XOR this with the given set so that a match will contain 16 zero bits in that slot
+	m^=set;
+
+	// Use classic SWAR method to find (first) zero word
+	MoveSet m7=m-0x0001000100010001llu;
+	return (m7 & ~m & 0x8000800080008000llu)!=0;
 }
 
 void moveSetAdd(MoveSet *set, Move move) {

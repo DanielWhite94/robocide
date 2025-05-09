@@ -57,7 +57,7 @@ MoveSet moveSetDetectMove(MoveSet input, Move move) {
 	// XOR this with the given set so that a match will contain 16 zero bits in that slot
 	m^=input;
 
-	// Use classic SWAR method to find (first) zero word
+	// Use classic SWAR method to find single zero word, if any
 	STATICASSERT(MoveBit==16);
 	MoveSet m7=(m & 0x7fff7fff7fff7fffllu)+0x7fff7fff7fff7fffllu;
 	return ~(m7 | m | 0x7fff7fff7fff7fffllu);

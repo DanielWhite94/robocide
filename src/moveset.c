@@ -24,22 +24,22 @@ bool moveSetContains(MoveSet set, Move move) {
 }
 
 void moveSetAdd(MoveSet *set, Move move) {
-	// TODO: can probably optimise this loop-get code
+	MoveSet moveSet=moveSetDetectMove(*set, move);
 
-	// Check if move is already a killer (and identify the slot it occupies)
-	for(unsigned i=0; i<MoveSetSize; ++i) {
-		if (moveSetGetN(*set, i)==move) {
-			// Shift moves 'before' existing killer 'down one' (overwriting it), and move said killer to the 'front'.
-			MoveSet keepMask=(0xFFFFFFFFFFFFFFFFllu<<(MoveBit*i))<<MoveBit;
-			MoveSet shiftMask=(0xFFFFFFFFFFFFFFFFllu>>(63-MoveBit*i))>>1;
-			*set=(*set & keepMask)|((*set & shiftMask)<<MoveBit)|move;
+	// Move not already in the set?
+	if (moveSet==0) {
+		// TODO: can this be done branchless as part of general case below?
 
-			return;
-		}
+		// Shift existing moves down and add new one
+		*set=((*set<<MoveBit)|move);
+
+		return;
 	}
 
-	// Shift existing moves down and add new one
-	*set=((*set<<MoveBit)|move);
+	// Shift moves 'before' existing killer 'down one' (overwriting it), and move said killer to the 'front'.
+	MoveSet keepMask=0xFFFFFFFFFFFFFFFEllu^((moveSet-1)<<1);
+	MoveSet shiftMask=(moveSet-1)>>(MoveBit-1);
+	*set=(*set & keepMask)|((*set & shiftMask)<<MoveBit)|move;
 
 	return;
 }

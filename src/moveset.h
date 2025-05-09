@@ -8,7 +8,7 @@
 
 STATICASSERT(MoveBit==16);
 #define MoveSetSize 4
-typedef uint64_t MoveSet; // four 16-bit moves packed in a single 64 bit integer
+typedef uint64_t MoveSet; // four 16-bit moves packed into a single 64-bit integer
 
 STATICASSERT(MoveInvalid==0);
 #define MoveSetEmpty ((((MoveSet)MoveInvalid)<<0)|(((MoveSet)MoveInvalid)<<16)|(((MoveSet)MoveInvalid)<<32)|(((MoveSet)MoveInvalid)<<48))

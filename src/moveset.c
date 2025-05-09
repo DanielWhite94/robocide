@@ -26,19 +26,10 @@ bool moveSetContains(MoveSet set, Move move) {
 void moveSetAdd(MoveSet *set, Move move) {
 	MoveSet moveSet=moveSetDetectMove(*set, move);
 
-	// Move not already in the set?
-	if (moveSet==0) {
-		// TODO: can this be done branchless as part of general case below?
-
-		// Shift existing moves down and add new one
-		*set=((*set<<MoveBit)|move);
-
-		return;
-	}
-
-	// Shift moves 'before' existing killer 'down one' (overwriting it), and move said killer to the 'front'.
+	// Use moveSet to shift moves 'before' killer 'down one' (overwriting it), and move said killer to the 'front'.
+	// Also, due to an extra step in shiftMask calculation, this code will also handle the case where the move is not already in the set (i.e. moveSet==0) correctly.
 	MoveSet keepMask=0xFFFFFFFFFFFFFFFEllu^((moveSet-1)<<1);
-	MoveSet shiftMask=(moveSet-1)>>(MoveBit-1);
+	MoveSet shiftMask=((moveSet-1) & 0x7FFFFFFFFFFFFFFFllu)>>(MoveBit-1);
 	*set=(*set & keepMask)|((*set & shiftMask)<<MoveBit)|move;
 
 	return;

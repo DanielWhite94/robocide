@@ -58,7 +58,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeKnight]={2807,2370},
 	[PieceTypeBishopL]={3108,2659},
 	[PieceTypeBishopD]={3108,2659},
-	[PieceTypeRook]={5072,4185},
+	[PieceTypeRook]={5491,4333},
 	[PieceTypeQueen]={8975,10143},
 	[PieceTypeKing]={600,-460} // these values exist soley to make PSTs look nicer (both sides always have exactly one king of course)
 };

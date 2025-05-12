@@ -640,9 +640,19 @@ void searchNodeInternal(Node *node) {
 
 		// PVS search
 		Score score;
-		if (alpha>node->alpha) {
-			// We have found a good move, try zero window search.
+		if (moveNumber==1) {
+			// First move - do a full window search
+			assert(child.alpha==-node->beta);
+			assert(child.beta==-alpha);
+			score=-searchNode(&child);
+
+			// Update child alpha for subsequent zero window searches
+			child.alpha=-alpha-1;
+			assert(child.beta==-alpha);
+		} else {
+			// Later move - try zero window search
 			assert(child.alpha==child.beta-1);
+			assert(child.beta==-alpha);
 			score=-searchNode(&child);
 
 			// Fail high - if search was reduced, do it again without reduction but still zero window
@@ -652,17 +662,13 @@ void searchNodeInternal(Node *node) {
 				score=-searchNode(&child);
 			}
 
-			// Full width research?
+			// Full width research required?
 			if (score>alpha && score<node->beta) {
 				child.alpha=-node->beta;
 				child.depth=node->depth-1+extension;
 				score=-searchNode(&child);
 				child.alpha=child.beta-1;
 			}
-		} else {
-			// Full window search.
-			assert(child.alpha==-node->beta);
-			score=-searchNode(&child);
 		}
 
 		// Undo move.

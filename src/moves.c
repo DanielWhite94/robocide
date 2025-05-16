@@ -66,21 +66,14 @@ Move movesNext(Moves *moves) {
 			moves->stage=MovesStageKillers;
 			moves->killersIndex=0;
 		case MovesStageKillers:
-			while(moves->killersIndex<KillersPerPly) {
-				// Check if any killers left.
-				Move move=killersGetN(moves->ply, moves->killersIndex++);
-				if (move==MoveInvalid)
-					break;
+			if (moves->needed & MoveTypeQuiet) {
+				while(moves->killersIndex<KillersPerPly) {
+					// Check if any killers left.
+					Move move=killersGetN(moves->ply, moves->killersIndex++);
+					if (move!=MoveInvalid && move!=moves->ttMove && posMoveIsPseudoLegal(moves->pos, move))
+						return move;
+				}
 
-				// Hash move?
-				if (move==moves->ttMove)
-					continue;
-
-				// Not pseudo-legal in this position?
-				if (!posMoveIsPseudoLegal(moves->pos, move))
-					continue;
-
-				return move;
 			}
 
 			// Fall through (no need to update stage as next one is only temporary).

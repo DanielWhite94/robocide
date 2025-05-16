@@ -4,6 +4,7 @@
 
 #include "attacks.h"
 #include "bitbase.h"
+#include "countermove.h"
 #include "eval.h"
 #include "history.h"
 #include "killers.h"
@@ -51,6 +52,7 @@ TUNECONST int searchIIDMin=2;
 TUNECONST int searchIIDReduction=3;
 TUNECONST bool searchHistoryHeuristic=true;
 TUNECONST bool searchKillersHeuristic=true;
+TUNECONST bool searchCounterMoveHeuristic=true;
 TUNECONST int searchLmrReduction=1;
 TUNECONST int searchLmrReductionDepthLimit=3;
 TUNECONST int searchLmrReductionMoveLimit=2;
@@ -134,6 +136,7 @@ void searchInit(void) {
 	uciOptionNewSpin("IIDReduction", &searchInterfaceSpinValue, &searchIIDReduction, 0, 32, searchIIDReduction);
 	uciOptionNewCheck("HistoryHeuristic", &searchInterfaceCheckValue, &searchHistoryHeuristic, searchHistoryHeuristic);
 	uciOptionNewCheck("KillersHeuristic", &searchInterfaceCheckValue, &searchKillersHeuristic, searchKillersHeuristic);
+	uciOptionNewCheck("CounterMoveHeuristic", &searchInterfaceCheckValue, &searchCounterMoveHeuristic, searchCounterMoveHeuristic);
 	uciOptionNewSpin("LmrReduction", &searchInterfaceSpinValue, &searchLmrReduction, 0, 32, searchLmrReduction);
 	uciOptionNewSpin("LmrReductionDepthLimit", &searchInterfaceSpinValue, &searchLmrReductionDepthLimit, 0, 32, searchLmrReductionDepthLimit);
 	uciOptionNewSpin("LmrReductionMoveLimit", &searchInterfaceSpinValue, &searchLmrReductionMoveLimit, 0, 256, searchLmrReductionMoveLimit);
@@ -235,6 +238,9 @@ void searchClear(void) {
 
 	// Clear killer moves.
 	killersClear();
+
+	// Clear counter moves.
+	counterMoveClear();
 
 	// Reset search date.
 	searchDate=0;
@@ -438,9 +444,11 @@ void searchIDLoop(void *userData) {
 	if (searchHistoryHeuristic)
 		historyAge();
 
-	// Clear killers (do here to avoid having to spend time at start of next search).
+	// Clear killers and counter move (do here to avoid having to spend time at start of next search).
 	if (searchKillersHeuristic)
 		killersClear();
+	if (searchCounterMoveHeuristic)
+		counterMoveClear();
 
 	// Reset searchThink fields for next search
 	searchThinkClear();
@@ -713,9 +721,13 @@ void searchNodeInternal(Node *node) {
 
 				// Cutoff?
 				if (score>=node->beta) {
-					// Update killers.
-					if (searchKillersHeuristic && posMoveGetType(node->pos, searchPv[node->ply][0])==MoveTypeQuiet)
-						killersCutoff(node->ply, searchPv[node->ply][0]);
+					// Update killers and counter move.
+					if (posMoveGetType(node->pos, searchPv[node->ply][0])==MoveTypeQuiet) {
+						if (searchKillersHeuristic)
+							killersCutoff(node->ply, searchPv[node->ply][0]);
+						if (searchCounterMoveHeuristic)
+							counterMoveCutoff(posGetLastMove(node->pos), searchPv[node->ply][0]); // ..... could posGetLastMove return MoveInvalid here?
+					}
 
 					goto cutoff;
 				}

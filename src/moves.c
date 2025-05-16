@@ -1,5 +1,6 @@
 #include <assert.h>
 
+#include "countermove.h"
 #include "killers.h"
 #include "moves.h"
 #include "search.h"
@@ -23,12 +24,14 @@ void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type) {
 	moves->ply=ply;
 	moves->allowed=moves->needed=type;
 	moves->next=moves->list;
+	moves->savedCounterMove=MoveInvalid;
 }
 
 void movesRewind(Moves *moves, Move ttMove) {
 	moves->stage=MovesStageTT;
 	moves->next=moves->list;
 	moves->ttMove=((moveIsValid(ttMove) && (posMoveGetType(moves->pos, ttMove)&moves->allowed)) ? ttMove : MoveInvalid);
+	moves->savedCounterMove=MoveInvalid;
 }
 
 Move movesNext(Moves *moves) {
@@ -73,7 +76,17 @@ Move movesNext(Moves *moves) {
 					if (move!=MoveInvalid && move!=moves->ttMove && posMoveIsPseudoLegal(moves->pos, move))
 						return move;
 				}
+			}
 
+			// Fall through (no need to update stage as next one is only temporary).
+		case MovesStageCounterMove:
+			if (moves->needed & MoveTypeQuiet) {
+				Move move=counterMoveGetResponseMove(posGetLastMove(moves->pos));
+				moves->savedCounterMove=move; // cache this for when we check against it later (result from the counter move module may change by the time we call it again)
+				if (move!=MoveInvalid && move!=moves->ttMove && !killersMoveIsKiller(moves->ply, move) && posMoveIsPseudoLegal(moves->pos, move)) {
+					moves->stage=MovesStageGenQuiets;
+					return move;
+				}
 			}
 
 			// Fall through (no need to update stage as next one is only temporary).
@@ -91,9 +104,9 @@ Move movesNext(Moves *moves) {
 		case MovesStageQuiets:
 			// Return moves one at a time.
 			while (moves->next<moves->end) {
-				// Exclude TT and killer moves as these are searched earlier.
+				// Exclude TT, killer and counter moves as these are searched earlier.
 				Move move=scoredMoveGetMove(*moves->next++);
-				if (move!=moves->ttMove && !killersMoveIsKiller(moves->ply, move))
+				if (move!=moves->ttMove && !killersMoveIsKiller(moves->ply, move) && move!=moves->savedCounterMove)
 					return move;
 			}
 

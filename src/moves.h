@@ -10,7 +10,7 @@ typedef struct Moves Moves;
 #include "pos.h"
 #include "scoredmove.h"
 
-typedef enum { MovesStageTT, MovesStageGenCaptures, MovesStageCaptures, MovesStageKillers, MovesStageGenQuiets, MovesStageQuiets } MovesStage;
+typedef enum { MovesStageTT, MovesStageGenCaptures, MovesStageCaptures, MovesStageKillers, MovesStageCounterMove, MovesStageGenQuiets, MovesStageQuiets } MovesStage;
 
 #define MovesMax 256
 struct Moves
@@ -23,6 +23,7 @@ struct Moves
 	const Pos *pos;
 	Depth ply;
 	MoveType allowed, needed;
+	Move savedCounterMove;
 };
 
 void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type);

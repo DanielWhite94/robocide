@@ -885,20 +885,9 @@ bool posHasPieces(const Pos *pos, Colour colour) {
 }
 
 bool posMoveIsPseudoLegal(const Pos *pos, Move move) {
-	bool result=posMoveIsPseudoLegalInternal(pos, move);
-#	ifndef NDEBUG
-	Moves moves;
-	movesInit(&moves, pos, 0, MoveTypeAny);
-	Move move2;
-	bool trueResult=false;
-	while((move2=movesNext(&moves))!=MoveInvalid)
-		if (move2==move) {
-			trueResult=true;
-			break;
-		}
-	assert(result==trueResult);
-#	endif
-	return result;
+	// Note: this wrapper only exists as a leftover from debugging code which verified the result of posMoveIsPseudoLegalInternal by using moves module.
+	// However, due to movesNext now calling this function, this would lead to an infinite loop.
+	return posMoveIsPseudoLegalInternal(pos, move);
 }
 
 MoveType posMoveGetType(const Pos *pos, Move move){

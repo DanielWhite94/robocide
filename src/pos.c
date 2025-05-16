@@ -296,6 +296,10 @@ Piece posGetPieceOnSq(const Pos *pos, Sq sq) {
 	return pos->array64[sq];
 }
 
+Move posGetLastMove(const Pos *pos) {
+	return pos->data->lastMove;
+}
+
 BB posGetBBAll(const Pos *pos) {
 	return pos->bbAll;
 }

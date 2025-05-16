@@ -56,6 +56,7 @@ void posDraw(const Pos *pos);
 
 Colour posGetSTM(const Pos *pos);
 Piece posGetPieceOnSq(const Pos *pos, Sq sq);
+Move posGetLastMove(const Pos *pos);
 
 BB posGetBBAll(const Pos *pos);
 BB posGetBBColour(const Pos *pos, Colour colour);

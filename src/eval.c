@@ -68,7 +68,7 @@ TUNECONST VPair evalPstParams[PieceTypeNB][3]={
 	[PieceTypeBishopL]={{14,9}, {14,9}, {0,-15}},
 	[PieceTypeBishopD]={{14,9}, {14,9}, {0,-15}},
 	[PieceTypeRook]={{26,0}, {0,0}, {0,16}},
-	[PieceTypeQueen]={{14,0}, {-10,0}, {31,0}},
+	[PieceTypeQueen]={{23,24}, {-10,0}, {31,0}},
 	[PieceTypeKing]={{-243,120}, {-250,120}, {-50,0}},
 };
 TUNECONST VPair evalPawnCentre={163,0};

@@ -19,4 +19,7 @@ void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bou
 
 unsigned int ttFull(void); // Used entries per 1000.
 
+bool ttImport(const char *path);
+bool ttExport(const char *path);
+
 #endif

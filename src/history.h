@@ -15,4 +15,6 @@ History historyGet(Piece fromPiece, Sq toSq);
 void historyAge(void);
 void historyClear(void);
 
+bool historyExport(const char *path);
+
 #endif

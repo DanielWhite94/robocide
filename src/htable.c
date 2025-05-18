@@ -105,6 +105,21 @@ void htableRelease(HTable *table, HTableKey key) {
 	// No-op (exists in case locks are added later)
 }
 
+bool htableImport(HTable *table, const char *path) {
+	// Open file
+	FILE *file=fopen(path, "r");
+	if (file==NULL)
+		return false;
+
+	// Read data
+	size_t read=fread(table->entries, table->entrySize, table->entryCount, file);
+
+	// Close file
+	fclose(file);
+
+	return (read==table->entryCount);
+}
+
 bool htableExport(const HTable *table, const char *path) {
 	// Open file
 	FILE *file=fopen(path, "w");

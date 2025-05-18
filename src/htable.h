@@ -22,6 +22,7 @@ void htableClearInterface(void *table); // Interface for UCI button option code.
 void *htableGrab(HTable *table, HTableKey key); // Will never return NULL.
 void htableRelease(HTable *table, HTableKey key); // Should be called after Grab() to release entry.
 
+bool htableImport(HTable *table, const char *path); // table given must match table in file in terms of entry and total sizes
 bool htableExport(const HTable *table, const char *path);
 
 #endif

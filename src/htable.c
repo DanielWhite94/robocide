@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -102,6 +103,21 @@ void *htableGrab(HTable *table, HTableKey key) {
 
 void htableRelease(HTable *table, HTableKey key) {
 	// No-op (exists in case locks are added later)
+}
+
+bool htableExport(const HTable *table, const char *path) {
+	// Open file
+	FILE *file=fopen(path, "w");
+	if (file==NULL)
+		return false;
+
+	// Write data
+	size_t written=fwrite(table->entries, table->entrySize, table->entryCount, file);
+
+	// Close file
+	fclose(file);
+
+	return (written==table->entryCount);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -54,7 +54,7 @@ struct EvalData {
 
 TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeNone]={0,0},
-	[PieceTypePawn]={793,967},
+	[PieceTypePawn]={705,967},
 	[PieceTypeKnight]={2807,2370},
 	[PieceTypeBishopL]={3108,2659},
 	[PieceTypeBishopD]={3108,2659},
@@ -63,7 +63,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeKing]={600,-460} // these values exist soley to make PSTs look nicer (both sides always have exactly one king of course)
 };
 TUNECONST VPair evalPstParams[PieceTypeNB][3]={
-	[PieceTypePawn]={{15,33}, {-23,-15}, {10,25}},
+	[PieceTypePawn]={{15,0}, {-23,-15}, {10,25}},
 	[PieceTypeKnight]={{55,26}, {39,49}, {36,0}},
 	[PieceTypeBishopL]={{14,9}, {14,9}, {0,-15}},
 	[PieceTypeBishopD]={{14,9}, {14,9}, {0,-15}},
@@ -73,10 +73,10 @@ TUNECONST VPair evalPstParams[PieceTypeNB][3]={
 };
 TUNECONST VPair evalPawnCentre={163,0};
 TUNECONST VPair evalPawnOuterCentre={50,0};
-TUNECONST VPair evalPawnDoubled={-30,-190};
-TUNECONST VPair evalPawnIsolated={-239,-121};
+TUNECONST VPair evalPawnDoubled={-30,-167};
+TUNECONST VPair evalPawnIsolated={-207,-121};
 TUNECONST VPair evalPawnBlocked={-22,-100};
-TUNECONST VPair evalPawnPassedQuadA={52,46}; // Coefficients used in quadratic formula for passed pawn score (with rank as the input).
+TUNECONST VPair evalPawnPassedQuadA={46,46}; // Coefficients used in quadratic formula for passed pawn score (with rank as the input).
 TUNECONST VPair evalPawnPassedQuadB={-125,-100};
 TUNECONST VPair evalPawnPassedQuadC={90,150};
 TUNECONST VPair evalKnightMob={25,18};

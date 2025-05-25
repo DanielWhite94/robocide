@@ -300,6 +300,10 @@ Move posGetLastMove(const Pos *pos) {
 	return pos->data->lastMove;
 }
 
+unsigned posGetMoveCount(const Pos *pos) {
+	return (pos->data-pos->dataStart);
+}
+
 BB posGetBBAll(const Pos *pos) {
 	return pos->bbAll;
 }

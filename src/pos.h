@@ -61,6 +61,7 @@ void posDraw(const Pos *pos);
 Colour posGetSTM(const Pos *pos);
 Piece posGetPieceOnSq(const Pos *pos, Sq sq);
 Move posGetLastMove(const Pos *pos);
+unsigned posGetMoveCount(const Pos *pos); // note: this is the number of moves made with posMakeMove since position was set. This may not be equal to the total number of moves made in the game itself (as we may start from a FEN string with moves already made).
 
 BB posGetBBAll(const Pos *pos);
 BB posGetBBColour(const Pos *pos, Colour colour);

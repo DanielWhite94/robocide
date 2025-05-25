@@ -173,35 +173,9 @@ void uciLoop(void) {
 			// Search.
 			searchThink(pos, &limit, true);
 		} else if (utilStrEqual(part, "position")) {
-			// Get position (either 'startpos' or FEN string).
-			if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
-				continue;
-			if (utilStrEqual(part, "startpos")) {
-				if (!posSetToFEN(pos, NULL))
-					continue;
-			} else if (utilStrEqual(part, "fen")) {
-				char *start=part+4;
-				char *end=strstr(start, "moves");
-				if (end!=NULL)
-					*(end-1)='\0';
-				if (!posSetToFEN(pos, start))
-					continue;
-				if (end!=NULL)
-					*(end-1)=' ';
-			} else
-				continue;
-
-			// Make any moves given.
-			bool inMoves=false;
-			while((part=strtok_r(NULL, " ", &savePtr))!=NULL) {
-				if (!inMoves && utilStrEqual(part, "moves"))
-					inMoves=true;
-				else if (inMoves) {
-					Move move=posMoveFromStr(pos, part);
-					if (!moveIsValid(move) || !posMakeMove(pos, move))
-						break;
-				}
-			}
+			// Use uciPosFromStr to do the heavy lifting
+			line[strlen(part)]=' '; // restore original line we read in (replace space character which strtok turned into a null terminator)
+			uciPosFromStr(pos, line);
 		}
 		else if (utilStrEqual(part, "ponderhit"))
 			searchPonderHit();
@@ -224,6 +198,9 @@ void uciLoop(void) {
 			uciWrite("Eval: %s (raw score %i)\n", SCORETOSTR(evalScore, BoundExact), (int)evalScore);
 
 			uciWrite("MatType: %s\n", evalMatTypeToStr(evalGetMatType(pos)));
+			char *posStr=uciPosToStr(pos);
+			uciWrite("UCI str: %s\n", posStr);
+			free(posStr);
 		} else if (utilStrEqual(part, "bitbase")) {
 			if (evalGetMatType(pos)==EvalMatTypeKPvK) {
 				uciWrite("BitBase:\n");
@@ -473,6 +450,90 @@ bool uciOptionNewString(const char *name, void(*function)(void *userData, const 
 
 bool uciGetChess960(void) {
 	return uciChess960;
+}
+
+char *uciPosToStr(Pos *pos) {
+	// Allocate all memory needed at once to simplify error logic
+	unsigned moveCount=posGetMoveCount(pos);
+	Move *moveArray=malloc(sizeof(Move)*moveCount);
+	char *str=malloc(strlen("position fen ")+FenMaxLen+1+6*moveCount+1); // 6*moveCount due to potential 5 character move for promotions plus 1 for separating space
+	if (moveArray==NULL || str==NULL) {
+		free(moveArray);
+		free(str);
+		return NULL;
+	}
+
+	// Unwind moves made to find initial position
+	Move *moveNext=moveArray;
+	while(posGetLastMove(pos)!=MoveInvalid) {
+		*moveNext++=posGetLastMove(pos);
+		posUndoMove(pos);
+	}
+
+	// Begin string with initial position string (either 'startpos' or 'fen' followed by a FEN string)
+	char fenStr[FenMaxLen];
+	posGetFEN(pos, fenStr);
+
+	if (utilStrEqual(fenStr, posStartFEN))
+		sprintf(str, "position startpos");
+	else
+		sprintf(str, "position fen %s", fenStr);
+
+	// Add moves to string in order
+	if (moveNext>moveArray) {
+		sprintf(str+strlen(str), " moves");
+		while(moveNext-->moveArray) {
+			char tempStr[8];
+			posMoveToStr(pos, *moveNext, tempStr);
+			sprintf(str+strlen(str), " %s", tempStr);
+			posMakeMove(pos, *moveNext);
+		}
+	}
+
+	// Tidy up
+	free(moveArray);
+
+	return str;
+}
+
+bool uciPosFromStr(Pos *pos, char *str) {
+	// Verify str is actually a position command.
+	char *savePtr;
+	char *part=strtok_r(str, " ", &savePtr);
+	if (part==NULL || !utilStrEqual(part, "position"))
+		return false;
+
+	// Get position (either 'startpos' or 'fen' following by string).
+	if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
+		return false;
+	if (utilStrEqual(part, "startpos")) {
+		if (!posSetToFEN(pos, NULL))
+			return false;
+	} else if (utilStrEqual(part, "fen")) {
+		char *start=part+4;
+		char *end=strstr(start, "moves");
+		if (end!=NULL)
+			*(end-1)='\0';
+		if (!posSetToFEN(pos, start))
+			return false;
+		if (end!=NULL)
+			*(end-1)=' ';
+	} else
+		return false;
+
+	// Make any moves given.
+	bool inMoves=false;
+	while((part=strtok_r(NULL, " ", &savePtr))!=NULL) {
+		if (!inMoves && utilStrEqual(part, "moves"))
+			inMoves=true;
+		else if (inMoves) {
+			Move move=posMoveFromStr(pos, part);
+			if (!moveIsValid(move) || !posMakeMove(pos, move))
+				break;
+		}
+	}
+
+	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -4,6 +4,8 @@
 #include <stdarg.h>
 #include <stdbool.h>
 
+#include "pos.h"
+
 void uciInit(void);
 
 void uciLoop(void);
@@ -19,5 +21,8 @@ bool uciOptionNewButton(const char *name, void(*function)(void *userData), void 
 bool uciOptionNewString(const char *name, void(*function)(void *userData, const char *value), void *userData, const char *initial);
 
 bool uciGetChess960(void);
+
+char *uciPosToStr(Pos *pos); // returned string should be passed to free once fnished with. Note: while pos argument is not marked as const, upon returning it will be left in the initial state given.
+bool uciPosFromStr(Pos *pos, char *str); // If fails, returns false and position state is left undefined. Note: str is modified by this function
 
 #endif

@@ -13,6 +13,12 @@
 #define DateBit 6 // Number of bits searchGetDate() will actually use in its return value.
 #define DateMax (1u<<DateBit)
 
+typedef enum {
+	SearchOutputNone, // no output during search (and also no 'bestmove' on completion)
+	SearchOutputPartial, // output single info line after every depth iteration and also 'bestmove' on completion
+	SearchOutputFull, // same as above but also send regular updates of nodes, nps, hashfull, currmove etc
+} SearchOutput;
+
 // Entries should be considered private - only here to allow easy allocation on the stack.
 // Use searchLimit* functions instead.
 typedef struct {
@@ -29,7 +35,7 @@ typedef struct {
 void searchInit(void);
 void searchQuit(void);
 
-void searchThink(const Pos *pos, const SearchLimit *limit, bool output);
+void searchThink(const Pos *pos, const SearchLimit *limit, SearchOutput output);
 void searchStopAndWait(void); // Instruct search to stop as soon as possible and wait for it to finish.
 void searchWait(void); // Wait for search to finish (but do not instruct it to stop immediately if still thinking).
 

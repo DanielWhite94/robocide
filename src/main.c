@@ -247,7 +247,7 @@ bool mainReplay(const char *path, const char *date) {
 	searchLimitSetNodes(&limit, nodes);
 
 	printf("Replay data:\n");
-	searchThink(pos, &limit, true);
+	searchThink(pos, &limit, SearchOutputPartial);
 
 	// Tidy up
 	posFree(pos);

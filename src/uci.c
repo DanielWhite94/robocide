@@ -171,7 +171,7 @@ void uciLoop(void) {
 			}
 
 			// Search.
-			searchThink(pos, &limit, true);
+			searchThink(pos, &limit, SearchOutputFull);
 		} else if (utilStrEqual(part, "position")) {
 			// Use uciPosFromStr to do the heavy lifting
 			line[strlen(part)]=' '; // restore original line we read in (replace space character which strtok turned into a null terminator)

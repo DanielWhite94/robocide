@@ -43,7 +43,7 @@ TimeMs searchNextRegularOutputTime;
 bool searchShowCurrmove;
 SearchLimit searchLimit;
 unsigned int searchDate; // Incremented after each searchThink() call.
-bool searchOutput;
+SearchOutput searchOutput;
 STATICASSERT(MoveBit<=16);
 uint16_t searchPv[DepthMax][DepthMax];
 
@@ -155,7 +155,7 @@ void searchQuit(void) {
 	lockFree(searchActivity);
 }
 
-void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
+void searchThink(const Pos *srcPos, const SearchLimit *limit, SearchOutput output) {
 	// Make sure we are not already searching (and if we are, set stop flag and wait until finished).
 	searchStopAndWait();
 
@@ -225,7 +225,7 @@ unsigned long long int searchBenchmark(const Pos *pos, Depth depth) {
 	searchLimitSetDepth(&limit, depth);
 
 	// Search and wait to complete.
-	searchThink(pos, &limit, false);
+	searchThink(pos, &limit, SearchOutputNone);
 	searchWait();
 
 	// Return node count.
@@ -374,7 +374,7 @@ void searchIDLoop(void *userData) {
 	Move bestMove=MoveInvalid, ponderMove=MoveInvalid;
 	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
 		// After 1s start showing 'currmove' info.
-		if (searchOutput && timeGet()>=searchLimit.startTime+1000)
+		if (searchOutput==SearchOutputFull && timeGet()>=searchLimit.startTime+1000)
 			searchShowCurrmove=true;
 
 		// Output pre info.
@@ -429,7 +429,7 @@ void searchIDLoop(void *userData) {
 	}
 
 	// Send best move (and potentially ponder move) to GUI.
-	if (searchOutput) {
+	if (searchOutput!=SearchOutputNone) {
 		if (doExtraInfoCommand)
 			searchOutputDepthPost(&node);
 
@@ -940,7 +940,7 @@ bool searchIsTimeUp(void) {
 }
 
 void searchOutputRegular(void) {
-	if (!searchOutput)
+	if (searchOutput!=SearchOutputFull)
 		return;
 
 	TimeMs time=timeGet()-searchLimit.startTime;
@@ -951,7 +951,7 @@ void searchOutputRegular(void) {
 }
 
 void searchOutputDepthPre(Node *node) {
-	if (!searchOutput)
+	if (searchOutput!=SearchOutputFull)
 		return;
 
 	uciWrite("info depth %u\n", (unsigned int)node->depth);
@@ -962,7 +962,7 @@ void searchOutputDepthPost(Node *node) {
 	assert(node->bound!=BoundNone);
 
 	// No output or logging needed?
-	if (!searchOutput && !mainIsLogging())
+	if (searchOutput==SearchOutputNone && !mainIsLogging())
 		return;
 
 	// PV (extracted from array and also potentially the TT)
@@ -1018,7 +1018,7 @@ void searchOutputDepthPost(Node *node) {
 	// Logging
 	mainLogSearchDepth(node->depth, node->score, node->bound, searchNodeCount, searchLimit.startTime, pvStr);
 
-	if (!searchOutput)
+	if (searchOutput==SearchOutputNone)
 		return;
 
 	// Various bits of data

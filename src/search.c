@@ -371,32 +371,35 @@ void searchIDLoop(void *userData) {
 	node.inCheck=posIsSTMInCheck(node.pos);
 
 	// Loop, increasing search depth until we run out of 'time'.
+	bool isSingleLegalMove=!posNLegalMovesExists(node.pos, MoveTypeAny, 2);
 	Move bestMove=MoveInvalid, ponderMove=MoveInvalid;
-	for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
-		// After 1s start showing 'currmove' info.
-		if (searchOutput==SearchOutputFull && timeGet()>=searchLimit.startTime+1000)
-			searchShowCurrmove=true;
+	if (searchLimit.infinite || !isSingleLegalMove) {
+		for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
+			// After 1s start showing 'currmove' info.
+			if (searchOutput==SearchOutputFull && timeGet()>=searchLimit.startTime+1000)
+				searchShowCurrmove=true;
 
-		// Output pre info.
-		searchOutputDepthPre(&node);
+			// Output pre info.
+			searchOutputDepthPre(&node);
 
-		// Search
-		searchNode(&node);
+			// Search
+			searchNode(&node);
 
-		// No info found? (out of time/nodes/etc.).
-		if (node.bound==BoundNone)
-			break;
+			// No info found? (out of time/nodes/etc.).
+			if (node.bound==BoundNone)
+				break;
 
-		// Update bestMove
-		bestMove=searchPv[node.ply][0];
-		ponderMove=(bestMove!=MoveInvalid ? searchPv[node.ply][1] : MoveInvalid);
+			// Update bestMove
+			bestMove=searchPv[node.ply][0];
+			ponderMove=(bestMove!=MoveInvalid ? searchPv[node.ply][1] : MoveInvalid);
 
-		// Output post info.
-		searchOutputDepthPost(&node);
+			// Output post info.
+			searchOutputDepthPost(&node);
 
-		// Time to end?
-		if (searchIsTimeUp())
-			break;
+			// Time to end?
+			if (searchIsTimeUp())
+				break;
+		}
 	}
 
 	// Ensure we have a legal bestMove

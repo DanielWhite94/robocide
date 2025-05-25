@@ -555,29 +555,18 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 	BB oppPawns=(posGetBBPiece(pos, pieceMake(PieceTypePawn, xstm)) & opp);
 	if (bbForwardOne(bbWingify(oppPawns), xstm) & checkSquares)
 		return false;
+
 	// Pieces are checked for each square in checkSquares (which usually only has a single bit set anyway).
+	BB oppKnights=(opp & posGetBBPiece(pos, pieceMake(PieceTypeKnight, xstm)));
+	BB oppSlidersDiagonal=(opp & (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, xstm))|posGetBBPiece(pos, pieceMake(PieceTypeBishopD, xstm))|posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))));
+	BB oppSlidersOrthogonal=(opp & (posGetBBPiece(pos, pieceMake(PieceTypeRook, xstm))|posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))));
+	BB oppKing=(opp & posGetBBPiece(pos, pieceMake(PieceTypeKing, xstm)));
 	while(checkSquares) {
 		Sq sq=bbScanReset(&checkSquares);
-
-		// Knights.
-		if (attacksKnight(sq) & opp & posGetBBPiece(pos, pieceMake(PieceTypeKnight, xstm)))
-			return false;
-
-		// Bishops and diagonal queen moves.
-		if (attacksBishop(sq, occ) & opp &
-		    (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, xstm)) |
-		     posGetBBPiece(pos, pieceMake(PieceTypeBishopD, xstm)) |
-		     posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))))
-			return false;
-
-		// Rooks and orthogonal queen moves.
-		if (attacksRook(sq, occ) & opp &
-		    (posGetBBPiece(pos, pieceMake(PieceTypeRook, xstm)) |
-		     posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))))
-			return false;
-
-		// King.
-		if (attacksKing(sq) & opp & posGetBBPiece(pos, pieceMake(PieceTypeKing, xstm)))
+		if ((attacksKnight(sq) & oppKnights)|
+		    (attacksBishop(sq, occ) & oppSlidersDiagonal)|
+		    (attacksRook(sq, occ) & oppSlidersOrthogonal)|
+		    (attacksKing(sq) & oppKing))
 			return false;
 	}
 

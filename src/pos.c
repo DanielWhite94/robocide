@@ -241,7 +241,7 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	return true;
 }
 
-void posGetFEN(const Pos *pos, char string[static 128]) {
+void posGetFEN(const Pos *pos, char string[static FenMaxLen]) {
 	assert(pos!=NULL);
 
 	Fen fenData;
@@ -281,7 +281,7 @@ void posDraw(const Pos *pos) {
 	uciWrite("Base hash key: %016"PRIxKey"\n", posGetKey(pos));
 	uciWrite("Pawn hash key: %016"PRIxKey"\n", posGetPawnKey(pos));
 	uciWrite("Material hash key: %016"PRIxKey"\n", posGetMatKey(pos));
-	char fen[128];
+	char fen[FenMaxLen];
 	posGetFEN(pos, fen);
 	uciWrite("FEN string: %s\n", fen);
 	uciWrite("PST score: (%i,%i)\n", pos->pstScore.mg, pos->pstScore.eg);

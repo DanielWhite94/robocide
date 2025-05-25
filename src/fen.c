@@ -92,7 +92,7 @@ bool fenRead(Fen *data, const char *string) {
 	return true;
 }
 
-void fenWrite(Fen *data, char string[static 128]) {
+void fenWrite(Fen *data, char string[static FenMaxLen]) {
 	assert(data!=NULL);
 
 	char tempStr[64];

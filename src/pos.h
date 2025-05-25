@@ -33,6 +33,8 @@ typedef struct {
 } CastRights;
 extern const CastRights CastRightsNone;
 
+#include "fen.h" // this is here as fen.h needs CastRights definition
+
 #define POSMOVETOSTRMAXLEN 8
 #define POSMOVETOSTR(pos, move) ({char *str=alloca(POSMOVETOSTRMAXLEN); posMoveToStr((pos), (move), str); (const char *)str;})
 
@@ -50,7 +52,7 @@ void posFree(Pos *pos);
 bool posCopy(Pos *dest, const Pos *src);
 
 bool posSetToFEN(Pos *pos, const char *string); // If fails pos is unchanged.
-void posGetFEN(const Pos *pos, char string[static 128]);
+void posGetFEN(const Pos *pos, char string[static FenMaxLen]);
 
 void posDraw(const Pos *pos);
 

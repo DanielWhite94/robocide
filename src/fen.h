@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#define FenMaxLen 128
+
 #include "colour.h"
 #include "piece.h"
 #include "pos.h"
@@ -17,7 +19,7 @@ typedef struct {
 } Fen;
 
 bool fenRead(Fen *data, const char *string);
-void fenWrite(Fen *data, char string[static 128]);
+void fenWrite(Fen *data, char string[static FenMaxLen]);
 
 void fenFromPos(Fen *data, const Pos *pos);
 

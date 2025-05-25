@@ -198,6 +198,9 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, bool output) {
 	if (searchTime!=TimeMsInvalid)
 		searchEndTime=searchLimit.startTime+searchTime;
 
+	// Logging
+	mainLogSearchStart(searchPos, searchTime);
+
 	// Set away worker
 	threadRun(searchThread, &searchIDLoop, NULL);
 }
@@ -439,6 +442,9 @@ void searchIDLoop(void *userData) {
 		} else
 			uciWrite("bestmove %s\n", str);
 	}
+
+	// Logging
+	mainLogSearchEnd(searchNodeCount);
 
 	// Age history table.
 	if (searchHistoryHeuristic)
@@ -955,17 +961,13 @@ void searchOutputDepthPost(Node *node) {
 	assert(scoreIsValid(node->score));
 	assert(node->bound!=BoundNone);
 
-	if (!searchOutput)
+	// No output or logging needed?
+	if (!searchOutput && !mainIsLogging())
 		return;
 
-	// Various bits of data
-	TimeMs time=timeGet()-searchLimit.startTime;
-	uciWrite("info depth %u score %s nodes %llu time %llu", (unsigned int)node->depth, SCORETOSTR(node->score, node->bound), searchNodeCount, (unsigned long long int)time);
-	if (time>0)
-		uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
-
 	// PV (extracted from array and also potentially the TT)
-	uciWrite(" pv");
+	char pvStr[4096]; // TODO: better
+	char *pvStrNext=pvStr;
 	unsigned int ply=0;
 	while(ply<node->depth && searchPv[0][ply]!=MoveInvalid) {
 		// Compute move string before we make the move.
@@ -978,7 +980,7 @@ void searchOutputDepthPost(Node *node) {
 		++ply;
 
 		// Print move string.
-		uciWrite(" %s", str);
+		pvStrNext+=sprintf(pvStrNext, " %s", str);
 
 		// Draw? (don't want infinite PVs in case of repetition).
 		if (posIsDraw(node->pos))
@@ -1001,18 +1003,30 @@ void searchOutputDepthPost(Node *node) {
 		++ply;
 
 		// Print move string.
-		uciWrite(" %s", str);
+		pvStrNext+=sprintf(pvStrNext, " %s", str);
 
 		// Draw? (don't want infinite PVs in case of repetition).
 		if (posIsDraw(node->pos))
 			break;
 	}
+	*pvStrNext=0;
 
 	// Return position to initial state.
 	for(;ply>0;--ply)
 		posUndoMove(node->pos);
 
-	uciWrite("\n");
+	// Logging
+	mainLogSearchDepth(node->depth, node->score, node->bound, searchNodeCount, searchLimit.startTime, pvStr);
+
+	if (!searchOutput)
+		return;
+
+	// Various bits of data
+	TimeMs time=timeGet()-searchLimit.startTime;
+	uciWrite("info depth %u score %s nodes %llu time %llu", (unsigned int)node->depth, SCORETOSTR(node->score, node->bound), searchNodeCount, (unsigned long long int)time);
+	if (time>0)
+		uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
+	uciWrite(" pv%s\n", pvStr);
 }
 
 bool searchIsZugzwang(const Node *node) {

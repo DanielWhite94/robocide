@@ -19,9 +19,9 @@ typedef enum {
 
 #include "bb.h"
 #include "colour.h"
-#include "piece.h"
 #include "move.h"
 #include "moves.h"
+#include "piece.h"
 #include "square.h"
 
 typedef enum {

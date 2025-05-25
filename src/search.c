@@ -732,7 +732,7 @@ void searchNodeInternal(Node *node) {
 						if (searchKillersHeuristic)
 							killersCutoff(node->ply, searchPv[node->ply][0]);
 						if (searchCounterMoveHeuristic)
-							counterMoveCutoff(posGetLastMove(node->pos), searchPv[node->ply][0]); // ..... could posGetLastMove return MoveInvalid here?
+							counterMoveCutoff(posGetLastMove(node->pos), searchPv[node->ply][0]);
 					}
 
 					goto cutoff;

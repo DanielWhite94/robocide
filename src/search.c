@@ -430,7 +430,7 @@ void searchIDLoop(void *userData) {
 
 	// Send best move (and potentially ponder move) to GUI.
 	if (searchOutput!=SearchOutputNone) {
-		if (doExtraInfoCommand)
+		if (doExtraInfoCommand && node.bound!=BoundNone)
 			searchOutputDepthPost(&node);
 
 		char str[8];

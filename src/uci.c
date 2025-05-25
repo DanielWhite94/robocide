@@ -251,6 +251,21 @@ void uciLoop(void) {
 			unsigned long long int nodes=benchmark();
 			t=timeGet()-t;
 			printf("took %llu.%03llus, %llu nodes\n", t/1000, t%1000, nodes);
+		} else if (utilStrEqual(part, "replay")) {
+			// Grab arguments
+			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
+				printf("Error: missing path argument\n");
+				continue;
+			}
+			const char *replayPath=part;
+			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
+				printf("Error: missing date argument\n");
+				continue;
+			}
+			const char *replayDate=part;
+
+			// Call mainReplay to do the actual work
+			mainReplay(replayPath, replayDate);
 		}
 	}
 

@@ -869,6 +869,19 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 	return true;
 }
 
+bool posNLegalMovesExists(const Pos *pos, MoveType type, unsigned n) {
+	// TODO: this can presumably be done faster by generating and trying moves one-by-one (currently we generate all captures, then all quiets)
+	Moves moves;
+	movesInit(&moves, pos, 0, type);
+	Move move;
+	while(n>0 && (move=movesNext(&moves))!=MoveInvalid) {
+		// Test if move is actually legal (does not leave side to move in check)
+		if (posCanMakeMove(pos, move))
+			--n;
+	}
+	return (n==0);
+}
+
 bool posHasPieces(const Pos *pos, Colour colour) {
 	assert(colourIsValid(colour));
 

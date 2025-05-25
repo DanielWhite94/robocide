@@ -97,7 +97,8 @@ bool posIsDraw(const Pos *pos);
 bool posIsMate(const Pos *pos);
 bool posIsStalemate(const Pos *pos);
 
-bool posLegalMoveExists(const Pos *pos, MoveType type);
+bool posLegalMoveExists(const Pos *pos, MoveType type); // equivalent to posNLegalMovesExists(pos, type, 1)
+bool posNLegalMovesExists(const Pos *pos, MoveType type, unsigned n); // return true if there are at least n legal moves of the given type
 
 bool posHasPieces(const Pos *pos, Colour colour); // Non-pawn material?
 

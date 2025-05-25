@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+extern const char *posStartFEN;
+
 typedef struct Pos Pos; // Defined here due to circular reference with Moves in moves.h.
 
 typedef enum {

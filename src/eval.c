@@ -69,7 +69,7 @@ TUNECONST VPair evalPstParams[PieceTypeNB][3]={
 	[PieceTypeBishopD]={{14,9}, {14,9}, {0,-15}},
 	[PieceTypeRook]={{26,0}, {0,0}, {0,16}},
 	[PieceTypeQueen]={{44,24}, {-10,10}, {31,0}},
-	[PieceTypeKing]={{-243,120}, {-201,120}, {-50,0}},
+	[PieceTypeKing]={{-243,120}, {-141,120}, {-50,24}},
 };
 TUNECONST VPair evalPawnCentre={163,0};
 TUNECONST VPair evalPawnOuterCentre={50,0};
@@ -92,7 +92,7 @@ TUNECONST VPair evalRookSemiOpenFile={50,20};
 TUNECONST VPair evalRookOn7th={50,100};
 TUNECONST VPair evalRookTrapped={-400,0};
 TUNECONST VPair evalKingShieldClose={150,0};
-TUNECONST VPair evalKingShieldFar={50,0};
+TUNECONST VPair evalKingShieldFar={60,0};
 TUNECONST VPair evalKingNearPasserFactor={0,200};
 TUNECONST VPair evalKingCastlingMobility={100,0};
 TUNECONST VPair evalTempoDefault={35,0};

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "attacks.h"
 #include "bb.h"
@@ -113,17 +114,23 @@ void mainLogSearchStart(Pos *pos, TimeMs searchTime) {
 	// Output search time
 	fprintf(file, "searchtime %llu\n", searchTime);
 
-	// Output TT and history data
-	char ttPath[4096]; // TODO: better
-	sprintf(ttPath, "%s.TT.%s", mainLogFilePath, dateStr);
-	ttExport(ttPath);
-
-	char historyPath[4096]; // TODO: better
-	sprintf(historyPath, "%s.Hist.%s", mainLogFilePath, dateStr);
-	historyExport(historyPath);
-
 	// Close log file
 	fclose(file);
+
+	// Fork before writing potentially large hash table (most entries won't be touched during this time so almost no memory will need to be copied)
+	if (fork()==0) {
+		// Output TT and history data
+		char ttPath[4096]; // TODO: better
+		sprintf(ttPath, "%s.TT.%s", mainLogFilePath, dateStr);
+		ttExport(ttPath);
+
+		char historyPath[4096]; // TODO: better
+		sprintf(historyPath, "%s.Hist.%s", mainLogFilePath, dateStr);
+		historyExport(historyPath);
+
+		// End this thread
+		exit(0);
+	}
 }
 
 void mainLogSearchDepth(Depth depth, Score score, Bound bound, unsigned long long nodeCount, TimeMs startTime, const char *pvStr) {

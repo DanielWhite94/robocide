@@ -46,6 +46,7 @@ unsigned int searchDate; // Incremented after each searchThink() call.
 SearchOutput searchOutput;
 STATICASSERT(MoveBit<=16);
 uint16_t searchPv[DepthMax][DepthMax];
+bool searchRootSingleLegalMove;
 
 TUNECONST int searchNullReduction=1;
 TUNECONST int searchIIDMin=2;
@@ -371,9 +372,9 @@ void searchIDLoop(void *userData) {
 	node.inCheck=posIsSTMInCheck(node.pos);
 
 	// Loop, increasing search depth until we run out of 'time'.
-	bool isSingleLegalMove=!posNLegalMovesExists(node.pos, MoveTypeAny, 2);
+	searchRootSingleLegalMove=!posNLegalMovesExists(node.pos, MoveTypeAny, 2);
 	Move bestMove=MoveInvalid, ponderMove=MoveInvalid;
-	if (searchLimit.infinite || !isSingleLegalMove) {
+	if (searchLimit.infinite || !searchRootSingleLegalMove) {
 		for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
 			// After 1s start showing 'currmove' info.
 			if (searchOutput==SearchOutputFull && timeGet()>=searchLimit.startTime+1000)
@@ -923,6 +924,12 @@ bool searchIsTimeUp(void) {
 		// Do this check here so we still do regular output above in infinite mode.
 		if (searchLimit.infinite)
 			return false;
+
+		// This is only here in rare situation where a TT cutoff in the root at depths 1-n prevents single legal move check from triggering,
+		// and then the depth n+1 search takes a not insignificant amount of time to complete, and thus realise there is simply a single legal move.
+		// Logic in searchIDLoop deals with non-infinite case, the below check is for when we leave infinite mode due to ponder hit.
+		if (searchRootSingleLegalMove)
+			goto timeup;
 
 		// Update searchNodeNext to check again in the future.
 		if (currTime>searchLimit.startTime) {

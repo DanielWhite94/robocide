@@ -931,7 +931,7 @@ bool searchIsTimeUp(void) {
 			searchNodeNext=searchNodeCount+nodeDelay;
 		} else
 			// No time passed yet since we started searching, check again later.
-			searchNodeNext*=2;
+			searchNodeNext+=2048;
 	}
 
 	return false;

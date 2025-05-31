@@ -919,6 +919,11 @@ bool searchIsTimeUp(void) {
 			searchNextRegularOutputTime=currTime+1000;
 		}
 
+		// In infinite mode keep searching (until depth limit)
+		// Do this check here so we still do regular output above in infinite mode.
+		if (searchLimit.infinite)
+			return false;
+
 		// Update searchNodeNext to check again in the future.
 		if (currTime>searchLimit.startTime) {
 			// Aim to check again 50% through our remaining time for this move.

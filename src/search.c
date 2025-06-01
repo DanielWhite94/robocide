@@ -506,6 +506,10 @@ Score searchQNode(Node *node) {
 }
 
 void searchNodeInternal(Node *node) {
+	// Out of time?
+	if (searchIsTimeUp())
+		return;
+
 	// Q node?
 	if (searchNodeIsQ(node)) {
 		// Don't collect PV in qsearch
@@ -806,6 +810,10 @@ void searchNodeInternal(Node *node) {
 }
 
 void searchQNodeInternal(Node *node) {
+	// Out of time?
+	if (searchIsTimeUp())
+		return;
+
 	// Ply limit reached?
 	if (node->ply>=DepthMax) {
 		node->bound=BoundExact;

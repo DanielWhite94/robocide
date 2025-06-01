@@ -6,6 +6,7 @@
 #include "util.h"
 
 struct HTable {
+	size_t sizeMb;
 	size_t entrySize;
 	size_t entryCount;
 	void *entries;
@@ -36,6 +37,7 @@ HTable *htableNew(size_t entrySize, unsigned int sizeMb) {
 	}
 
 	// Set state.
+	table->sizeMb=0;
 	table->entrySize=entrySize;
 	table->entryCount=0;
 	table->entries=NULL;
@@ -50,14 +52,26 @@ HTable *htableNew(size_t entrySize, unsigned int sizeMb) {
 }
 
 void htableFree(HTable *table) {
+	if (table==NULL)
+		return;
+
 	free(table->entries);
 	free(table);
+}
+
+unsigned int htableGetSizeMb(const HTable *table) {
+	assert(table!=NULL);
+
+	return table->sizeMb;
 }
 
 bool htableResize(HTable *table, unsigned int sizeMb) {
 	// Sanity checks.
 	assert(table!=NULL);
 	assert(sizeMb>0);
+
+	// Update sizeMb
+	table->sizeMb=sizeMb;
 
 	// Calculate greatest number of entries we can fit in sizeMb (limited by 32 bit key).
 	uint64_t entryCount=(((uint64_t)sizeMb)*1024llu*1024llu)/table->entrySize;

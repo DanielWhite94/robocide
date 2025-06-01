@@ -13,6 +13,8 @@ typedef struct HTable HTable;
 HTable *htableNew(size_t entrySize, unsigned int sizeMb);
 void htableFree(HTable *table);
 
+unsigned int htableGetSizeMb(const HTable *table);
+
 bool htableResize(HTable *table, unsigned int sizeMb); // SizeMb>0.
 void htableResizeInterface(void *table, long long int sizeMb); // Interface for UCI spin option code.
 

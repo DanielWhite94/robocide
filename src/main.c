@@ -147,7 +147,10 @@ void mainLogSearchDepth(Depth depth, Score score, Bound bound, unsigned long lon
 
 	// Write data
 	TimeMs time=timeGet()-startTime;
-	fprintf(file, "info depth %u score %s nodes %llu time %llu pv%s\n", (unsigned int)depth, SCORETOSTR(score, bound), nodeCount, (unsigned long long int)time, pvStr);
+	fprintf(file, "info depth %u score %s nodes %llu time %llu", (unsigned int)depth, SCORETOSTR(score, bound), nodeCount, (unsigned long long int)time);
+	if (time>0)
+		fprintf(file, " nps %llu", (nodeCount*1000llu)/time);
+	fprintf(file, " pv%s\n", pvStr);
 
 	// Close log file
 	fclose(file);

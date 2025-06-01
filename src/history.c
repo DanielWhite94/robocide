@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "history.h"
@@ -39,38 +38,4 @@ void historyAge(void) {
 
 void historyClear(void) {
 	memset(history, 0, sizeof(history));
-}
-
-bool historyImport(const char *path) {
-	// Open file
-	FILE *file=fopen(path, "r");
-	if (file==NULL)
-		return false;
-
-	// Read data
-	size_t s=sizeof(History);
-	size_t n=PieceNB*SqNB;
-	size_t read=fread(history, s, n, file);
-
-	// Close file
-	fclose(file);
-
-	return (read==n);
-}
-
-bool historyExport(const char *path) {
-	// Open file
-	FILE *file=fopen(path, "w");
-	if (file==NULL)
-		return false;
-
-	// Write data
-	size_t s=sizeof(History);
-	size_t n=PieceNB*SqNB;
-	size_t written=fwrite(history, s, n, file);
-
-	// Close file
-	fclose(file);
-
-	return (written==n);
 }

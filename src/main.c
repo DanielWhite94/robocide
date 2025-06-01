@@ -80,6 +80,23 @@ void mainLogF(const char *format, ...) {
 	fclose(file);
 }
 
+void mainLogNewGame(void) {
+	// No logging required?
+	if (mainLogFilePath==NULL)
+		return;
+
+	// Open log file
+	FILE *file=fopen(mainLogFilePath, "a");
+	if (file==NULL)
+		return;
+
+	// Write data
+	fprintf(file, "ucinewgame\n\n");
+
+	// Close log file
+	fclose(file);
+}
+
 void mainLogSearchStart(Pos *pos, TimeMs searchTime) {
 	// No logging required?
 	if (mainLogFilePath==NULL)

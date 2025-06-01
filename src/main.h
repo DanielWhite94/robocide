@@ -13,6 +13,7 @@ void mainFatalError(const char *format, ...) __attribute__ ((noreturn));
 
 bool mainIsLogging(void);
 void mainLogF(const char *format, ...);
+void mainLogNewGame(void);
 void mainLogSearchStart(Pos *pos, TimeMs searchTime);
 void mainLogSearchDepth(Depth depth, Score score, Bound bound, unsigned long long nodeCount, TimeMs startTime, const char *pvStr);
 void mainLogSearchEnd(unsigned long long int nodeCount);

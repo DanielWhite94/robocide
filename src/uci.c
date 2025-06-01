@@ -184,6 +184,7 @@ void uciLoop(void) {
 		else if (utilStrEqual(part, "stop"))
 			searchStopAndWait();
 		else if (utilStrEqual(part, "ucinewgame")) {
+			mainLogNewGame();
 			searchClear();
 			evalClear();
 		} else if (utilStrEqual(part, "setoption")) {

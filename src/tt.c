@@ -199,6 +199,14 @@ unsigned int ttFull(void) {
 	return total;
 }
 
+unsigned int ttGetSizeMb(void) {
+	return htableGetSizeMb(tt);
+}
+
+void ttSetSizeMb(unsigned long sizeMb) {
+	htableResizeInterface(tt, sizeMb);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////

@@ -18,5 +18,7 @@ Move ttReadMove(const Pos *pos, Depth ply); // Either returns move or MoveInvali
 void ttWrite(const Pos *pos, Depth ply, Depth depth, Move move, Score score, Bound bound);
 
 unsigned int ttFull(void); // Used entries per 1000.
+unsigned int ttGetSizeMb(void); // value passed to ttSetSizeMb (see comment for said function)
+void ttSetSizeMb(unsigned long sizeMb); // requested size (may actually be slightly less)
 
 #endif

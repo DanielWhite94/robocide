@@ -267,6 +267,8 @@ void uciLoop(void) {
 
 			// Call mainReplay to do the actual work
 			mainReplay(replayPath, replayDate);
+		} else if (utilStrEqual(part, "pst")) {
+			evalPstDebug();
 		}
 	}
 

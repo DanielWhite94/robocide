@@ -37,6 +37,7 @@ EvalMatType evalGetMatType(const Pos *pos);
 const char *evalMatTypeToStr(EvalMatType matType);
 
 VPair evalComputePstScore(const Pos *pos);
+void evalPstDebug(void);
 
 void evalVPairAddTo(VPair *a, const VPair *b);
 void evalVPairSubFrom(VPair *a, const VPair *b);

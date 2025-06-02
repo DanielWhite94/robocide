@@ -309,6 +309,16 @@ VPair evalComputePstScore(const Pos *pos) {
 	return score;
 }
 
+void evalPstDebug(void) {
+	// TODO: add pawns (more complicated as implemented differently to pieces)
+	for(PieceType piece=PieceTypeKnight; piece<=PieceTypeKing; ++piece) {
+		if (piece==PieceTypeBishopD)
+			continue;
+		printf("%s:\n", pieceTypeToStr(piece));
+		evalPstDraw(piece);
+	}
+}
+
 void evalVPairAddTo(VPair *a, const VPair *b) {
 	a->mg+=b->mg;
 	a->eg+=b->eg;

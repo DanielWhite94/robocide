@@ -19,7 +19,7 @@ const VPair VPairZero={0,0};
 typedef struct EvalData EvalData;
 
 typedef struct {
-	BB pawns[ColourNB], passed[ColourNB], semiOpenFiles[ColourNB], openFiles;
+	BB pawns[ColourNB], passed[ColourNB], semiOpenFiles[ColourNB], outposts[ColourNB], openFiles;
 	VPair score;
 } EvalPawnData;
 HTable *evalPawnTable=NULL;
@@ -95,6 +95,8 @@ TUNECONST VPair evalKingShieldClose={150,0};
 TUNECONST VPair evalKingShieldFar={73,0};
 TUNECONST VPair evalKingNearPasserFactor={10,200};
 TUNECONST VPair evalKingCastlingMobility={100,0};
+TUNECONST VPair evalOutpostSq={40,40};
+TUNECONST VPair evalOutpostKnight={100,100};
 TUNECONST VPair evalTempoDefault={35,0};
 TUNECONST Value evalHalfMoveFactor=2048;
 TUNECONST Value evalWeightFactor=151;
@@ -211,6 +213,8 @@ void evalInit(void) {
 	evalOptionNewVPair("KingShieldFar", &evalKingShieldFar, 0, 300);
 	evalOptionNewVPair("KingNearPasser", &evalKingNearPasserFactor, 0, 500);
 	evalOptionNewVPair("KingCastlingMobility", &evalKingCastlingMobility, 0, 200);
+	evalOptionNewVPair("OutpostSq", &evalOutpostSq, 0, 500);
+	evalOptionNewVPair("OutpostKnight", &evalOutpostKnight, 0, 1000);
 	evalOptionNewVPair("Tempo", &evalTempoDefault, 0, 100);
 	uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 4096, evalHalfMoveFactor);
 	uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 512, evalWeightFactor);
@@ -895,31 +899,39 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	// Init.
 	pawnData->score=VPairZero;
 	BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], attacks[ColourNB];
-	BB attacksFill[ColourNB], doubled[ColourNB], isolated[ColourNB];
+	BB doubled[ColourNB], isolated[ColourNB];
 	BB influence[ColourNB], fill[ColourNB];
-	pawns[ColourWhite]=pawnData->pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn);
-	pawns[ColourBlack]=pawnData->pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
-	frontSpan[ColourWhite]=bbNorthOne(bbNorthFill(pawns[ColourWhite])); // All squares infront of pawns of given colour.
-	frontSpan[ColourBlack]=bbSouthOne(bbSouthFill(pawns[ColourBlack]));
-	rearSpan[ColourWhite]=bbSouthOne(bbSouthFill(pawns[ColourWhite])); // All squares behind pawns of given colour.
-	rearSpan[ColourBlack]=bbNorthOne(bbNorthFill(pawns[ColourBlack]));
-	attacks[ColourWhite]=bbNorthOne(bbWingify(pawns[ColourWhite]));
-	attacks[ColourBlack]=bbSouthOne(bbWingify(pawns[ColourBlack]));
-	attacksFill[ColourWhite]=bbFileFill(attacks[ColourWhite]);
-	attacksFill[ColourBlack]=bbFileFill(attacks[ColourBlack]);
-	doubled[ColourWhite]=(pawns[ColourWhite] & rearSpan[ColourWhite]);
-	doubled[ColourBlack]=(pawns[ColourBlack] & rearSpan[ColourBlack]);
-	isolated[ColourWhite]=(pawns[ColourWhite] & ~attacksFill[ColourWhite]);
-	isolated[ColourBlack]=(pawns[ColourBlack] & ~attacksFill[ColourBlack]);
-	influence[ColourWhite]=(frontSpan[ColourWhite] | bbWingify(frontSpan[ColourWhite])); // Squares which colour in question may attack or move to, now or in the future.
-	influence[ColourBlack]=(frontSpan[ColourBlack] | bbWingify(frontSpan[ColourBlack]));
-	pawnData->passed[ColourWhite]=(pawns[ColourWhite] & ~(doubled[ColourWhite] | influence[ColourBlack]));
-	pawnData->passed[ColourBlack]=(pawns[ColourBlack] & ~(doubled[ColourBlack] | influence[ColourWhite]));
+	pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn); // All pawns of given colour
+	pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
 	fill[ColourWhite]=bbFileFill(pawns[ColourWhite]);
 	fill[ColourBlack]=bbFileFill(pawns[ColourBlack]);
+	frontSpan[ColourWhite]=bbNorthOne(bbNorthFill(pawns[ColourWhite])); // All squares infront of pawns of given colour
+	frontSpan[ColourBlack]=bbSouthOne(bbSouthFill(pawns[ColourBlack]));
+	rearSpan[ColourWhite]=bbSouthOne(bbSouthFill(pawns[ColourWhite])); // All squares behind pawns of given colour
+	rearSpan[ColourBlack]=bbNorthOne(bbNorthFill(pawns[ColourBlack]));
+	attacks[ColourWhite]=bbNorthOne(bbWingify(pawns[ColourWhite])); // All squares attacked by pawns of given colour
+	attacks[ColourBlack]=bbSouthOne(bbWingify(pawns[ColourBlack]));
+	influence[ColourWhite]=(frontSpan[ColourWhite] | bbWingify(frontSpan[ColourWhite])); // Squares which colour in question may attack or move to, now or in the future.
+	influence[ColourBlack]=(frontSpan[ColourBlack] | bbWingify(frontSpan[ColourBlack]));
+
+	doubled[ColourWhite]=(pawns[ColourWhite] & rearSpan[ColourWhite]);
+	doubled[ColourBlack]=(pawns[ColourBlack] & rearSpan[ColourBlack]);
+	isolated[ColourWhite]=(pawns[ColourWhite] & ~bbFileFill(attacks[ColourWhite]));
+	isolated[ColourBlack]=(pawns[ColourBlack] & ~bbFileFill(attacks[ColourBlack]));
+
+	pawnData->pawns[ColourWhite]=pawns[ColourWhite];
+	pawnData->pawns[ColourBlack]=pawns[ColourBlack];
+	pawnData->passed[ColourWhite]=(pawns[ColourWhite] & ~(doubled[ColourWhite] | influence[ColourBlack]));
+	pawnData->passed[ColourBlack]=(pawns[ColourBlack] & ~(doubled[ColourBlack] | influence[ColourWhite]));
 	pawnData->semiOpenFiles[ColourWhite]=(fill[ColourBlack] & ~fill[ColourWhite]);
 	pawnData->semiOpenFiles[ColourBlack]=(fill[ColourWhite] & ~fill[ColourBlack]);
+	pawnData->outposts[ColourWhite]=(attacks[ColourWhite] & (bbRank(Rank4)|bbRank(Rank5)|bbRank(Rank6)|bbRank(Rank7)) & ~bbWingify(frontSpan[ColourBlack]));
+	pawnData->outposts[ColourBlack]=(attacks[ColourBlack] & (bbRank(Rank5)|bbRank(Rank4)|bbRank(Rank3)|bbRank(Rank2)) & ~bbWingify(frontSpan[ColourWhite]));
 	pawnData->openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
+
+	// Outposts
+	int outpostRelativeCount=bbPopCount(pawnData->outposts[ColourWhite])-bbPopCount(pawnData->outposts[ColourBlack]);
+	evalVPairAddMulTo(&pawnData->score, &evalOutpostSq, outpostRelativeCount);
 
 	// Loop over each pawn.
 #ifdef EVALINFO
@@ -977,6 +989,17 @@ VPair evaluateDefaultGlobal(EvalData *data) {
 	// Extra info
 #ifdef EVALINFO
 	printf("            pawns scores: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
+
+	// Outposts
+	int knightOutpostCountW=bbPopCount(data->pawnData.outposts[ColourWhite] & posGetBBPiece(pos, PieceWKnight));
+	int knightOutpostCountB=bbPopCount(data->pawnData.outposts[ColourBlack] & posGetBBPiece(pos, PieceBKnight));
+	evalVPairAddMulTo(&score, &evalOutpostKnight, (knightOutpostCountW-knightOutpostCountB));
+
+	// Extra info
+#ifdef EVALINFO
+	printf("            knight outposts: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
 	tempScore=score;
 #endif
 

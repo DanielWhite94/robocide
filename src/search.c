@@ -57,6 +57,10 @@ TUNECONST bool searchCounterMoveHeuristic=true;
 TUNECONST int searchLmrReduction=1;
 TUNECONST int searchLmrReductionDepthLimit=3;
 TUNECONST int searchLmrReductionMoveLimit=2;
+TUNECONST int searchReverseFutilityDepthLimit=6;
+TUNECONST int searchReverseFutilityMarginFactor=135;
+TUNECONST int searchRazorPruningDepthLimit=5;
+TUNECONST int searchRazorPruningMarginFactor=220;
 
 bool searchPonder=true;
 
@@ -141,6 +145,10 @@ void searchInit(void) {
 	uciOptionNewSpin("LmrReduction", &searchInterfaceSpinValue, &searchLmrReduction, 0, 32, searchLmrReduction);
 	uciOptionNewSpin("LmrReductionDepthLimit", &searchInterfaceSpinValue, &searchLmrReductionDepthLimit, 0, 32, searchLmrReductionDepthLimit);
 	uciOptionNewSpin("LmrReductionMoveLimit", &searchInterfaceSpinValue, &searchLmrReductionMoveLimit, 0, 256, searchLmrReductionMoveLimit);
+	uciOptionNewSpin("ReverseFutilityDepthLimit", &searchInterfaceSpinValue, &searchReverseFutilityDepthLimit, 0, 32, searchReverseFutilityDepthLimit);
+	uciOptionNewSpin("ReverseFutilityMarginFactor", &searchInterfaceSpinValue, &searchReverseFutilityMarginFactor, 0, 500, searchReverseFutilityMarginFactor);
+	uciOptionNewSpin("RazorPruningDepthLimit", &searchInterfaceSpinValue, &searchRazorPruningDepthLimit, 0, 32, searchRazorPruningDepthLimit);
+	uciOptionNewSpin("RazorPruningMarginFactor", &searchInterfaceSpinValue, &searchRazorPruningMarginFactor, 0, 500, searchRazorPruningMarginFactor);
 # endif
 }
 
@@ -576,26 +584,83 @@ void searchNodeInternal(Node *node) {
 		}
 	}
 
-	// Null move pruning.
+	// Various null move observation/standing pat concepts
 	Node child;
 	child.pos=node->pos;
 	child.ply=node->ply+1;
-	if (!searchNodeIsPV(node) && searchNullReduction>0 && node->depth>1+searchNullReduction &&
-	    !scoreIsMate(node->beta) && !searchIsZugzwang(node) && evaluate(node->pos)>=node->beta) {
-		assert(!node->inCheck); // searchIsZugzwang returning false ensures this is the case
+	if (!searchNodeIsPV(node)) {
+		// Decide which (if any) concepts we can apply in this node.
+		// Do this here in case none are applicable so we can save costly evaluate call (and searchIsZugzwang call too).
+		bool doRFP=(node->depth<=searchReverseFutilityDepthLimit && !scoreIsMate(node->beta));
+		bool doRazor=(node->depth<=searchRazorPruningDepthLimit && !scoreIsMate(node->alpha));
+		bool doNMP=(searchNullReduction>0 && node->depth>1+searchNullReduction && !scoreIsMate(node->beta));
 
-		posMakeNullMove(node->pos);
-		child.inCheck=false;
-		child.depth=node->depth-1-searchNullReduction;
-		child.alpha=-node->beta;
-		child.beta=1-node->beta;
-		Score score=-searchNode(&child);
-		posUndoNullMove(node->pos);
+		if ((doRFP || doRazor || doNMP) && !searchIsZugzwang(node)) { // defer zugzwang test till as late as possible
+			assert(!node->inCheck); // searchIsZugzwang returning false ensures this is the case
 
-		if (score>=node->beta) {
-			node->bound=BoundLower;
-			node->score=node->beta;
-			return;
+			// Compute evaluation score and adjust if TT info allows
+			int refinedEval=evaluate(node->pos);
+			if (ttMove!=MoveInvalid && ((ttScore>refinedEval && (ttBound & BoundLower)!=0) || (ttScore<refinedEval && (ttBound & BoundUpper)!=0)))
+				refinedEval=ttScore;
+
+			// Reverse futility pruning (another variation on standing pat/null move pruning)
+			if (doRFP && refinedEval>=node->beta+searchReverseFutilityMarginFactor*((int)node->depth)) {
+				node->bound=BoundLower;
+				node->score=node->beta;
+				return;
+			}
+
+			// Razoring
+			if (doRazor) {
+				const int lowerbound=node->alpha-searchRazorPruningMarginFactor*((int)node->depth);
+				if (refinedEval<=lowerbound) {
+					// At very low depths simply drop straight into qsearch
+					Score savedBeta=node->beta;
+					Depth savedDepth=node->depth;
+					if (node->depth<=2) {
+						node->beta=node->alpha+1;
+						node->depth=0;
+						searchQNode(node);
+						node->beta=savedBeta;
+						node->depth=savedDepth;
+						return;
+					}
+
+					// Use qsearch to try and avoid missing any tactics
+					Score savedAlpha=node->alpha;
+					node->alpha=lowerbound;
+					node->beta=lowerbound+1;
+					node->depth=0;
+					searchQNode(node);
+					node->alpha=savedAlpha;
+					node->beta=savedBeta;
+					node->depth=savedDepth;
+
+					if (node->score<=lowerbound) {
+						node->score=node->alpha;
+						node->bound=BoundUpper;
+						return;
+					}
+					node->score=ScoreInvalid;
+				}
+			}
+
+			// Null move pruning
+			if (doNMP && refinedEval>=node->beta) {
+				posMakeNullMove(node->pos);
+				child.inCheck=false;
+				child.depth=node->depth-1-searchNullReduction;
+				child.alpha=-node->beta;
+				child.beta=1-node->beta;
+				Score score=-searchNode(&child);
+				posUndoNullMove(node->pos);
+
+				if (score>=node->beta) {
+					node->bound=BoundLower;
+					node->score=node->beta;
+					return;
+				}
+			}
 		}
 	}
 

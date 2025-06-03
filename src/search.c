@@ -604,10 +604,10 @@ void searchNodeInternal(Node *node) {
 		assert(ttMove==MoveInvalid);
 
 		// No hash move available - search current node but with a reduced depth to obtain a good guess at the best move.
-		Node child=*node;
-		child.depth-=searchIIDReduction;
-		searchNode(&child);
-		ttMove=searchPv[child.ply][0];
+		Node child2=*node;
+		child2.depth-=searchIIDReduction;
+		searchNode(&child2);
+		ttMove=searchPv[child2.ply][0];
 	}
 
 	// Move loop.

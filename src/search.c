@@ -599,9 +599,28 @@ void searchNodeInternal(Node *node) {
 			assert(!node->inCheck); // searchIsZugzwang returning false ensures this is the case
 
 			// Compute evaluation score and adjust if TT info allows
-			int refinedEval=evaluate(node->pos);
-			if (ttMove!=MoveInvalid && ((ttScore>refinedEval && (ttBound & BoundLower)!=0) || (ttScore<refinedEval && (ttBound & BoundUpper)!=0)))
-				refinedEval=ttScore;
+			int refinedEval;
+			if (ttMove!=MoveInvalid) {
+				switch(ttBound) {
+					case BoundNone:
+						refinedEval=evaluate(node->pos);
+					break;
+					case BoundLower:
+						refinedEval=evaluate(node->pos);
+						if (ttScore>refinedEval)
+							refinedEval=ttScore;
+					break;
+					case BoundUpper:
+						refinedEval=evaluate(node->pos);
+						if (ttScore<refinedEval)
+							refinedEval=ttScore;
+					break;
+					case BoundExact:
+						refinedEval=ttScore;
+					break;
+				}
+			} else
+				refinedEval=evaluate(node->pos);
 
 			// Reverse futility pruning (another variation on standing pat/null move pruning)
 			if (doRFP && refinedEval>=node->beta+searchReverseFutilityMarginFactor*((int)node->depth)) {

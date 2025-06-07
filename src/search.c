@@ -59,8 +59,8 @@ TUNECONST int searchLmrReductionDepthLimit=3;
 TUNECONST int searchLmrReductionMoveLimit=2;
 TUNECONST int searchReverseFutilityDepthLimit=6;
 TUNECONST int searchReverseFutilityMarginFactor=111;
-TUNECONST int searchRazorPruningDepthLimit=4;
-TUNECONST int searchRazorPruningMarginFactor=192;
+TUNECONST int searchRazorPruningDepthLimit=3;
+TUNECONST int searchRazorPruningMarginFactor=171;
 
 bool searchPonder=true;
 

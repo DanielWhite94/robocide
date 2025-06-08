@@ -13,6 +13,7 @@
 #include "search.h"
 #include "see.h"
 #include "time.h"
+#include "ttune.h"
 #include "uci.h"
 
 typedef enum {
@@ -269,6 +270,16 @@ void uciLoop(void) {
 			mainReplay(replayPath, replayDate);
 		} else if (utilStrEqual(part, "pst")) {
 			evalPstDebug();
+		} else if (utilStrEqual(part, "ttune")) {
+			// Grab arguments
+			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
+				printf("Error: missing path argument\n");
+				continue;
+			}
+			const char *tunePath=part;
+
+			// Call ttuneRun to do the actual work
+			ttuneRun(tunePath);
 		}
 	}
 

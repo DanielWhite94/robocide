@@ -182,7 +182,7 @@ void evalInit(void) {
 	evalRecalc();
 
 	// Setup callbacks for tuning values.
-# ifdef TUNE
+#	ifdef TUNE
 	evalOptionNewVPair("Pawn", &evalMaterial[PieceTypePawn], 0, 2000);
 	evalOptionNewVPair("Knight", &evalMaterial[PieceTypeKnight], 0, 6000);
 	evalOptionNewVPair("Bishop", &evalMaterial[PieceTypeBishopL], 0, 6000);
@@ -229,7 +229,7 @@ void evalInit(void) {
 	evalOptionNewVPairF("PstKingH", &evalPstParams[PieceTypeKing][0], -500, 500);
 	evalOptionNewVPairF("PstKingV", &evalPstParams[PieceTypeKing][1], -500, 500);
 	evalOptionNewVPairF("PstKingA", &evalPstParams[PieceTypeKing][2], -500, 500);
-# endif
+#	endif
 }
 
 void evalQuit(void) {

@@ -11,6 +11,7 @@
 #include "eval.h"
 #include "htable.h"
 #include "main.h"
+#include "ttune.h"
 #include "tune.h"
 #include "uci.h"
 
@@ -47,6 +48,17 @@ struct EvalData {
 	EvalPawnData pawnData;
 	EvalMatData matData;
 };
+
+#ifdef TTUNE
+typedef enum {
+	EvalTTuneParamPawnMG,
+	EvalTTuneParamKnightMG,
+	EvalTTuneParamBishopMG,
+	EvalTTuneParamRookMG,
+	EvalTTuneParamQueenMG,
+	EvalTTuneParamNB,
+} EvalTTuneParam;
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values.
@@ -164,6 +176,11 @@ void evalPstDraw(PieceType type);
 ////////////////////////////////////////////////////////////////////////////////
 
 void evalInit(void) {
+	// Init Texel Tuning module
+#	ifdef TTUNE
+	ttuneInit(EvalTTuneParamNB);
+#	endif
+
 	// Setup pawn hash table.
 	evalPawnTable=htableNew(sizeof(EvalPawnData), evalPawnTableDefaultSizeMb);
 	if (evalPawnTable==NULL)
@@ -230,13 +247,28 @@ void evalInit(void) {
 	evalOptionNewVPairF("PstKingV", &evalPstParams[PieceTypeKing][1], -500, 500);
 	evalOptionNewVPairF("PstKingA", &evalPstParams[PieceTypeKing][2], -500, 500);
 #	endif
+
+	// Setup Texel Tuning parameters
+#	ifdef TTUNE
+	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", 0, 2000, evalMaterial[PieceTypePawn].mg);
+	ttuneAddParameter(EvalTTuneParamKnightMG, "KnightMG", 0, 6000, evalMaterial[PieceTypeKnight].mg);
+	ttuneAddParameter(EvalTTuneParamBishopMG, "BishopMG", 0, 6000, evalMaterial[PieceTypeBishopL].mg);
+	ttuneAddParameter(EvalTTuneParamRookMG, "RookMG", 0, 10000, evalMaterial[PieceTypeRook].mg);
+	ttuneAddParameter(EvalTTuneParamQueenMG, "QueenMG", 0, 18000, evalMaterial[PieceTypeQueen].mg);
+#	endif
 }
 
 void evalQuit(void) {
+	// Free hash tables
 	htableFree(evalPawnTable);
 	evalPawnTable=NULL;
 	htableFree(evalMatTable);
 	evalMatTable=NULL;
+
+	// Quit Texel Tuning module
+#	ifdef TTUNE
+	ttuneQuit();
+#	endif
 }
 
 Score evaluate(const Pos *pos) {
@@ -254,6 +286,18 @@ Score evaluate(const Pos *pos) {
 #	endif
 	return score;
 }
+
+#ifdef TTUNE
+void evaluateCoefficients(const Pos *pos, int16_t *coefficients) {
+	// Piece counts (material)
+	coefficients[EvalTTuneParamPawnMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWPawn)))-((int)bbPopCount(posGetBBPiece(pos, PieceBPawn)));
+	coefficients[EvalTTuneParamKnightMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWKnight)))-((int)bbPopCount(posGetBBPiece(pos, PieceBKnight)));
+	coefficients[EvalTTuneParamBishopMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWBishopL)))-((int)bbPopCount(posGetBBPiece(pos, PieceBBishopL)))
+	                                    +((int)bbPopCount(posGetBBPiece(pos, PieceWBishopD)))-((int)bbPopCount(posGetBBPiece(pos, PieceBBishopD)));
+	coefficients[EvalTTuneParamRookMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWRook)))-((int)bbPopCount(posGetBBPiece(pos, PieceBRook)));
+	coefficients[EvalTTuneParamQueenMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWQueen)))-((int)bbPopCount(posGetBBPiece(pos, PieceBQueen)));
+}
+#endif
 
 void evalClear(void) {
 	// Clear hash tables.

@@ -4,6 +4,8 @@ CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs -march=native
 LFLAGS = -lm
 CFLAGSNOBUILTIN = -DBUILTINS
 CFLAGSDEBUG = -DNDEBUG -DTTUNE #-DEVALINFO
+# eventually want to comment out -DTTUNE as we have with EVALINFO
+# unless we decide to keep it in all the time (using a separate evaluate function as we are doing now)
 
 .PHONY: default all nobuiltin debug tune clean
 

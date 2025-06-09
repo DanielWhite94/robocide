@@ -52,10 +52,15 @@ struct EvalData {
 #ifdef TTUNE
 typedef enum {
 	EvalTTuneParamPawnMG,
+	EvalTTuneParamPawnEG,
 	EvalTTuneParamKnightMG,
+	EvalTTuneParamKnightEG,
 	EvalTTuneParamBishopMG,
+	EvalTTuneParamBishopEG,
 	EvalTTuneParamRookMG,
+	EvalTTuneParamRookEG,
 	EvalTTuneParamQueenMG,
+	EvalTTuneParamQueenEG,
 	EvalTTuneParamNB,
 } EvalTTuneParam;
 #endif
@@ -250,11 +255,16 @@ void evalInit(void) {
 
 	// Setup Texel Tuning parameters
 #	ifdef TTUNE
-	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", 0, 2000, evalMaterial[PieceTypePawn].mg);
+	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", evalMaterial[PieceTypePawn].mg, evalMaterial[PieceTypePawn].mg, evalMaterial[PieceTypePawn].mg); // this is the one fixed value everything else is relative to
+	ttuneAddParameter(EvalTTuneParamPawnEG, "PawnEG", 0, 2000, evalMaterial[PieceTypePawn].eg);
 	ttuneAddParameter(EvalTTuneParamKnightMG, "KnightMG", 0, 6000, evalMaterial[PieceTypeKnight].mg);
+	ttuneAddParameter(EvalTTuneParamKnightEG, "KnightEG", 0, 6000, evalMaterial[PieceTypeKnight].eg);
 	ttuneAddParameter(EvalTTuneParamBishopMG, "BishopMG", 0, 6000, evalMaterial[PieceTypeBishopL].mg);
+	ttuneAddParameter(EvalTTuneParamBishopEG, "BishopEG", 0, 6000, evalMaterial[PieceTypeBishopL].eg);
 	ttuneAddParameter(EvalTTuneParamRookMG, "RookMG", 0, 10000, evalMaterial[PieceTypeRook].mg);
+	ttuneAddParameter(EvalTTuneParamRookEG, "RookEG", 0, 10000, evalMaterial[PieceTypeRook].eg);
 	ttuneAddParameter(EvalTTuneParamQueenMG, "QueenMG", 0, 18000, evalMaterial[PieceTypeQueen].mg);
+	ttuneAddParameter(EvalTTuneParamQueenEG, "QueenEG", 0, 18000, evalMaterial[PieceTypeQueen].eg);
 #	endif
 }
 
@@ -288,14 +298,80 @@ Score evaluate(const Pos *pos) {
 }
 
 #ifdef TTUNE
-void evaluateCoefficients(const Pos *pos, int16_t *coefficients) {
+void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	// Piece counts (material)
-	coefficients[EvalTTuneParamPawnMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWPawn)))-((int)bbPopCount(posGetBBPiece(pos, PieceBPawn)));
-	coefficients[EvalTTuneParamKnightMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWKnight)))-((int)bbPopCount(posGetBBPiece(pos, PieceBKnight)));
-	coefficients[EvalTTuneParamBishopMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWBishopL)))-((int)bbPopCount(posGetBBPiece(pos, PieceBBishopL)))
-	                                    +((int)bbPopCount(posGetBBPiece(pos, PieceWBishopD)))-((int)bbPopCount(posGetBBPiece(pos, PieceBBishopD)));
-	coefficients[EvalTTuneParamRookMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWRook)))-((int)bbPopCount(posGetBBPiece(pos, PieceBRook)));
-	coefficients[EvalTTuneParamQueenMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWQueen)))-((int)bbPopCount(posGetBBPiece(pos, PieceBQueen)));
+	coefficients[EvalTTuneParamPawnMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWPawn)))-((double)bbPopCount(posGetBBPiece(pos, PieceBPawn)));
+	coefficients[EvalTTuneParamKnightMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWKnight)))-((double)bbPopCount(posGetBBPiece(pos, PieceBKnight)));
+	coefficients[EvalTTuneParamBishopMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWBishopL)))-((double)bbPopCount(posGetBBPiece(pos, PieceBBishopL)))
+	                                    +((double)bbPopCount(posGetBBPiece(pos, PieceWBishopD)))-((double)bbPopCount(posGetBBPiece(pos, PieceBBishopD)));
+	coefficients[EvalTTuneParamRookMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWRook)))-((double)bbPopCount(posGetBBPiece(pos, PieceBRook)));
+	coefficients[EvalTTuneParamQueenMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWQueen)))-((double)bbPopCount(posGetBBPiece(pos, PieceBQueen)));
+
+	coefficients[EvalTTuneParamPawnEG]=coefficients[EvalTTuneParamPawnMG];
+	coefficients[EvalTTuneParamKnightEG]=coefficients[EvalTTuneParamKnightMG];
+	coefficients[EvalTTuneParamBishopEG]=coefficients[EvalTTuneParamBishopMG];
+	coefficients[EvalTTuneParamRookEG]=coefficients[EvalTTuneParamRookMG];
+	coefficients[EvalTTuneParamQueenEG]=coefficients[EvalTTuneParamQueenMG];
+
+	// .....
+	/*
+
+	.....
+
+	maybe want to make this common code somewhere ideally
+		or maybe even just use getmatdata func or w/e and reuse stuff?
+		(i.e. will be able to just use weightMG/EG directly to get factors)
+	also can use counts below to compute coefficients above obviously
+
+	return ((data->matData.weightMG*score->mg+data->matData.weightEG*score->eg)*100)/(evalMaterial[PieceTypePawn].mg*256);
+
+	*/
+
+	unsigned wPawnCount=bbPopCount(posGetBBPiece(pos, PieceWPawn));
+	unsigned bPawnCount=bbPopCount(posGetBBPiece(pos, PieceBPawn));
+	unsigned wKnightCount=bbPopCount(posGetBBPiece(pos, PieceWKnight));
+	unsigned bKnightCount=bbPopCount(posGetBBPiece(pos, PieceBKnight));
+	unsigned wBishopLCount=bbPopCount(posGetBBPiece(pos, PieceWBishopL));
+	unsigned bBishopLCount=bbPopCount(posGetBBPiece(pos, PieceBBishopL));
+	unsigned wBishopDCount=bbPopCount(posGetBBPiece(pos, PieceWBishopD));
+	unsigned bBishopDCount=bbPopCount(posGetBBPiece(pos, PieceBBishopD));
+	unsigned wRookCount=bbPopCount(posGetBBPiece(pos, PieceWRook));
+	unsigned bRookCount=bbPopCount(posGetBBPiece(pos, PieceBRook));
+	unsigned wQueenCount=bbPopCount(posGetBBPiece(pos, PieceWQueen));
+	unsigned bQueenCount=bbPopCount(posGetBBPiece(pos, PieceBQueen));
+
+	unsigned minorCount=wKnightCount+wBishopLCount+wBishopDCount+bKnightCount+bBishopLCount+bBishopDCount;
+	unsigned rookCount=wRookCount+bRookCount;
+	unsigned queenCount=wQueenCount+bQueenCount;
+
+	unsigned pieceWeight=minorCount+2*rookCount+4*queenCount;
+	assert(pieceWeight<128);
+
+	int weightEG=evalWeightEGFactors[pieceWeight];
+	int weightMG=256-weightEG;
+
+	double factorMG=weightMG/256.0;
+	double factorEG=weightEG/256.0;
+
+	coefficients[EvalTTuneParamPawnMG]*=factorMG;
+	coefficients[EvalTTuneParamKnightMG]*=factorMG;
+	coefficients[EvalTTuneParamBishopMG]*=factorMG;
+	coefficients[EvalTTuneParamRookMG]*=factorMG;
+	coefficients[EvalTTuneParamQueenMG]*=factorMG;
+
+	coefficients[EvalTTuneParamPawnEG]*=factorEG;
+	coefficients[EvalTTuneParamKnightEG]*=factorEG;
+	coefficients[EvalTTuneParamBishopEG]*=factorEG;
+	coefficients[EvalTTuneParamRookEG]*=factorEG;
+	coefficients[EvalTTuneParamQueenEG]*=factorEG;
+
+	/*
+
+	.....
+
+	want to implement all of these
+
+	*/
 }
 #endif
 

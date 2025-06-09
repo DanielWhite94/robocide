@@ -1,75 +1,3 @@
-/*
-
-.....
-
-## TODO ##########################################################################################################################################
-
-* in eval add more/all params obviously
-	thinking about it, if it works well and can handle a lot of parameters
-	we could even add e.g. 64 values for each pst e.g. pawn mg, knight eg etc
-	(start them at current values produced by best pst params in current implementation)
-	(or could do e.g. 32 values if symmetrical etc)
-
-	also, do we really want to add them manually like we are now?
-	or can we take advantage of the uci option stuff?
-	or even just add code to do both uci+texel in common functions like evalOptionNewVPairF?
-
-* we need to think a bit about MG/EG interpolated crack
-	imagine if we now just simply added e.g. KnightEG
-	it would have the exact same coefficient as KnightMG and thus would get essentially the exact same weight assigned
-	in reality need to either scale the MG/EG coefficients we return from here
-	OR do something in the ttune module which scales coeff*weight or w/e (so when adding each parameter pass a flag indiciating if mg or eg)
-
-	ok so how will this work?
-	we keep two separate parameters - one for mg and one for eg
-	so two different weights and two different coefficients
-	naively the coefficients will be equal in any given position
-	e.g. if you have +2 knights then both MG and EG is still just counting +2
-	so what if we adjust this +2 count by the current MG/EG 'fraction'?
-	doesn't actually matter that the counts are integers
-	then can just as easily be fractional so doubles
-
-	if we do all of this in evaluateCoefficients function,
-	then dont need to worry about it anywhere else
-
-* do we still want a separate evaluateCoefficients function?
-	but this duplicates logic we already have in main eval function
-	but main eval function is complex and has special cases and hash tables etc etc
-
-## FUTURE ########################################################################################################################################
-* threading to speed up
-	should be as simple as dividing up the Q/subtraction/squaring bits during E calculation
-	each thread keeps its own running total, then combine them at the end
-	no locking needed etc and should scale well to any number of threads
-	number of threads could be specified by the uci option we already have,
-	or by an argument to 'ttune' uci command (after the path, if not provided use 1 core)
-
-	this might still be a good idea although now it seems computing E is very fast to the point of not being worth it
-	although with more parameters added and more positions in the EPD file this could become slower again
-
-* daniel shawul has good idea with 'jacobian'/coefficients idea
-	so basically as a first initial step, loop over each position and call eval
-	but instead of caring about returned value, collect a list of 'counts' of each (linear) factor
-	e.g. if white up 2 pawns, then pawn coefficient is +2, knight/bishop etc coefficients might all then be 0
-	means when we are computing E, each position eval doesnt actually have to call eval
-	just has to multiply the precomputed coefficients with the new parameter values
-
-	can probably also use this information for better gradient descent optimising too
-
-	so how will we extract these 'counts'/coefficients?
-	perhaps we can compile a different version with a flag/macro (like we do already with EVALINFO)
-	this version will allow a struct ptr to be passed to eval which will be filled with all of the 'coefficients'
-	in reality, we can slowly add coefficients to this and even skip some initially which are non-linear or just complex
-	can then just tune what we get back
-
-	the eval for a particular position would return the coefficients
-	which will be an array of ints (counts) basically
-	use an enum to list the coefficients/parameters we have added to TTune interface
-* eventually want to replace weight tweaking (to minimise E) with a better gradient descent method or similar
-	perhaps taking advantage of the eval coefficients for each position as a sort of gradient idk
-
-*/
-
 #include <assert.h>
 #include <math.h>
 #include <stdbool.h>
@@ -80,7 +8,7 @@
 #include "pos.h"
 #include "ttune.h"
 
-typedef double TTuneCoefficient; // count of a particular feature in the eval of a position (fractional to allow MG/EG phasing)
+typedef int16_t TTuneCoefficient; // count of a particular feature in the eval of a position
 
 typedef struct {
 	TTuneCoefficient *coefficients; // coefficients for position n begin at n*ttuneParametersCount
@@ -112,8 +40,8 @@ const TTuneCoefficient *ttunePositionsGetCoefficients(const TTunePositions *posi
 double ttunePositionsGetResult(const TTunePositions *positions, unsigned n);
 
 double ttuneComputeE(const TTunePositions *positions, const int *weights);
-double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights); // white-relative score
-double ttuneComputeSigmoid(double s);
+int ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights); // white-relative score
+double ttuneComputeSigmoid(int s);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
@@ -365,7 +293,7 @@ double ttuneComputeE(const TTunePositions *positions, const int *weights) {
 		const double result=ttunePositionsGetResult(positions, i);
 
 		// Compute score and squared difference
-		double q=ttuneComputeQ(coefficients, weights);
+		int q=ttuneComputeQ(coefficients, weights);
 		double s=ttuneComputeSigmoid(q);
 		double delta=result-s;
 		double delta2=delta*delta;
@@ -383,17 +311,17 @@ double ttuneComputeE(const TTunePositions *positions, const int *weights) {
 	return (total+correction)/((double)positions->count);
 }
 
-double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights) {
+int ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights) {
 	// Simply loop over both arrays multiplying pairs and summing them
-	double total=0.0;
+	int total=0;
 	for(unsigned i=0; i<ttuneParametersCount; ++i)
-		total+=coefficients[i]*((double)weights[i]);
+		total+=((int)coefficients[i])*weights[i];
 
 	return total;
 }
 
-double ttuneComputeSigmoid(double s) {
+double ttuneComputeSigmoid(int s) {
 	// Convert evaluation/search score s into a logistic win/draw/loss value in the range [0,1]
 	// Roughly equivalent to K=0.12041 in original Texel Tuning description
-	return 1.0/(1.0+pow(2.0, -0.001*s));
+	return 1.0/(1.0+pow(2.0, -0.001*((double)s)));
 }

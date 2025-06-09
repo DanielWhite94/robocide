@@ -270,16 +270,13 @@ void uciLoop(void) {
 			mainReplay(replayPath, replayDate);
 		} else if (utilStrEqual(part, "pst")) {
 			evalPstDebug();
-		} else if (1) { // ..... utilStrEqual(part, "ttune")) {
+		} else if (utilStrEqual(part, "ttune")) {
 			// Grab arguments
-			/*
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
 				printf("Error: missing path argument\n");
 				continue;
 			}
 			const char *tunePath=part;
-			*/
-			const char *tunePath="../quiet-labeled.epd"; // ..... temp hack to save effort testing
 
 			// Call ttuneRun to do the actual work
 			ttuneRun(tunePath);

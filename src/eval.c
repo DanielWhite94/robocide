@@ -250,7 +250,7 @@ void evalInit(void) {
 
 	// Setup Texel Tuning parameters
 #	ifdef TTUNE
-	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", 0, 2000, evalMaterial[PieceTypePawn].mg);
+	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", evalMaterial[PieceTypePawn].mg, evalMaterial[PieceTypePawn].mg, evalMaterial[PieceTypePawn].mg); // this is the one fixed value everything else is relative to
 	ttuneAddParameter(EvalTTuneParamKnightMG, "KnightMG", 0, 6000, evalMaterial[PieceTypeKnight].mg);
 	ttuneAddParameter(EvalTTuneParamBishopMG, "BishopMG", 0, 6000, evalMaterial[PieceTypeBishopL].mg);
 	ttuneAddParameter(EvalTTuneParamRookMG, "RookMG", 0, 10000, evalMaterial[PieceTypeRook].mg);

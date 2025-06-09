@@ -8,7 +8,7 @@
 #include "pos.h"
 #include "ttune.h"
 
-typedef int16_t TTuneCoefficient; // count of a particular feature in the eval of a position
+typedef double TTuneCoefficient; // count of a particular feature in the eval of a position (fractional to allow MG/EG phasing)
 
 typedef struct {
 	TTuneCoefficient *coefficients; // coefficients for position n begin at n*ttuneParametersCount
@@ -40,8 +40,8 @@ const TTuneCoefficient *ttunePositionsGetCoefficients(const TTunePositions *posi
 double ttunePositionsGetResult(const TTunePositions *positions, unsigned n);
 
 double ttuneComputeE(const TTunePositions *positions, const int *weights);
-int ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights); // white-relative score
-double ttuneComputeSigmoid(int s);
+double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights); // white-relative score
+double ttuneComputeSigmoid(double s);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
@@ -293,7 +293,7 @@ double ttuneComputeE(const TTunePositions *positions, const int *weights) {
 		const double result=ttunePositionsGetResult(positions, i);
 
 		// Compute score and squared difference
-		int q=ttuneComputeQ(coefficients, weights);
+		double q=ttuneComputeQ(coefficients, weights);
 		double s=ttuneComputeSigmoid(q);
 		double delta=result-s;
 		double delta2=delta*delta;
@@ -311,17 +311,17 @@ double ttuneComputeE(const TTunePositions *positions, const int *weights) {
 	return (total+correction)/((double)positions->count);
 }
 
-int ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights) {
+double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights) {
 	// Simply loop over both arrays multiplying pairs and summing them
-	int total=0;
+	double total=0.0;
 	for(unsigned i=0; i<ttuneParametersCount; ++i)
-		total+=((int)coefficients[i])*weights[i];
+		total+=coefficients[i]*((double)weights[i]);
 
 	return total;
 }
 
-double ttuneComputeSigmoid(int s) {
+double ttuneComputeSigmoid(double s) {
 	// Convert evaluation/search score s into a logistic win/draw/loss value in the range [0,1]
 	// Roughly equivalent to K=0.12041 in original Texel Tuning description
-	return 1.0/(1.0+pow(2.0, -0.001*((double)s)));
+	return 1.0/(1.0+pow(2.0, -0.001*s));
 }

@@ -288,14 +288,14 @@ Score evaluate(const Pos *pos) {
 }
 
 #ifdef TTUNE
-void evaluateCoefficients(const Pos *pos, int16_t *coefficients) {
+void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	// Piece counts (material)
-	coefficients[EvalTTuneParamPawnMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWPawn)))-((int)bbPopCount(posGetBBPiece(pos, PieceBPawn)));
-	coefficients[EvalTTuneParamKnightMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWKnight)))-((int)bbPopCount(posGetBBPiece(pos, PieceBKnight)));
-	coefficients[EvalTTuneParamBishopMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWBishopL)))-((int)bbPopCount(posGetBBPiece(pos, PieceBBishopL)))
-	                                    +((int)bbPopCount(posGetBBPiece(pos, PieceWBishopD)))-((int)bbPopCount(posGetBBPiece(pos, PieceBBishopD)));
-	coefficients[EvalTTuneParamRookMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWRook)))-((int)bbPopCount(posGetBBPiece(pos, PieceBRook)));
-	coefficients[EvalTTuneParamQueenMG]=((int)bbPopCount(posGetBBPiece(pos, PieceWQueen)))-((int)bbPopCount(posGetBBPiece(pos, PieceBQueen)));
+	coefficients[EvalTTuneParamPawnMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWPawn)))-((double)bbPopCount(posGetBBPiece(pos, PieceBPawn)));
+	coefficients[EvalTTuneParamKnightMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWKnight)))-((double)bbPopCount(posGetBBPiece(pos, PieceBKnight)));
+	coefficients[EvalTTuneParamBishopMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWBishopL)))-((double)bbPopCount(posGetBBPiece(pos, PieceBBishopL)))
+	                                    +((double)bbPopCount(posGetBBPiece(pos, PieceWBishopD)))-((double)bbPopCount(posGetBBPiece(pos, PieceBBishopD)));
+	coefficients[EvalTTuneParamRookMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWRook)))-((double)bbPopCount(posGetBBPiece(pos, PieceBRook)));
+	coefficients[EvalTTuneParamQueenMG]=((double)bbPopCount(posGetBBPiece(pos, PieceWQueen)))-((double)bbPopCount(posGetBBPiece(pos, PieceBQueen)));
 }
 #endif
 

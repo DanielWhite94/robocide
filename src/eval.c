@@ -61,6 +61,14 @@ typedef enum {
 	EvalTTuneParamRookEG,
 	EvalTTuneParamQueenMG,
 	EvalTTuneParamQueenEG,
+	EvalTTuneParamKnightMobMG,
+	EvalTTuneParamKnightMobEG,
+	EvalTTuneParamBishopMobMG,
+	EvalTTuneParamBishopMobEG,
+	EvalTTuneParamRookMobFileMG,
+	EvalTTuneParamRookMobFileEG,
+	EvalTTuneParamRookMobRankMG,
+	EvalTTuneParamRookMobRankEG,
 	EvalTTuneParamNB,
 } EvalTTuneParam;
 #endif
@@ -265,6 +273,14 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamRookEG, "RookEG", 0, 10000, evalMaterial[PieceTypeRook].eg);
 	ttuneAddParameter(EvalTTuneParamQueenMG, "QueenMG", 0, 18000, evalMaterial[PieceTypeQueen].mg);
 	ttuneAddParameter(EvalTTuneParamQueenEG, "QueenEG", 0, 18000, evalMaterial[PieceTypeQueen].eg);
+	ttuneAddParameter(EvalTTuneParamKnightMobMG, "KnightMobMG", 0, 300, evalKnightMob.mg);
+	ttuneAddParameter(EvalTTuneParamKnightMobEG, "KnightMobEG", 0, 300, evalKnightMob.eg);
+	ttuneAddParameter(EvalTTuneParamBishopMobMG, "BishopMobMG", 0, 300, evalBishopMob.mg);
+	ttuneAddParameter(EvalTTuneParamBishopMobEG, "BishopMobEG", 0, 300, evalBishopMob.eg);
+	ttuneAddParameter(EvalTTuneParamRookMobFileMG, "RookMobFileMG", 0, 300, evalRookMobFile.mg);
+	ttuneAddParameter(EvalTTuneParamRookMobFileEG, "RookMobFileEG", 0, 300, evalRookMobFile.eg);
+	ttuneAddParameter(EvalTTuneParamRookMobRankMG, "RookMobRankMG", 0, 300, evalRookMobRank.mg);
+	ttuneAddParameter(EvalTTuneParamRookMobRankEG, "RookMobRankEG", 0, 300, evalRookMobRank.eg);
 #	endif
 }
 
@@ -335,6 +351,93 @@ void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	coefficients[EvalTTuneParamRookEG]=factorEG*(wRookCount-bRookCount);
 	coefficients[EvalTTuneParamQueenMG]=factorMG*(wQueenCount-bQueenCount);
 	coefficients[EvalTTuneParamQueenEG]=factorEG*(wQueenCount-bQueenCount);
+
+	// Mobility
+	coefficients[EvalTTuneParamKnightMobMG]=0.0;
+	coefficients[EvalTTuneParamKnightMobEG]=0.0;
+	coefficients[EvalTTuneParamBishopMobMG]=0.0;
+	coefficients[EvalTTuneParamBishopMobEG]=0.0;
+	coefficients[EvalTTuneParamRookMobFileMG]=0.0;
+	coefficients[EvalTTuneParamRookMobFileEG]=0.0;
+	coefficients[EvalTTuneParamRookMobRankMG]=0.0;
+	coefficients[EvalTTuneParamRookMobRankEG]=0.0;
+
+	BB pieceSet;
+	double count;
+
+	BB wp=posGetBBPiece(pos, PieceWPawn);
+	BB bp=posGetBBPiece(pos, PieceBPawn);
+	BB wpAttacks=bbForwardOne(bbWingify(wp), ColourWhite);
+	BB bpAttacks=bbForwardOne(bbWingify(bp), ColourBlack);
+
+	BB mobilityAllowed[ColourNB];
+	mobilityAllowed[ColourWhite]=~(wp | posGetBBPiece(pos, PieceWKing) | bpAttacks);
+	mobilityAllowed[ColourBlack]=~(bp | posGetBBPiece(pos, PieceBKing) | wpAttacks);
+
+	pieceSet=posGetBBPiece(pos, PieceWKnight);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksKnight(sq);
+		count=bbPopCount(attacks & mobilityAllowed[ColourWhite]);
+		coefficients[EvalTTuneParamKnightMobMG]+=factorMG*count;
+		coefficients[EvalTTuneParamKnightMobEG]+=factorEG*count;
+	}
+	pieceSet=posGetBBPiece(pos, PieceBKnight);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksKnight(sq);
+		count=bbPopCount(attacks & mobilityAllowed[ColourBlack]);
+		coefficients[EvalTTuneParamKnightMobMG]-=factorMG*count;
+		coefficients[EvalTTuneParamKnightMobEG]-=factorEG*count;
+	}
+
+	BB bishopMobOcc[ColourNB];
+	bishopMobOcc[ColourWhite]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceWQueen)));
+	bishopMobOcc[ColourBlack]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD)|posGetBBPiece(pos, PieceBQueen)));
+
+	pieceSet=(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD));
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, bishopMobOcc[ColourWhite]);
+		count=bbPopCount(attacks & mobilityAllowed[ColourWhite]);
+		coefficients[EvalTTuneParamBishopMobMG]+=factorMG*count;
+		coefficients[EvalTTuneParamBishopMobEG]+=factorEG*count;
+	}
+	pieceSet=(posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD));
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, bishopMobOcc[ColourBlack]);
+		count=bbPopCount(attacks & mobilityAllowed[ColourBlack]);
+		coefficients[EvalTTuneParamBishopMobMG]-=factorMG*count;
+		coefficients[EvalTTuneParamBishopMobEG]-=factorEG*count;
+	}
+
+	BB rookMobOcc[ColourNB];
+	rookMobOcc[ColourWhite]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceWRook)|posGetBBPiece(pos, PieceWQueen)));
+	rookMobOcc[ColourBlack]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceBRook)|posGetBBPiece(pos, PieceBQueen)));
+
+	pieceSet=posGetBBPiece(pos, PieceWRook);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksRook(sq, rookMobOcc[ColourWhite]);
+		count=bbPopCount(attacks & mobilityAllowed[ColourWhite] & bbFile(sqFile(sq)));
+		coefficients[EvalTTuneParamRookMobFileMG]+=factorMG*count;
+		coefficients[EvalTTuneParamRookMobFileEG]+=factorEG*count;
+		count=bbPopCount(attacks & mobilityAllowed[ColourWhite] & bbRank(sqRank(sq)));
+		coefficients[EvalTTuneParamRookMobRankMG]+=factorMG*count;
+		coefficients[EvalTTuneParamRookMobRankEG]+=factorEG*count;
+	}
+	pieceSet=posGetBBPiece(pos, PieceBRook);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksRook(sq, rookMobOcc[ColourBlack]);
+		count=bbPopCount(attacks & mobilityAllowed[ColourBlack] & bbFile(sqFile(sq)));
+		coefficients[EvalTTuneParamRookMobFileMG]-=factorMG*count;
+		coefficients[EvalTTuneParamRookMobFileEG]-=factorEG*count;
+		count=bbPopCount(attacks & mobilityAllowed[ColourBlack] & bbRank(sqRank(sq)));
+		coefficients[EvalTTuneParamRookMobRankMG]-=factorMG*count;
+		coefficients[EvalTTuneParamRookMobRankEG]-=factorEG*count;
+	}
 }
 #endif
 

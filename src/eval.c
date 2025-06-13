@@ -88,6 +88,26 @@ typedef enum {
 	EvalTTuneParamPawnPassedR7EG,
 	EvalTTuneParamBishopPairMG,
 	EvalTTuneParamBishopPairEG,
+	EvalTTuneParamKnightPawnAffinityMG,
+	EvalTTuneParamKnightPawnAffinityEG,
+	EvalTTuneParamRookPawnAffinityMG,
+	EvalTTuneParamRookPawnAffinityEG,
+	EvalTTuneParamRookOpenFileMG,
+	EvalTTuneParamRookOpenFileEG,
+	EvalTTuneParamRookSemiOpenFileMG,
+	EvalTTuneParamRookSemiOpenFileEG,
+	EvalTTuneParamKingShieldCloseMG,
+	EvalTTuneParamKingShieldCloseEG,
+	EvalTTuneParamKingShieldFarMG,
+	EvalTTuneParamKingShieldFarEG,
+	EvalTTuneParamKingCastlingMobilityMG,
+	EvalTTuneParamKingCastlingMobilityEG,
+	EvalTTuneParamOutpostSqMG,
+	EvalTTuneParamOutpostSqEG,
+	EvalTTuneParamOutpostKnightMG,
+	EvalTTuneParamOutpostKnightEG,
+	EvalTTuneParamTempoDefaultMG,
+	EvalTTuneParamTempoDefaultEG,
 	EvalTTuneParamNB,
 } EvalTTuneParam;
 
@@ -346,6 +366,26 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamPawnPassedR7EG, "PawnPassedR7EG", 0, 20000, evalPassedPawn[Rank7].eg);
 	ttuneAddParameter(EvalTTuneParamBishopPairMG, "BishopPairMG", 0, 2000, evalBishopPair.mg);
 	ttuneAddParameter(EvalTTuneParamBishopPairEG, "BishopPairEG", 0, 2000, evalBishopPair.eg);
+	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityMG, "KnightPawnAffinityMG", -500, 500, evalKnightPawnAffinity.mg);
+	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityEG, "KnightPawnAffinityEG", -500, 500, evalKnightPawnAffinity.eg);
+	ttuneAddParameter(EvalTTuneParamRookPawnAffinityMG, "RookPawnAffinityMG", -500, 500, evalRookPawnAffinity.mg);
+	ttuneAddParameter(EvalTTuneParamRookPawnAffinityEG, "RookPawnAffinityEG", -500, 500, evalRookPawnAffinity.eg);
+	ttuneAddParameter(EvalTTuneParamRookOpenFileMG, "RookOpenFileMG", -500, 500, evalRookOpenFile.mg);
+	ttuneAddParameter(EvalTTuneParamRookOpenFileEG, "RookOpenFileEG", -500, 500, evalRookOpenFile.eg);
+	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileMG, "RookSemiOpenFileMG", -500, 500, evalRookSemiOpenFile.mg);
+	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileEG, "RookSemiOpenFileEG", -500, 500, evalRookSemiOpenFile.eg);
+	ttuneAddParameter(EvalTTuneParamKingShieldCloseMG, "KingShieldCloseMG", 0, 500, evalKingShieldClose.mg);
+	ttuneAddParameter(EvalTTuneParamKingShieldCloseEG, "KingShieldCloseEG", 0, 500, evalKingShieldClose.eg);
+	ttuneAddParameter(EvalTTuneParamKingShieldFarMG, "KingShieldFarMG", 0, 5000, evalKingShieldFar.mg);
+	ttuneAddParameter(EvalTTuneParamKingShieldFarEG, "KingShieldFarEG", 0, 5000, evalKingShieldFar.eg);
+	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityMG, "KingCastlingMobilityMG", 0, 1000, evalKingCastlingMobility.mg);
+	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityEG, "KingCastlingMobilityEG", 0, 1000, evalKingCastlingMobility.eg);
+	ttuneAddParameter(EvalTTuneParamOutpostSqMG, "OutpostSqMG", 0, 500, evalOutpostSq.mg);
+	ttuneAddParameter(EvalTTuneParamOutpostSqEG, "OutpostSqEG", 0, 500, evalOutpostSq.eg);
+	ttuneAddParameter(EvalTTuneParamOutpostKnightMG, "OutpostKnightMG", 0, 2000, evalOutpostKnight.mg);
+	ttuneAddParameter(EvalTTuneParamOutpostKnightEG, "OutpostKnightEG", 0, 2000, evalOutpostKnight.eg);
+	ttuneAddParameter(EvalTTuneParamTempoDefaultMG, "TempoDefaultMG", -200, 200, evalTempoDefault.mg);
+	ttuneAddParameter(EvalTTuneParamTempoDefaultEG, "TempoDefaultEG", -200, 200, evalTempoDefault.eg);
 }
 
 void evalQuit(void) {
@@ -501,10 +541,11 @@ void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	}
 
 	// Pawns
-	BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], attacks[ColourNB];
+	BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], pawnAttacks[ColourNB];
 	BB doubled[ColourNB], isolated[ColourNB];
 	BB influence[ColourNB], fill[ColourNB];
 	BB blocked[ColourNB], passed[ColourNB];
+	BB semiOpenFiles[ColourNB], outposts[ColourNB];
 	BB occ=posGetBBAll(pos);
 	pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn); // All pawns of given colour
 	pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
@@ -514,19 +555,25 @@ void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	frontSpan[ColourBlack]=bbSouthOne(bbSouthFill(pawns[ColourBlack]));
 	rearSpan[ColourWhite]=bbSouthOne(bbSouthFill(pawns[ColourWhite])); // All squares behind pawns of given colour
 	rearSpan[ColourBlack]=bbNorthOne(bbNorthFill(pawns[ColourBlack]));
-	attacks[ColourWhite]=bbNorthOne(bbWingify(pawns[ColourWhite])); // All squares attacked by pawns of given colour
-	attacks[ColourBlack]=bbSouthOne(bbWingify(pawns[ColourBlack]));
+	pawnAttacks[ColourWhite]=bbNorthOne(bbWingify(pawns[ColourWhite])); // All squares attacked by pawns of given colour
+	pawnAttacks[ColourBlack]=bbSouthOne(bbWingify(pawns[ColourBlack]));
 	influence[ColourWhite]=(frontSpan[ColourWhite] | bbWingify(frontSpan[ColourWhite])); // Squares which colour in question may attack or move to, now or in the future.
 	influence[ColourBlack]=(frontSpan[ColourBlack] | bbWingify(frontSpan[ColourBlack]));
 
 	doubled[ColourWhite]=(pawns[ColourWhite] & rearSpan[ColourWhite]);
 	doubled[ColourBlack]=(pawns[ColourBlack] & rearSpan[ColourBlack]);
-	isolated[ColourWhite]=(pawns[ColourWhite] & ~bbFileFill(attacks[ColourWhite]));
-	isolated[ColourBlack]=(pawns[ColourBlack] & ~bbFileFill(attacks[ColourBlack]));
+	isolated[ColourWhite]=(pawns[ColourWhite] & ~bbFileFill(pawnAttacks[ColourWhite]));
+	isolated[ColourBlack]=(pawns[ColourBlack] & ~bbFileFill(pawnAttacks[ColourBlack]));
 	blocked[ColourWhite]=(pawns[ColourWhite] & bbSouthOne(occ));
 	blocked[ColourBlack]=(pawns[ColourBlack] & bbNorthOne(occ));
 	passed[ColourWhite]=(pawns[ColourWhite] & ~(doubled[ColourWhite] | influence[ColourBlack]));
 	passed[ColourBlack]=(pawns[ColourBlack] & ~(doubled[ColourBlack] | influence[ColourWhite]));
+
+	semiOpenFiles[ColourWhite]=(fill[ColourBlack] & ~fill[ColourWhite]);
+	semiOpenFiles[ColourBlack]=(fill[ColourWhite] & ~fill[ColourBlack]);
+	outposts[ColourWhite]=(pawnAttacks[ColourWhite] & (bbRank(Rank4)|bbRank(Rank5)|bbRank(Rank6)|bbRank(Rank7)) & ~bbWingify(frontSpan[ColourBlack]));
+	outposts[ColourBlack]=(pawnAttacks[ColourBlack] & (bbRank(Rank5)|bbRank(Rank4)|bbRank(Rank3)|bbRank(Rank2)) & ~bbWingify(frontSpan[ColourWhite]));
+	BB openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
 
 	int doubledCount=((int)bbPopCount(doubled[ColourWhite]))-((int)bbPopCount(doubled[ColourBlack]));
 	int isolatedCount=((int)bbPopCount(isolated[ColourWhite]))-((int)bbPopCount(isolated[ColourBlack]));
@@ -565,6 +612,56 @@ void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	                    ((int)(posGetBBPiece(pos, PieceBBishopL)!=0 && posGetBBPiece(pos, PieceBBishopD)!=0));
 	coefficients[EvalTTuneParamBishopPairMG]=factorMG*bishopPairCount;
 	coefficients[EvalTTuneParamBishopPairEG]=factorEG*bishopPairCount;
+
+	int knightAffCount=wKnightCount*wPawnCount-bKnightCount*bPawnCount;
+	coefficients[EvalTTuneParamKnightPawnAffinityMG]=factorMG*knightAffCount;
+	coefficients[EvalTTuneParamKnightPawnAffinityEG]=factorEG*knightAffCount;
+
+	int rookAffCount=wRookCount*wPawnCount-bRookCount*bPawnCount;
+	coefficients[EvalTTuneParamRookPawnAffinityMG]=factorMG*rookAffCount;
+	coefficients[EvalTTuneParamRookPawnAffinityEG]=factorEG*rookAffCount;
+
+	int rookOpenFileCount=((int)bbPopCount(posGetBBPiece(pos, PieceWRook) & openFiles))-((int)bbPopCount(posGetBBPiece(pos, PieceBRook) & openFiles));
+	coefficients[EvalTTuneParamRookOpenFileMG]=factorMG*rookOpenFileCount;
+	coefficients[EvalTTuneParamRookOpenFileEG]=factorEG*rookOpenFileCount;
+
+	int rookSemiOpenFileCount=((int)bbPopCount(posGetBBPiece(pos, PieceWRook) & semiOpenFiles[ColourWhite]))-((int)bbPopCount(posGetBBPiece(pos, PieceBRook) & semiOpenFiles[ColourBlack]));
+	coefficients[EvalTTuneParamRookSemiOpenFileMG]=factorMG*rookSemiOpenFileCount;
+	coefficients[EvalTTuneParamRookSemiOpenFileEG]=factorEG*rookSemiOpenFileCount;
+
+	BB wKing=posGetBBPiece(pos, PieceWKing);
+	BB bKing=posGetBBPiece(pos, PieceBKing);
+	BB wKingSpan=bbForwardOne((bbWestOne(wKing) | wKing | bbEastOne(wKing)), ColourWhite);
+	BB bKingSpan=bbForwardOne((bbWestOne(bKing) | bKing | bbEastOne(bKing)), ColourBlack);
+	BB wKingShieldClose=(pawns[ColourWhite] & wKingSpan);
+	BB bKingShieldClose=(pawns[ColourBlack] & bKingSpan);
+	BB wKingShieldFar=(pawns[ColourWhite] & bbForwardOne(wKingSpan, ColourWhite));
+	BB bKingShieldFar=(pawns[ColourBlack] & bbForwardOne(bKingSpan, ColourBlack));
+	int kingShieldCloseCount=((int)bbPopCount(wKingShieldClose))-((int)bbPopCount(bKingShieldClose));
+	int kingShieldFarCount=((int)bbPopCount(wKingShieldFar))-((int)bbPopCount(bKingShieldFar));
+	coefficients[EvalTTuneParamKingShieldCloseMG]=factorMG*kingShieldCloseCount;
+	coefficients[EvalTTuneParamKingShieldCloseEG]=factorEG*kingShieldCloseCount;
+	coefficients[EvalTTuneParamKingShieldFarMG]=factorMG*kingShieldFarCount;
+	coefficients[EvalTTuneParamKingShieldFarEG]=factorEG*kingShieldFarCount;
+
+	CastRights castRights=posGetCastRights(pos);
+	int kingCastlingMobilityCount=(((int)(castRights.rookSq[ColourWhite][CastSideA]!=SqInvalid))+((int)(castRights.rookSq[ColourWhite][CastSideH]!=SqInvalid)))-
+	                              (((int)(castRights.rookSq[ColourBlack][CastSideA]!=SqInvalid))-((int)(castRights.rookSq[ColourBlack][CastSideH]!=SqInvalid)));
+	coefficients[EvalTTuneParamKingCastlingMobilityMG]=factorMG*kingCastlingMobilityCount;
+	coefficients[EvalTTuneParamKingCastlingMobilityEG]=factorEG*kingCastlingMobilityCount;
+
+	int outpostSqCount=((int)bbPopCount(outposts[ColourWhite]))-((int)bbPopCount(outposts[ColourBlack]));
+	coefficients[EvalTTuneParamOutpostSqMG]=factorMG*outpostSqCount;
+	coefficients[EvalTTuneParamOutpostSqEG]=factorEG*outpostSqCount;
+
+	int outpostKnightCount=((int)bbPopCount(outposts[ColourWhite] & posGetBBPiece(pos, PieceWKnight)))-
+	                       ((int)bbPopCount(outposts[ColourBlack] & posGetBBPiece(pos, PieceBKnight)));
+	coefficients[EvalTTuneParamOutpostKnightMG]=factorMG*outpostKnightCount;
+	coefficients[EvalTTuneParamOutpostKnightEG]=factorEG*outpostKnightCount;
+
+	int tempoCount=(posGetSTM(pos)==ColourWhite ? 1 : -1);
+	coefficients[EvalTTuneParamTempoDefaultMG]=factorMG*tempoCount;
+	coefficients[EvalTTuneParamTempoDefaultEG]=factorEG*tempoCount;
 }
 
 void evaluateOutputCode(const char *path, const int *weights) {
@@ -604,6 +701,17 @@ void evaluateOutputCode(const char *path, const int *weights) {
 	fprintf(file, "TUNECONST VPair evalBishopMob={%i,%i};\n", weights[EvalTTuneParamBishopMobMG], weights[EvalTTuneParamBishopMobEG]);
 	fprintf(file, "TUNECONST VPair evalRookMobFile={%i,%i};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileEG]);
 	fprintf(file, "TUNECONST VPair evalRookMobRank={%i,%i};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankEG]);
+
+	fprintf(file, "TUNECONST VPair evalKnightPawnAffinity={%i,%i};\n", weights[EvalTTuneParamKnightPawnAffinityMG], weights[EvalTTuneParamKnightPawnAffinityEG]);
+	fprintf(file, "TUNECONST VPair evalRookPawnAffinity={%i,%i};\n", weights[EvalTTuneParamRookPawnAffinityMG], weights[EvalTTuneParamRookPawnAffinityEG]);
+	fprintf(file, "TUNECONST VPair evalRookOpenFile={%i,%i};\n", weights[EvalTTuneParamRookOpenFileMG], weights[EvalTTuneParamRookOpenFileEG]);
+	fprintf(file, "TUNECONST VPair evalRookSemiOpenFile={%i,%i};\n", weights[EvalTTuneParamRookSemiOpenFileMG], weights[EvalTTuneParamRookSemiOpenFileEG]);
+	fprintf(file, "TUNECONST VPair evalKingShieldClose={%i,%i};\n", weights[EvalTTuneParamKingShieldCloseMG], weights[EvalTTuneParamKingShieldCloseEG]);
+	fprintf(file, "TUNECONST VPair evalKingShieldFar={%i,%i};\n", weights[EvalTTuneParamKingShieldFarMG], weights[EvalTTuneParamKingShieldFarEG]);
+	fprintf(file, "TUNECONST VPair evalKingCastlingMobility={%i,%i};\n", weights[EvalTTuneParamKingCastlingMobilityMG], weights[EvalTTuneParamKingCastlingMobilityEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostSq={%i,%i};\n", weights[EvalTTuneParamOutpostSqMG], weights[EvalTTuneParamOutpostSqEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostKnight={%i,%i};\n", weights[EvalTTuneParamOutpostKnightMG], weights[EvalTTuneParamOutpostKnightEG]);
+	fprintf(file, "TUNECONST VPair evalTempoDefault={%i,%i};\n", weights[EvalTTuneParamTempoDefaultMG], weights[EvalTTuneParamTempoDefaultEG]);
 
 	// Close file
 	fclose(file);

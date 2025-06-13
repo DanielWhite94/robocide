@@ -600,10 +600,10 @@ void evaluateOutputCode(const char *path, const int *weights) {
 	fprintf(file, "};\n");
 
 	fprintf(file, "TUNECONST VPair evalKnightMob={%i,%i};\n", weights[EvalTTuneParamKnightMobMG], weights[EvalTTuneParamKnightMobEG]);
-	fprintf(file, "TUNECONST VPair evalBishopPair={%i,%i};\n", weights[EvalTTuneParamBishopPairMG], weights[EvalTTuneParamBishopPairMG]);
-	fprintf(file, "TUNECONST VPair evalBishopMob={%i,%i};\n", weights[EvalTTuneParamBishopMobMG], weights[EvalTTuneParamBishopMobMG]);
-	fprintf(file, "TUNECONST VPair evalRookMobFile={%i,%i};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileMG]);
-	fprintf(file, "TUNECONST VPair evalRookMobRank={%i,%i};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankMG]);
+	fprintf(file, "TUNECONST VPair evalBishopPair={%i,%i};\n", weights[EvalTTuneParamBishopPairMG], weights[EvalTTuneParamBishopPairEG]);
+	fprintf(file, "TUNECONST VPair evalBishopMob={%i,%i};\n", weights[EvalTTuneParamBishopMobMG], weights[EvalTTuneParamBishopMobEG]);
+	fprintf(file, "TUNECONST VPair evalRookMobFile={%i,%i};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileEG]);
+	fprintf(file, "TUNECONST VPair evalRookMobRank={%i,%i};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankEG]);
 
 	// Close file
 	fclose(file);

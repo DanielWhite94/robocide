@@ -575,6 +575,48 @@ void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	coefficients[EvalTTuneParamBishopPairMG]=factorMG*bishopPairCount;
 	coefficients[EvalTTuneParamBishopPairEG]=factorEG*bishopPairCount;
 }
+
+void evaluateOutputCode(const char *path, const int *weights) {
+	// Open file
+	FILE *file=fopen(path, "w");
+	if (file==NULL)
+		return;
+
+	// Generate code for all weights (parameters)
+	fprintf(file, "TUNECONST VPair evalMaterial[PieceTypeNB]={\n");
+	fprintf(file, "	[PieceTypeNone]={0,0},\n");
+	fprintf(file, "	[PieceTypePawn]={%i,%i},\n", weights[EvalTTuneParamPawnMG], weights[EvalTTuneParamPawnEG]);
+	fprintf(file, "	[PieceTypeKnight]={%i,%i},\n", weights[EvalTTuneParamKnightMG], weights[EvalTTuneParamKnightEG]);
+	fprintf(file, "	[PieceTypeBishopL]={%i,%i},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
+	fprintf(file, "	[PieceTypeBishopD]={%i,%i},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
+	fprintf(file, "	[PieceTypeRook]={%i,%i},\n", weights[EvalTTuneParamRookMG], weights[EvalTTuneParamRookEG]);
+	fprintf(file, "	[PieceTypeQueen]={%i,%i},\n", weights[EvalTTuneParamQueenMG], weights[EvalTTuneParamQueenEG]);
+	fprintf(file, "	[PieceTypeKing]={600,-460} // these values exist soley to make PSTs look nicer (both sides always have exactly one king of course)\n");
+	fprintf(file, "};\n");
+
+	fprintf(file, "TUNECONST VPair evalPawnDoubled={%i,%i};\n", weights[EvalTTuneParamPawnDoubledMG], weights[EvalTTuneParamPawnDoubledEG]);
+	fprintf(file, "TUNECONST VPair evalPawnIsolated={%i,%i};\n", weights[EvalTTuneParamPawnIsolatedMG], weights[EvalTTuneParamPawnIsolatedEG]);
+	fprintf(file, "TUNECONST VPair evalPawnBlocked={%i,%i};\n", weights[EvalTTuneParamPawnBlockedMG], weights[EvalTTuneParamPawnBlockedEG]);
+	fprintf(file, "TUNECONST VPair evalPawnPassed[RankNB]={\n");
+	fprintf(file, "	{%i,%i},\n", 0, 0);
+	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR2MG], weights[EvalTTuneParamPawnPassedR2EG]);
+	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR3MG], weights[EvalTTuneParamPawnPassedR3EG]);
+	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR4MG], weights[EvalTTuneParamPawnPassedR4EG]);
+	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR5MG], weights[EvalTTuneParamPawnPassedR5EG]);
+	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR6MG], weights[EvalTTuneParamPawnPassedR6EG]);
+	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR7MG], weights[EvalTTuneParamPawnPassedR7EG]);
+	fprintf(file, "	{%i,%i},\n", 0, 0);
+	fprintf(file, "};\n");
+
+	fprintf(file, "TUNECONST VPair evalKnightMob={%i,%i};\n", weights[EvalTTuneParamKnightMobMG], weights[EvalTTuneParamKnightMobEG]);
+	fprintf(file, "TUNECONST VPair evalBishopPair={%i,%i};\n", weights[EvalTTuneParamBishopPairMG], weights[EvalTTuneParamBishopPairMG]);
+	fprintf(file, "TUNECONST VPair evalBishopMob={%i,%i};\n", weights[EvalTTuneParamBishopMobMG], weights[EvalTTuneParamBishopMobMG]);
+	fprintf(file, "TUNECONST VPair evalRookMobFile={%i,%i};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileMG]);
+	fprintf(file, "TUNECONST VPair evalRookMobRank={%i,%i};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankMG]);
+
+	// Close file
+	fclose(file);
+}
 #endif
 
 void evalClear(void) {

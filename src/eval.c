@@ -49,7 +49,6 @@ struct EvalData {
 	EvalMatData matData;
 };
 
-#ifdef TTUNE
 typedef enum {
 	EvalTTuneParamPawnMG,
 	EvalTTuneParamPawnEG,
@@ -91,7 +90,6 @@ typedef enum {
 	EvalTTuneParamBishopPairEG,
 	EvalTTuneParamNB,
 } EvalTTuneParam;
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values.
@@ -256,9 +254,7 @@ void evalPstDraw(PieceType type);
 
 void evalInit(void) {
 	// Init Texel Tuning module
-#	ifdef TTUNE
 	ttuneInit(EvalTTuneParamNB);
-#	endif
 
 	// Setup pawn hash table.
 	evalPawnTable=htableNew(sizeof(EvalPawnData), evalPawnTableDefaultSizeMb);
@@ -312,7 +308,6 @@ void evalInit(void) {
 #	endif
 
 	// Setup Texel Tuning parameters
-#	ifdef TTUNE
 	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", evalMaterial[PieceTypePawn].mg, evalMaterial[PieceTypePawn].mg, evalMaterial[PieceTypePawn].mg); // this is the one fixed value everything else is relative to
 	ttuneAddParameter(EvalTTuneParamPawnEG, "PawnEG", 0, 2000, evalMaterial[PieceTypePawn].eg);
 	ttuneAddParameter(EvalTTuneParamKnightMG, "KnightMG", 0, 6000, evalMaterial[PieceTypeKnight].mg);
@@ -351,7 +346,6 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamPawnPassedR7EG, "PawnPassedR7EG", 0, 20000, evalPassedPawn[Rank7].eg);
 	ttuneAddParameter(EvalTTuneParamBishopPairMG, "BishopPairMG", 0, 2000, evalBishopPair.mg);
 	ttuneAddParameter(EvalTTuneParamBishopPairEG, "BishopPairEG", 0, 2000, evalBishopPair.eg);
-#	endif
 }
 
 void evalQuit(void) {
@@ -362,9 +356,7 @@ void evalQuit(void) {
 	evalMatTable=NULL;
 
 	// Quit Texel Tuning module
-#	ifdef TTUNE
 	ttuneQuit();
-#	endif
 }
 
 Score evaluate(const Pos *pos) {
@@ -383,7 +375,6 @@ Score evaluate(const Pos *pos) {
 	return score;
 }
 
-#ifdef TTUNE
 void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	// Precomputed info
 	int wPawnCount=bbPopCount(posGetBBPiece(pos, PieceWPawn));
@@ -617,7 +608,6 @@ void evaluateOutputCode(const char *path, const int *weights) {
 	// Close file
 	fclose(file);
 }
-#endif
 
 void evalClear(void) {
 	// Clear hash tables.

@@ -219,7 +219,9 @@ TTunePositions *ttuneReadEpd(const char *path) {
 		if (!posSetToFEN(pos, fenStr))
 			continue;
 
+#		ifdef TTUNE
 		evaluateCoefficients(pos, coefficients);
+#		endif
 
 		// Add position to list
 		ttunePositionsAdd(positions, coefficients, result);

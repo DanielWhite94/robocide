@@ -271,6 +271,7 @@ void uciLoop(void) {
 		} else if (utilStrEqual(part, "pst")) {
 			evalPstDebug();
 		} else if (utilStrEqual(part, "ttune")) {
+#			ifdef TTUNE
 			// Grab arguments
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
 				printf("Error: missing input EPD file argument\n");
@@ -285,6 +286,9 @@ void uciLoop(void) {
 
 			// Call ttuneRun to do the actual work
 			ttuneRun(inputPath, outputPath);
+#			else
+			printf("Error: not compiled for Texel Tuning\n");
+#			endif
 		}
 	}
 

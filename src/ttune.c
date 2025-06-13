@@ -6,6 +6,7 @@
 
 #include "eval.h"
 #include "pos.h"
+#include "time.h"
 #include "ttune.h"
 
 typedef double TTuneCoefficient; // count of a particular feature in the eval of a position (fractional to allow MG/EG phasing)
@@ -107,6 +108,7 @@ void ttuneRun(const char *positionFile) {
 	bool improvement;
 	do {
 		// Loop over parameters one by one
+		TimeMs startTime=timeGet();
 		improvement=false;
 		for(unsigned i=0; i<ttuneParametersCount; ++i) {
 			// Consider incrementing and decrementing the weight of the parameter in question
@@ -141,7 +143,8 @@ void ttuneRun(const char *positionFile) {
 		}
 
 		// Output
-		printf("Iteration complete (E=%f):\n", currentE);
+		TimeMs deltaTime=timeGet()-startTime;
+		printf("Iteration complete (E=%f, took %llu.%03llus):\n", currentE, deltaTime/1000, deltaTime%1000);
 		for(unsigned i=0; i<ttuneParametersCount; ++i)
 			printf("    %s %i -> %i\n", ttuneParameters[i].name, ttuneParameters[i].initialValue, weights[i]);
 	} while(improvement);

@@ -128,7 +128,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 TUNECONST VPair evalPawnDoubled={-30,-167};
 TUNECONST VPair evalPawnIsolated={-207,-96};
 TUNECONST VPair evalPawnBlocked={-22,-100};
-TUNECONST VPair evalPassedPawn[8]={
+TUNECONST VPair evalPawnPassed[8]={
 	{   0,   0},
 	{  11,  96},
 	{  24, 134},
@@ -353,18 +353,18 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamPawnIsolatedEG, "PawnIsolatedEG", ttMin, ttMax, evalPawnIsolated.eg);
 	ttuneAddParameter(EvalTTuneParamPawnBlockedMG, "PawnBlockedMG", ttMin, ttMax, evalPawnBlocked.mg);
 	ttuneAddParameter(EvalTTuneParamPawnBlockedEG, "PawnBlockedEG", ttMin, ttMax, evalPawnBlocked.mg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR2MG, "PawnPassedR2MG", ttMin, ttMax, evalPassedPawn[Rank2].mg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR2EG, "PawnPassedR2EG", ttMin, ttMax, evalPassedPawn[Rank2].eg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR3MG, "PawnPassedR3MG", ttMin, ttMax, evalPassedPawn[Rank3].mg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR3EG, "PawnPassedR3EG", ttMin, ttMax, evalPassedPawn[Rank3].eg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR4MG, "PawnPassedR4MG", ttMin, ttMax, evalPassedPawn[Rank4].mg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR4EG, "PawnPassedR4EG", ttMin, ttMax, evalPassedPawn[Rank4].eg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR5MG, "PawnPassedR5MG", ttMin, ttMax, evalPassedPawn[Rank5].mg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR5EG, "PawnPassedR5EG", ttMin, ttMax, evalPassedPawn[Rank5].eg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR6MG, "PawnPassedR6MG", ttMin, ttMax, evalPassedPawn[Rank6].mg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR6EG, "PawnPassedR6EG", ttMin, ttMax, evalPassedPawn[Rank6].eg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR7MG, "PawnPassedR7MG", ttMin, ttMax, evalPassedPawn[Rank7].mg);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR7EG, "PawnPassedR7EG", ttMin, ttMax, evalPassedPawn[Rank7].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR2MG, "PawnPassedR2MG", ttMin, ttMax, evalPawnPassed[Rank2].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR2EG, "PawnPassedR2EG", ttMin, ttMax, evalPawnPassed[Rank2].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR3MG, "PawnPassedR3MG", ttMin, ttMax, evalPawnPassed[Rank3].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR3EG, "PawnPassedR3EG", ttMin, ttMax, evalPawnPassed[Rank3].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR4MG, "PawnPassedR4MG", ttMin, ttMax, evalPawnPassed[Rank4].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR4EG, "PawnPassedR4EG", ttMin, ttMax, evalPawnPassed[Rank4].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR5MG, "PawnPassedR5MG", ttMin, ttMax, evalPawnPassed[Rank5].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR5EG, "PawnPassedR5EG", ttMin, ttMax, evalPawnPassed[Rank5].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR6MG, "PawnPassedR6MG", ttMin, ttMax, evalPawnPassed[Rank6].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR6EG, "PawnPassedR6EG", ttMin, ttMax, evalPawnPassed[Rank6].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR7MG, "PawnPassedR7MG", ttMin, ttMax, evalPawnPassed[Rank7].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR7EG, "PawnPassedR7EG", ttMin, ttMax, evalPawnPassed[Rank7].eg);
 	ttuneAddParameter(EvalTTuneParamBishopPairMG, "BishopPairMG", ttMin, ttMax, evalBishopPair.mg);
 	ttuneAddParameter(EvalTTuneParamBishopPairEG, "BishopPairEG", ttMin, ttMax, evalBishopPair.eg);
 	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityMG, "KnightPawnAffinityMG", ttMin, ttMax, evalKnightPawnAffinity.mg);
@@ -1405,12 +1405,12 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	pieceSet=pawnData->passed[ColourWhite];
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
-		evalVPairAddTo(&pawnData->score, &evalPassedPawn[sqRank(sq)]);
+		evalVPairAddTo(&pawnData->score, &evalPawnPassed[sqRank(sq)]);
 	}
 	pieceSet=pawnData->passed[ColourBlack];
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
-		evalVPairSubFrom(&pawnData->score, &evalPassedPawn[sqRank(sqFlip(sq))]);
+		evalVPairSubFrom(&pawnData->score, &evalPawnPassed[sqRank(sqFlip(sq))]);
 	}
 }
 

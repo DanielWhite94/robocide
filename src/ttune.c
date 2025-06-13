@@ -68,7 +68,7 @@ void ttuneQuit(void) {
 	ttuneParametersCount=0;
 }
 
-void ttuneRun(const char *positionFile) {
+void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	// Verify parameters have been setup correctly
 	if (ttuneParametersCount<1) {
 		printf("Error: no parameters added\n");
@@ -89,8 +89,8 @@ void ttuneRun(const char *positionFile) {
 	}
 
 	// Read (quiet) positions from file (and compute evaluation coefficients for each one)
-	printf("Loading quiet positions from EPD file at '%s'...\n", positionFile);
-	TTunePositions *positions=ttuneReadEpd(positionFile);
+	printf("Loading quiet positions from EPD file at '%s'...\n", positionInputFile);
+	TTunePositions *positions=ttuneReadEpd(positionInputFile);
 	if (positions==NULL) {
 		printf("Error: could not load positions\n");
 		return;
@@ -142,11 +142,16 @@ void ttuneRun(const char *positionFile) {
 			}
 		}
 
-		// Output
+		// Terminal output
 		TimeMs deltaTime=timeGet()-startTime;
 		printf("Iteration complete (E=%f, took %llu.%03llus):\n", currentE, deltaTime/1000, deltaTime%1000);
 		for(unsigned i=0; i<ttuneParametersCount; ++i)
 			printf("    %s %i -> %i\n", ttuneParameters[i].name, ttuneParameters[i].initialValue, weights[i]);
+
+		// Code output
+#		ifdef TTUNE
+		evaluateOutputCode(codeOutputFile, weights);
+#		endif
 	} while(improvement);
 
 	printf("Tuning complete\n");

@@ -273,13 +273,18 @@ void uciLoop(void) {
 		} else if (utilStrEqual(part, "ttune")) {
 			// Grab arguments
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
-				printf("Error: missing path argument\n");
+				printf("Error: missing input EPD file argument\n");
 				continue;
 			}
-			const char *tunePath=part;
+			const char *inputPath=part;
+			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
+				printf("Error: missing output code file argument\n");
+				continue;
+			}
+			const char *outputPath=part;
 
 			// Call ttuneRun to do the actual work
-			ttuneRun(tunePath);
+			ttuneRun(inputPath, outputPath);
 		}
 	}
 

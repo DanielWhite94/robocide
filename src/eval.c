@@ -1390,7 +1390,7 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	pawnData->openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
 
 	// Outposts
-	int outpostRelativeCount=bbPopCount(pawnData->outposts[ColourWhite])-bbPopCount(pawnData->outposts[ColourBlack]);
+	int outpostRelativeCount=((int)bbPopCount(pawnData->outposts[ColourWhite]))-((int)bbPopCount(pawnData->outposts[ColourBlack]));
 	evalVPairAddMulTo(&pawnData->score, &evalOutpostSq, outpostRelativeCount);
 
 	// Doubled and isolated pawns

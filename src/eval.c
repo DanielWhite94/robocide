@@ -69,6 +69,26 @@ typedef enum {
 	EvalTTuneParamRookMobFileEG,
 	EvalTTuneParamRookMobRankMG,
 	EvalTTuneParamRookMobRankEG,
+	EvalTTuneParamPawnDoubledMG,
+	EvalTTuneParamPawnDoubledEG,
+	EvalTTuneParamPawnIsolatedMG,
+	EvalTTuneParamPawnIsolatedEG,
+	EvalTTuneParamPawnBlockedMG,
+	EvalTTuneParamPawnBlockedEG,
+	EvalTTuneParamPawnPassedR2MG,
+	EvalTTuneParamPawnPassedR2EG,
+	EvalTTuneParamPawnPassedR3MG,
+	EvalTTuneParamPawnPassedR3EG,
+	EvalTTuneParamPawnPassedR4MG,
+	EvalTTuneParamPawnPassedR4EG,
+	EvalTTuneParamPawnPassedR5MG,
+	EvalTTuneParamPawnPassedR5EG,
+	EvalTTuneParamPawnPassedR6MG,
+	EvalTTuneParamPawnPassedR6EG,
+	EvalTTuneParamPawnPassedR7MG,
+	EvalTTuneParamPawnPassedR7EG,
+	EvalTTuneParamBishopPairMG,
+	EvalTTuneParamBishopPairEG,
 	EvalTTuneParamNB,
 } EvalTTuneParam;
 #endif
@@ -311,6 +331,26 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamRookMobFileEG, "RookMobFileEG", 0, 300, evalRookMobFile.eg);
 	ttuneAddParameter(EvalTTuneParamRookMobRankMG, "RookMobRankMG", 0, 300, evalRookMobRank.mg);
 	ttuneAddParameter(EvalTTuneParamRookMobRankEG, "RookMobRankEG", 0, 300, evalRookMobRank.eg);
+	ttuneAddParameter(EvalTTuneParamPawnDoubledMG, "PawnDoubledMG", -1000, 0, evalPawnDoubled.mg);
+	ttuneAddParameter(EvalTTuneParamPawnDoubledEG, "PawnDoubledEG", -1000, 0, evalPawnDoubled.eg);
+	ttuneAddParameter(EvalTTuneParamPawnIsolatedMG, "PawnIsolatedMG", -1000, 0, evalPawnIsolated.mg);
+	ttuneAddParameter(EvalTTuneParamPawnIsolatedEG, "PawnIsolatedEG", -1000, 0, evalPawnIsolated.eg);
+	ttuneAddParameter(EvalTTuneParamPawnBlockedMG, "PawnBlockedMG", -1000, 0, evalPawnBlocked.mg);
+	ttuneAddParameter(EvalTTuneParamPawnBlockedEG, "PawnBlockedEG", -1000, 0, evalPawnBlocked.mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR2MG, "PawnPassedR2MG", 0, 20000, evalPassedPawn[Rank2].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR2EG, "PawnPassedR2EG", 0, 20000, evalPassedPawn[Rank2].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR3MG, "PawnPassedR3MG", 0, 20000, evalPassedPawn[Rank3].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR3EG, "PawnPassedR3EG", 0, 20000, evalPassedPawn[Rank3].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR4MG, "PawnPassedR4MG", 0, 20000, evalPassedPawn[Rank4].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR4EG, "PawnPassedR4EG", 0, 20000, evalPassedPawn[Rank4].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR5MG, "PawnPassedR5MG", 0, 20000, evalPassedPawn[Rank5].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR5EG, "PawnPassedR5EG", 0, 20000, evalPassedPawn[Rank5].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR6MG, "PawnPassedR6MG", 0, 20000, evalPassedPawn[Rank6].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR6EG, "PawnPassedR6EG", 0, 20000, evalPassedPawn[Rank6].eg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR7MG, "PawnPassedR7MG", 0, 20000, evalPassedPawn[Rank7].mg);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR7EG, "PawnPassedR7EG", 0, 20000, evalPassedPawn[Rank7].eg);
+	ttuneAddParameter(EvalTTuneParamBishopPairMG, "BishopPairMG", 0, 2000, evalBishopPair.mg);
+	ttuneAddParameter(EvalTTuneParamBishopPairEG, "BishopPairEG", 0, 2000, evalBishopPair.eg);
 #	endif
 }
 
@@ -468,6 +508,72 @@ void evaluateCoefficients(const Pos *pos, double *coefficients) {
 		coefficients[EvalTTuneParamRookMobRankMG]-=factorMG*count;
 		coefficients[EvalTTuneParamRookMobRankEG]-=factorEG*count;
 	}
+
+	// Pawns
+	BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], attacks[ColourNB];
+	BB doubled[ColourNB], isolated[ColourNB];
+	BB influence[ColourNB], fill[ColourNB];
+	BB blocked[ColourNB], passed[ColourNB];
+	BB occ=posGetBBAll(pos);
+	pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn); // All pawns of given colour
+	pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
+	fill[ColourWhite]=bbFileFill(pawns[ColourWhite]);
+	fill[ColourBlack]=bbFileFill(pawns[ColourBlack]);
+	frontSpan[ColourWhite]=bbNorthOne(bbNorthFill(pawns[ColourWhite])); // All squares infront of pawns of given colour
+	frontSpan[ColourBlack]=bbSouthOne(bbSouthFill(pawns[ColourBlack]));
+	rearSpan[ColourWhite]=bbSouthOne(bbSouthFill(pawns[ColourWhite])); // All squares behind pawns of given colour
+	rearSpan[ColourBlack]=bbNorthOne(bbNorthFill(pawns[ColourBlack]));
+	attacks[ColourWhite]=bbNorthOne(bbWingify(pawns[ColourWhite])); // All squares attacked by pawns of given colour
+	attacks[ColourBlack]=bbSouthOne(bbWingify(pawns[ColourBlack]));
+	influence[ColourWhite]=(frontSpan[ColourWhite] | bbWingify(frontSpan[ColourWhite])); // Squares which colour in question may attack or move to, now or in the future.
+	influence[ColourBlack]=(frontSpan[ColourBlack] | bbWingify(frontSpan[ColourBlack]));
+
+	doubled[ColourWhite]=(pawns[ColourWhite] & rearSpan[ColourWhite]);
+	doubled[ColourBlack]=(pawns[ColourBlack] & rearSpan[ColourBlack]);
+	isolated[ColourWhite]=(pawns[ColourWhite] & ~bbFileFill(attacks[ColourWhite]));
+	isolated[ColourBlack]=(pawns[ColourBlack] & ~bbFileFill(attacks[ColourBlack]));
+	blocked[ColourWhite]=(pawns[ColourWhite] & bbSouthOne(occ));
+	blocked[ColourBlack]=(pawns[ColourBlack] & bbNorthOne(occ));
+	passed[ColourWhite]=(pawns[ColourWhite] & ~(doubled[ColourWhite] | influence[ColourBlack]));
+	passed[ColourBlack]=(pawns[ColourBlack] & ~(doubled[ColourBlack] | influence[ColourWhite]));
+
+	int doubledCount=((int)bbPopCount(doubled[ColourWhite]))-((int)bbPopCount(doubled[ColourBlack]));
+	int isolatedCount=((int)bbPopCount(isolated[ColourWhite]))-((int)bbPopCount(isolated[ColourBlack]));
+	int blockedCount=((int)bbPopCount(blocked[ColourWhite]))-((int)bbPopCount(blocked[ColourBlack]));
+
+	coefficients[EvalTTuneParamPawnDoubledMG]=factorMG*doubledCount;
+	coefficients[EvalTTuneParamPawnDoubledEG]=factorEG*doubledCount;
+	coefficients[EvalTTuneParamPawnIsolatedMG]=factorMG*isolatedCount;
+	coefficients[EvalTTuneParamPawnIsolatedEG]=factorEG*isolatedCount;
+	coefficients[EvalTTuneParamPawnBlockedMG]=factorMG*blockedCount;
+	coefficients[EvalTTuneParamPawnBlockedEG]=factorEG*blockedCount;
+
+	int passedCount[RankNB];
+	passedCount[Rank2]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank2)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank7)));
+	passedCount[Rank3]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank3)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank6)));
+	passedCount[Rank4]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank4)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank5)));
+	passedCount[Rank5]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank5)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank4)));
+	passedCount[Rank6]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank6)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank3)));
+	passedCount[Rank7]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank7)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank2)));
+
+	coefficients[EvalTTuneParamPawnPassedR2MG]=factorMG*passedCount[Rank2];
+	coefficients[EvalTTuneParamPawnPassedR2EG]=factorEG*passedCount[Rank2];
+	coefficients[EvalTTuneParamPawnPassedR3MG]=factorMG*passedCount[Rank3];
+	coefficients[EvalTTuneParamPawnPassedR3EG]=factorEG*passedCount[Rank3];
+	coefficients[EvalTTuneParamPawnPassedR4MG]=factorMG*passedCount[Rank4];
+	coefficients[EvalTTuneParamPawnPassedR4EG]=factorEG*passedCount[Rank4];
+	coefficients[EvalTTuneParamPawnPassedR5MG]=factorMG*passedCount[Rank5];
+	coefficients[EvalTTuneParamPawnPassedR5EG]=factorEG*passedCount[Rank5];
+	coefficients[EvalTTuneParamPawnPassedR6MG]=factorMG*passedCount[Rank6];
+	coefficients[EvalTTuneParamPawnPassedR6EG]=factorEG*passedCount[Rank6];
+	coefficients[EvalTTuneParamPawnPassedR7MG]=factorMG*passedCount[Rank7];
+	coefficients[EvalTTuneParamPawnPassedR7EG]=factorEG*passedCount[Rank7];
+
+	// Misc
+	int bishopPairCount=((int)(posGetBBPiece(pos, PieceWBishopL)!=0 && posGetBBPiece(pos, PieceWBishopD)!=0))-
+	                    ((int)(posGetBBPiece(pos, PieceBBishopL)!=0 && posGetBBPiece(pos, PieceBBishopD)!=0));
+	coefficients[EvalTTuneParamBishopPairMG]=factorMG*bishopPairCount;
+	coefficients[EvalTTuneParamBishopPairEG]=factorEG*bishopPairCount;
 }
 #endif
 

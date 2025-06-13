@@ -103,7 +103,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 	[PieceTypeBishopD]={3108,2659},
 	[PieceTypeRook]={5491,4985},
 	[PieceTypeQueen]={8975,10143},
-	[PieceTypeKing]={600,-460} // these values exist soley to make PSTs look nicer (both sides always have exactly one king of course)
+	[PieceTypeKing]={0,0},
 };
 TUNECONST VPair evalPawnDoubled={-30,-167};
 TUNECONST VPair evalPawnIsolated={-207,-96};
@@ -582,7 +582,7 @@ void evaluateOutputCode(const char *path, const int *weights) {
 	fprintf(file, "	[PieceTypeBishopD]={%i,%i},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
 	fprintf(file, "	[PieceTypeRook]={%i,%i},\n", weights[EvalTTuneParamRookMG], weights[EvalTTuneParamRookEG]);
 	fprintf(file, "	[PieceTypeQueen]={%i,%i},\n", weights[EvalTTuneParamQueenMG], weights[EvalTTuneParamQueenEG]);
-	fprintf(file, "	[PieceTypeKing]={600,-460} // these values exist soley to make PSTs look nicer (both sides always have exactly one king of course)\n");
+	fprintf(file, "	[PieceTypeKing]={0,0},\n");
 	fprintf(file, "};\n");
 
 	fprintf(file, "TUNECONST VPair evalPawnDoubled={%i,%i};\n", weights[EvalTTuneParamPawnDoubledMG], weights[EvalTTuneParamPawnDoubledEG]);

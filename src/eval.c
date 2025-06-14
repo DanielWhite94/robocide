@@ -96,6 +96,10 @@ typedef enum {
 	EvalTTuneParamRookOpenFileEG,
 	EvalTTuneParamRookSemiOpenFileMG,
 	EvalTTuneParamRookSemiOpenFileEG,
+	EvalTTuneParamRookOn7thMG,
+	EvalTTuneParamRookOn7thEG,
+	EvalTTuneParamRookTrappedMG,
+	EvalTTuneParamRookTrappedEG,
 	EvalTTuneParamKingShieldCloseMG,
 	EvalTTuneParamKingShieldCloseEG,
 	EvalTTuneParamKingShieldFarMG,
@@ -348,6 +352,10 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamRookOpenFileEG, "RookOpenFileEG", ttMin, ttMax, evalRookOpenFile.eg);
 	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileMG, "RookSemiOpenFileMG", ttMin, ttMax, evalRookSemiOpenFile.mg);
 	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileEG, "RookSemiOpenFileEG", ttMin, ttMax, evalRookSemiOpenFile.eg);
+	ttuneAddParameter(EvalTTuneParamRookOn7thMG, "RookOn7thMG", ttMin, ttMax, evalRookOn7th.mg);
+	ttuneAddParameter(EvalTTuneParamRookOn7thEG, "RookOn7thEG", ttMin, ttMax, evalRookOn7th.eg);
+	ttuneAddParameter(EvalTTuneParamRookTrappedMG, "RookTrappedMG", ttMin, ttMax, evalRookTrapped.mg);
+	ttuneAddParameter(EvalTTuneParamRookTrappedEG, "RookTrappedEG", ttMin, ttMax, evalRookTrapped.eg);
 	ttuneAddParameter(EvalTTuneParamKingShieldCloseMG, "KingShieldCloseMG", ttMin, ttMax, evalKingShieldClose.mg);
 	ttuneAddParameter(EvalTTuneParamKingShieldCloseEG, "KingShieldCloseEG", ttMin, ttMax, evalKingShieldClose.eg);
 	ttuneAddParameter(EvalTTuneParamKingShieldFarMG, "KingShieldFarMG", ttMin, ttMax, evalKingShieldFar.mg);
@@ -703,6 +711,24 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamRookSemiOpenFileMG]=factorMG*rookSemiOpenFileCount;
 	coefficients[EvalTTuneParamRookSemiOpenFileEG]=factorEG*rookSemiOpenFileCount;
 
+	int rookOn7thCount=0;
+	if ((bp&Rank7)!=0 || sqRank(posGetKingSq(pos, ColourBlack))==Rank8)
+		rookOn7thCount+=bbPopCount(wr&Rank7);
+	if ((wp&Rank2)!=0 || sqRank(posGetKingSq(pos, ColourWhite))==Rank1)
+		rookOn7thCount-=bbPopCount(br&Rank2);
+	coefficients[EvalTTuneParamRookOn7thMG]=factorMG*rookOn7thCount;
+	coefficients[EvalTTuneParamRookOn7thEG]=factorEG*rookOn7thCount;
+
+	int rookTrappedCount=0;
+	if (((wr & (bbSq(SqG1) | bbSq(SqH1))) && (wk & (bbSq(SqF1) | bbSq(SqG1)))) ||
+	    ((wr & (bbSq(SqA1) | bbSq(SqB1))) && (wk & (bbSq(SqB1) | bbSq(SqC1)))))
+		++rookTrappedCount;
+	if (((br & (bbSq(SqG8) | bbSq(SqH8))) && (bk & (bbSq(SqF8) | bbSq(SqG8)))) ||
+	    ((br & (bbSq(SqA8) | bbSq(SqB8))) && (bk & (bbSq(SqB8) | bbSq(SqC8)))))
+		--rookTrappedCount;
+	coefficients[EvalTTuneParamRookTrappedMG]=factorMG*rookTrappedCount;
+	coefficients[EvalTTuneParamRookTrappedEG]=factorEG*rookTrappedCount;
+
 	BB wKingSpan=bbForwardOne((bbWestOne(wk) | wk | bbEastOne(wk)), ColourWhite);
 	BB bKingSpan=bbForwardOne((bbWestOne(bk) | bk | bbEastOne(bk)), ColourBlack);
 	BB wKingShieldClose=(wp & wKingSpan);
@@ -778,6 +804,8 @@ void evaluateOutputCode(const char *path, const float *weights) {
 	fprintf(file, "TUNECONST VPair evalRookPawnAffinity={%.0f,%.0f};\n", weights[EvalTTuneParamRookPawnAffinityMG], weights[EvalTTuneParamRookPawnAffinityEG]);
 	fprintf(file, "TUNECONST VPair evalRookOpenFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookOpenFileMG], weights[EvalTTuneParamRookOpenFileEG]);
 	fprintf(file, "TUNECONST VPair evalRookSemiOpenFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookSemiOpenFileMG], weights[EvalTTuneParamRookSemiOpenFileEG]);
+	fprintf(file, "TUNECONST VPair evalRookOn7th={%.0f,%.0f};\n", weights[EvalTTuneParamRookOn7thMG], weights[EvalTTuneParamRookOn7thEG]);
+	fprintf(file, "TUNECONST VPair evalRookTrapped={%.0f,%.0f};\n", weights[EvalTTuneParamRookTrappedMG], weights[EvalTTuneParamRookTrappedEG]);
 	fprintf(file, "TUNECONST VPair evalKingShieldClose={%.0f,%.0f};\n", weights[EvalTTuneParamKingShieldCloseMG], weights[EvalTTuneParamKingShieldCloseEG]);
 	fprintf(file, "TUNECONST VPair evalKingShieldFar={%.0f,%.0f};\n", weights[EvalTTuneParamKingShieldFarMG], weights[EvalTTuneParamKingShieldFarEG]);
 	fprintf(file, "TUNECONST VPair evalKingCastlingMobility={%.0f,%.0f};\n", weights[EvalTTuneParamKingCastlingMobilityMG], weights[EvalTTuneParamKingCastlingMobilityEG]);

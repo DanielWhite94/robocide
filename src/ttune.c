@@ -150,7 +150,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 
 		// Terminal output
 		TimeMs deltaTime=timeGet()-startTime;
-		printf("Iteration %u complete (E=%f, took %llu.%03llus):\n", currentIteration, currentE, deltaTime/1000, deltaTime%1000);
+		printf("Iteration %u complete (E=%f, took %llu.%03llus)\n", currentIteration, currentE, deltaTime/1000, deltaTime%1000);
 
 		// Code output
 		evaluateOutputCode(codeOutputFile, weights);

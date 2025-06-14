@@ -322,12 +322,20 @@ double ttuneComputeE(const TTunePositions *positions, const int *weights) {
 }
 
 double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights) {
-	// Simply loop over both arrays multiplying pairs and summing them
-	double total=0.0;
-	for(unsigned i=0; i<ttuneParametersCount; ++i)
-		total+=coefficients[i]*((double)weights[i]);
+	// Loop over both arrays multiplying pairs and summing them
+	// Split over four accumulators for speed
+	double total0=0.0, total1=0.0, total2=0.0, total3=0.0;
+	unsigned i;
+	for(i=0; i+3<ttuneParametersCount; i+=4) {
+		total0+=coefficients[i+0]*((double)weights[i+0]);
+		total1+=coefficients[i+1]*((double)weights[i+1]);
+		total2+=coefficients[i+2]*((double)weights[i+2]);
+		total3+=coefficients[i+3]*((double)weights[i+3]);
+	}
+	for(; i<ttuneParametersCount; ++i)
+		total0+=coefficients[i]*((double)weights[i]);
 
-	return total;
+	return (total0+total1)+(total2+total3);
 }
 
 double ttuneComputeSigmoid(double s) {

@@ -40,6 +40,16 @@ TUNECONST VPair evalOutpostSq={40,20};
 TUNECONST VPair evalOutpostKnight={132,100};
 TUNECONST VPair evalTempoDefault={35,0};
 
+TUNECONST VPair evalKingNearPasser[8]={ // indexed by distance in interval [1, 7]
+	{0,0}, // unused
+	{8,198},
+	{4,136},
+	{2,86},
+	{0,48},
+	{-1,20},
+	{-2,3},
+	{-2,-2},
+};
 VPair evalPST[PieceNB][SqNB]={
 	[PieceTypePawn]={
 		{   0,   0},{   0,   0},{    0,   0},{    0,   0},{    0,   0},{    0,   0},{    0,   0},{    0,   0},

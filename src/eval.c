@@ -104,6 +104,20 @@ typedef enum {
 	EvalTTuneParamKingShieldCloseEG,
 	EvalTTuneParamKingShieldFarMG,
 	EvalTTuneParamKingShieldFarEG,
+	EvalTTuneParamKingNearPasser1MG,
+	EvalTTuneParamKingNearPasser1EG,
+	EvalTTuneParamKingNearPasser2MG,
+	EvalTTuneParamKingNearPasser2EG,
+	EvalTTuneParamKingNearPasser3MG,
+	EvalTTuneParamKingNearPasser3EG,
+	EvalTTuneParamKingNearPasser4MG,
+	EvalTTuneParamKingNearPasser4EG,
+	EvalTTuneParamKingNearPasser5MG,
+	EvalTTuneParamKingNearPasser5EG,
+	EvalTTuneParamKingNearPasser6MG,
+	EvalTTuneParamKingNearPasser6EG,
+	EvalTTuneParamKingNearPasser7MG,
+	EvalTTuneParamKingNearPasser7EG,
 	EvalTTuneParamKingCastlingMobilityMG,
 	EvalTTuneParamKingCastlingMobilityEG,
 	EvalTTuneParamOutpostSqMG,
@@ -158,8 +172,6 @@ TUNECONST Value evalWeightFactor=151;
 
 int evalHalfMoveFactors[128];
 uint8_t evalWeightEGFactors[128];
-
-VPair evalKingNearPasser[8];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.
@@ -252,7 +264,6 @@ void evalInit(void) {
 	evalOptionNewVPair("RookTrapped", &evalRookTrapped, -3000, 0);
 	evalOptionNewVPair("KingShieldClose", &evalKingShieldClose, 0, 500);
 	evalOptionNewVPair("KingShieldFar", &evalKingShieldFar, 0, 300);
-	evalOptionNewVPair("KingNearPasser", &evalKingNearPasserFactor, 0, 500);
 	evalOptionNewVPair("KingCastlingMobility", &evalKingCastlingMobility, 0, 200);
 	evalOptionNewVPair("OutpostSq", &evalOutpostSq, 0, 500);
 	evalOptionNewVPair("OutpostKnight", &evalOutpostKnight, 0, 1000);
@@ -360,6 +371,20 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamKingShieldCloseEG, "KingShieldCloseEG", ttMin, ttMax, evalKingShieldClose.eg);
 	ttuneAddParameter(EvalTTuneParamKingShieldFarMG, "KingShieldFarMG", ttMin, ttMax, evalKingShieldFar.mg);
 	ttuneAddParameter(EvalTTuneParamKingShieldFarEG, "KingShieldFarEG", ttMin, ttMax, evalKingShieldFar.eg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser1MG, "KingNearPasser1MG", ttMin, ttMax, evalKingNearPasser[1].mg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser1EG, "KingNearPasser1EG", ttMin, ttMax, evalKingNearPasser[1].eg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser2MG, "KingNearPasser2MG", ttMin, ttMax, evalKingNearPasser[2].mg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser2EG, "KingNearPasser2EG", ttMin, ttMax, evalKingNearPasser[2].eg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser3MG, "KingNearPasser3MG", ttMin, ttMax, evalKingNearPasser[3].mg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser3EG, "KingNearPasser3EG", ttMin, ttMax, evalKingNearPasser[3].eg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser4MG, "KingNearPasser4MG", ttMin, ttMax, evalKingNearPasser[4].mg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser4EG, "KingNearPasser4EG", ttMin, ttMax, evalKingNearPasser[4].eg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser5MG, "KingNearPasser5MG", ttMin, ttMax, evalKingNearPasser[5].mg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser5EG, "KingNearPasser5EG", ttMin, ttMax, evalKingNearPasser[5].eg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser6MG, "KingNearPasser6MG", ttMin, ttMax, evalKingNearPasser[6].mg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser6EG, "KingNearPasser6EG", ttMin, ttMax, evalKingNearPasser[6].eg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser7MG, "KingNearPasser7MG", ttMin, ttMax, evalKingNearPasser[7].mg);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser7EG, "KingNearPasser7EG", ttMin, ttMax, evalKingNearPasser[7].eg);
 	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityMG, "KingCastlingMobilityMG", ttMin, ttMax, evalKingCastlingMobility.mg);
 	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityEG, "KingCastlingMobilityEG", ttMin, ttMax, evalKingCastlingMobility.eg);
 	ttuneAddParameter(EvalTTuneParamOutpostSqMG, "OutpostSqMG", ttMin, ttMax, evalOutpostSq.mg);
@@ -742,6 +767,36 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamKingShieldFarMG]=factorMG*kingShieldFarCount;
 	coefficients[EvalTTuneParamKingShieldFarEG]=factorEG*kingShieldFarCount;
 
+	int kingNearPasserCount[8]={0,0,0,0,0,0,0,0};
+	pieceSet=passed[ColourBlack];
+	while(pieceSet) {
+		Sq passerSq=bbScanReset(&pieceSet);
+		unsigned distance=sqDist(posGetKingSq(pos, ColourWhite), passerSq);
+		assert(distance>=1 && distance<=7);
+		++kingNearPasserCount[distance];
+	}
+	pieceSet=passed[ColourWhite];
+	while(pieceSet) {
+		Sq passerSq=bbScanReset(&pieceSet);
+		unsigned distance=sqDist(posGetKingSq(pos, ColourBlack), passerSq);
+		assert(distance>=1 && distance<=7);
+		--kingNearPasserCount[distance];
+	}
+	coefficients[EvalTTuneParamKingNearPasser1MG]=factorMG*kingNearPasserCount[1];
+	coefficients[EvalTTuneParamKingNearPasser1EG]=factorEG*kingNearPasserCount[1];
+	coefficients[EvalTTuneParamKingNearPasser2MG]=factorMG*kingNearPasserCount[2];
+	coefficients[EvalTTuneParamKingNearPasser2EG]=factorEG*kingNearPasserCount[2];
+	coefficients[EvalTTuneParamKingNearPasser3MG]=factorMG*kingNearPasserCount[3];
+	coefficients[EvalTTuneParamKingNearPasser3EG]=factorEG*kingNearPasserCount[3];
+	coefficients[EvalTTuneParamKingNearPasser4MG]=factorMG*kingNearPasserCount[4];
+	coefficients[EvalTTuneParamKingNearPasser4EG]=factorEG*kingNearPasserCount[4];
+	coefficients[EvalTTuneParamKingNearPasser5MG]=factorMG*kingNearPasserCount[5];
+	coefficients[EvalTTuneParamKingNearPasser5EG]=factorEG*kingNearPasserCount[5];
+	coefficients[EvalTTuneParamKingNearPasser6MG]=factorMG*kingNearPasserCount[6];
+	coefficients[EvalTTuneParamKingNearPasser6EG]=factorEG*kingNearPasserCount[6];
+	coefficients[EvalTTuneParamKingNearPasser7MG]=factorMG*kingNearPasserCount[7];
+	coefficients[EvalTTuneParamKingNearPasser7EG]=factorEG*kingNearPasserCount[7];
+
 	CastRights castRights=posGetCastRights(pos);
 	int kingCastlingMobilityCount=(((int)(castRights.rookSq[ColourWhite][CastSideA]!=SqInvalid))+((int)(castRights.rookSq[ColourWhite][CastSideH]!=SqInvalid)))-
 	                              (((int)(castRights.rookSq[ColourBlack][CastSideA]!=SqInvalid))-((int)(castRights.rookSq[ColourBlack][CastSideH]!=SqInvalid)));
@@ -808,6 +863,16 @@ void evaluateOutputCode(const char *path, const float *weights) {
 	fprintf(file, "TUNECONST VPair evalRookTrapped={%.0f,%.0f};\n", weights[EvalTTuneParamRookTrappedMG], weights[EvalTTuneParamRookTrappedEG]);
 	fprintf(file, "TUNECONST VPair evalKingShieldClose={%.0f,%.0f};\n", weights[EvalTTuneParamKingShieldCloseMG], weights[EvalTTuneParamKingShieldCloseEG]);
 	fprintf(file, "TUNECONST VPair evalKingShieldFar={%.0f,%.0f};\n", weights[EvalTTuneParamKingShieldFarMG], weights[EvalTTuneParamKingShieldFarEG]);
+	fprintf(file, "TUNECONST VPair evalKingNearPasser[8]={ // indexed by distance in interval [1, 7]\n");
+	fprintf(file, "	{%.0f,%.0f}, // unused\n", 0.0, 0.0);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser1MG], weights[EvalTTuneParamKingNearPasser1EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser2MG], weights[EvalTTuneParamKingNearPasser2EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser3MG], weights[EvalTTuneParamKingNearPasser3EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser4MG], weights[EvalTTuneParamKingNearPasser4EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser5MG], weights[EvalTTuneParamKingNearPasser5EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser6MG], weights[EvalTTuneParamKingNearPasser6EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser7MG], weights[EvalTTuneParamKingNearPasser7EG]);
+	fprintf(file, "};\n");
 	fprintf(file, "TUNECONST VPair evalKingCastlingMobility={%.0f,%.0f};\n", weights[EvalTTuneParamKingCastlingMobilityMG], weights[EvalTTuneParamKingCastlingMobilityEG]);
 	fprintf(file, "TUNECONST VPair evalOutpostSq={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostSqMG], weights[EvalTTuneParamOutpostSqEG]);
 	fprintf(file, "TUNECONST VPair evalOutpostKnight={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostKnightMG], weights[EvalTTuneParamOutpostKnightEG]);
@@ -1790,19 +1855,6 @@ void evalRecalc(void) {
 			evalPST[blackPiece][blackSq]=evalPST[whitePiece][sqFlip(blackSq)];
 			evalVPairNegate(&evalPST[blackPiece][blackSq]);
 		}
-	}
-
-	// King near passer table
-	int dist;
-	for(dist=1; dist<=7; ++dist) {
-		double normDist=(7-dist)/6.0;
-		assert(normDist>=0.0 && normDist<=1.0);
-		double normDist2=pow(normDist, 2.0);
-
-		double scoreMg=normDist2*evalKingNearPasserFactor.mg;
-		double scoreEg=normDist2*evalKingNearPasserFactor.eg;
-		evalKingNearPasser[dist].mg=floor(scoreMg);
-		evalKingNearPasser[dist].eg=floor(scoreEg);
 	}
 
 	// Calculate factor for number of half moves since capture/pawn move.

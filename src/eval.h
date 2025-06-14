@@ -32,7 +32,7 @@ Score evaluate(const Pos *pos); // Returns score in CP.
 
 // Texel Tuning functions
 void evaluateCoefficients(const Pos *pos, float *coefficients);
-void evaluateOutputCode(const char *path, const int *weights);
+void evaluateOutputCode(const char *path, const float *weights);
 
 void evalClear(void); // Clear all saved data (called when we receive 'ucinewgame', for example).
 

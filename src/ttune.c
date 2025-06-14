@@ -40,8 +40,8 @@ void ttunePositionsAdd(TTunePositions *positions, const TTuneCoefficient *coeffi
 const TTuneCoefficient *ttunePositionsGetCoefficients(const TTunePositions *positions, unsigned n);
 double ttunePositionsGetResult(const TTunePositions *positions, unsigned n);
 
-double ttuneComputeE(const TTunePositions *positions, const int *weights);
-double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights); // white-relative score
+double ttuneComputeE(const TTunePositions *positions, const float *weights);
+double ttuneComputeQ(const TTuneCoefficient *coefficients, const float *weights); // white-relative score
 double ttuneComputeSigmoid(double s);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -101,7 +101,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	// Allocate weights array and initially set to current engine values
 	printf("Preparing to run iteration loop with %u parameters\n", ttuneParametersCount);
 
-	int *weights=malloc(sizeof(int)*ttuneParametersCount);
+	float *weights=malloc(sizeof(float)*ttuneParametersCount);
 	for(unsigned i=0; i<ttuneParametersCount; ++i)
 		weights[i]=ttuneParameters[i].initialValue;
 
@@ -291,7 +291,7 @@ double ttunePositionsGetResult(const TTunePositions *positions, unsigned n) {
 	return positions->results[n];
 }
 
-double ttuneComputeE(const TTunePositions *positions, const int *weights) {
+double ttuneComputeE(const TTunePositions *positions, const float *weights) {
 	assert(positions!=NULL);
 
 	// Loop over all positions
@@ -321,7 +321,7 @@ double ttuneComputeE(const TTunePositions *positions, const int *weights) {
 	return (total+correction)/((double)positions->count);
 }
 
-double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights) {
+double ttuneComputeQ(const TTuneCoefficient *coefficients, const float *weights) {
 	// Loop over both arrays multiplying pairs and summing them
 	// Split over four accumulators for speed
 	double total0=0.0, total1=0.0, total2=0.0, total3=0.0;
@@ -333,7 +333,7 @@ double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights) {
 		total3+=coefficients[i+3]*((float)weights[i+3]);
 	}
 	for(; i<ttuneParametersCount; ++i)
-		total0+=coefficients[i]*((double)weights[i]);
+		total0+=coefficients[i]*((float)weights[i]);
 
 	return (total0+total1)+(total2+total3);
 }

@@ -729,7 +729,7 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamTempoDefaultEG]=factorEG*tempoCount;
 }
 
-void evaluateOutputCode(const char *path, const int *weights) {
+void evaluateOutputCode(const char *path, const float *weights) {
 	// Open file
 	FILE *file=fopen(path, "w");
 	if (file==NULL)
@@ -738,45 +738,45 @@ void evaluateOutputCode(const char *path, const int *weights) {
 	// Generate code for all weights (parameters)
 	fprintf(file, "TUNECONST VPair evalMaterial[PieceTypeNB]={\n");
 	fprintf(file, "	[PieceTypeNone]={0,0},\n");
-	fprintf(file, "	[PieceTypePawn]={%i,%i},\n", weights[EvalTTuneParamPawnMG], weights[EvalTTuneParamPawnEG]);
-	fprintf(file, "	[PieceTypeKnight]={%i,%i},\n", weights[EvalTTuneParamKnightMG], weights[EvalTTuneParamKnightEG]);
-	fprintf(file, "	[PieceTypeBishopL]={%i,%i},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
-	fprintf(file, "	[PieceTypeBishopD]={%i,%i},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
-	fprintf(file, "	[PieceTypeRook]={%i,%i},\n", weights[EvalTTuneParamRookMG], weights[EvalTTuneParamRookEG]);
-	fprintf(file, "	[PieceTypeQueen]={%i,%i},\n", weights[EvalTTuneParamQueenMG], weights[EvalTTuneParamQueenEG]);
+	fprintf(file, "	[PieceTypePawn]={%.0f,%.0f},\n", weights[EvalTTuneParamPawnMG], weights[EvalTTuneParamPawnEG]);
+	fprintf(file, "	[PieceTypeKnight]={%.0f,%.0f},\n", weights[EvalTTuneParamKnightMG], weights[EvalTTuneParamKnightEG]);
+	fprintf(file, "	[PieceTypeBishopL]={%.0f,%.0f},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
+	fprintf(file, "	[PieceTypeBishopD]={%.0f,%.0f},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
+	fprintf(file, "	[PieceTypeRook]={%.0f,%.0f},\n", weights[EvalTTuneParamRookMG], weights[EvalTTuneParamRookEG]);
+	fprintf(file, "	[PieceTypeQueen]={%.0f,%.0f},\n", weights[EvalTTuneParamQueenMG], weights[EvalTTuneParamQueenEG]);
 	fprintf(file, "	[PieceTypeKing]={0,0},\n");
 	fprintf(file, "};\n");
 
-	fprintf(file, "TUNECONST VPair evalPawnDoubled={%i,%i};\n", weights[EvalTTuneParamPawnDoubledMG], weights[EvalTTuneParamPawnDoubledEG]);
-	fprintf(file, "TUNECONST VPair evalPawnIsolated={%i,%i};\n", weights[EvalTTuneParamPawnIsolatedMG], weights[EvalTTuneParamPawnIsolatedEG]);
-	fprintf(file, "TUNECONST VPair evalPawnBlocked={%i,%i};\n", weights[EvalTTuneParamPawnBlockedMG], weights[EvalTTuneParamPawnBlockedEG]);
+	fprintf(file, "TUNECONST VPair evalPawnDoubled={%.0f,%.0f};\n", weights[EvalTTuneParamPawnDoubledMG], weights[EvalTTuneParamPawnDoubledEG]);
+	fprintf(file, "TUNECONST VPair evalPawnIsolated={%.0f,%.0f};\n", weights[EvalTTuneParamPawnIsolatedMG], weights[EvalTTuneParamPawnIsolatedEG]);
+	fprintf(file, "TUNECONST VPair evalPawnBlocked={%.0f,%.0f};\n", weights[EvalTTuneParamPawnBlockedMG], weights[EvalTTuneParamPawnBlockedEG]);
 	fprintf(file, "TUNECONST VPair evalPawnPassed[RankNB]={\n");
-	fprintf(file, "	{%i,%i},\n", 0, 0);
-	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR2MG], weights[EvalTTuneParamPawnPassedR2EG]);
-	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR3MG], weights[EvalTTuneParamPawnPassedR3EG]);
-	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR4MG], weights[EvalTTuneParamPawnPassedR4EG]);
-	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR5MG], weights[EvalTTuneParamPawnPassedR5EG]);
-	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR6MG], weights[EvalTTuneParamPawnPassedR6EG]);
-	fprintf(file, "	{%i,%i},\n", weights[EvalTTuneParamPawnPassedR7MG], weights[EvalTTuneParamPawnPassedR7EG]);
-	fprintf(file, "	{%i,%i},\n", 0, 0);
+	fprintf(file, "	{%.0f,%.0f},\n", 0.0, 0.0);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR2MG], weights[EvalTTuneParamPawnPassedR2EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR3MG], weights[EvalTTuneParamPawnPassedR3EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR4MG], weights[EvalTTuneParamPawnPassedR4EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR5MG], weights[EvalTTuneParamPawnPassedR5EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR6MG], weights[EvalTTuneParamPawnPassedR6EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR7MG], weights[EvalTTuneParamPawnPassedR7EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", 0.0, 0.0);
 	fprintf(file, "};\n");
 
-	fprintf(file, "TUNECONST VPair evalKnightMob={%i,%i};\n", weights[EvalTTuneParamKnightMobMG], weights[EvalTTuneParamKnightMobEG]);
-	fprintf(file, "TUNECONST VPair evalBishopPair={%i,%i};\n", weights[EvalTTuneParamBishopPairMG], weights[EvalTTuneParamBishopPairEG]);
-	fprintf(file, "TUNECONST VPair evalBishopMob={%i,%i};\n", weights[EvalTTuneParamBishopMobMG], weights[EvalTTuneParamBishopMobEG]);
-	fprintf(file, "TUNECONST VPair evalRookMobFile={%i,%i};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileEG]);
-	fprintf(file, "TUNECONST VPair evalRookMobRank={%i,%i};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankEG]);
+	fprintf(file, "TUNECONST VPair evalKnightMob={%.0f,%.0f};\n", weights[EvalTTuneParamKnightMobMG], weights[EvalTTuneParamKnightMobEG]);
+	fprintf(file, "TUNECONST VPair evalBishopPair={%.0f,%.0f};\n", weights[EvalTTuneParamBishopPairMG], weights[EvalTTuneParamBishopPairEG]);
+	fprintf(file, "TUNECONST VPair evalBishopMob={%.0f,%.0f};\n", weights[EvalTTuneParamBishopMobMG], weights[EvalTTuneParamBishopMobEG]);
+	fprintf(file, "TUNECONST VPair evalRookMobFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileEG]);
+	fprintf(file, "TUNECONST VPair evalRookMobRank={%.0f,%.0f};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankEG]);
 
-	fprintf(file, "TUNECONST VPair evalKnightPawnAffinity={%i,%i};\n", weights[EvalTTuneParamKnightPawnAffinityMG], weights[EvalTTuneParamKnightPawnAffinityEG]);
-	fprintf(file, "TUNECONST VPair evalRookPawnAffinity={%i,%i};\n", weights[EvalTTuneParamRookPawnAffinityMG], weights[EvalTTuneParamRookPawnAffinityEG]);
-	fprintf(file, "TUNECONST VPair evalRookOpenFile={%i,%i};\n", weights[EvalTTuneParamRookOpenFileMG], weights[EvalTTuneParamRookOpenFileEG]);
-	fprintf(file, "TUNECONST VPair evalRookSemiOpenFile={%i,%i};\n", weights[EvalTTuneParamRookSemiOpenFileMG], weights[EvalTTuneParamRookSemiOpenFileEG]);
-	fprintf(file, "TUNECONST VPair evalKingShieldClose={%i,%i};\n", weights[EvalTTuneParamKingShieldCloseMG], weights[EvalTTuneParamKingShieldCloseEG]);
-	fprintf(file, "TUNECONST VPair evalKingShieldFar={%i,%i};\n", weights[EvalTTuneParamKingShieldFarMG], weights[EvalTTuneParamKingShieldFarEG]);
-	fprintf(file, "TUNECONST VPair evalKingCastlingMobility={%i,%i};\n", weights[EvalTTuneParamKingCastlingMobilityMG], weights[EvalTTuneParamKingCastlingMobilityEG]);
-	fprintf(file, "TUNECONST VPair evalOutpostSq={%i,%i};\n", weights[EvalTTuneParamOutpostSqMG], weights[EvalTTuneParamOutpostSqEG]);
-	fprintf(file, "TUNECONST VPair evalOutpostKnight={%i,%i};\n", weights[EvalTTuneParamOutpostKnightMG], weights[EvalTTuneParamOutpostKnightEG]);
-	fprintf(file, "TUNECONST VPair evalTempoDefault={%i,%i};\n", weights[EvalTTuneParamTempoDefaultMG], weights[EvalTTuneParamTempoDefaultEG]);
+	fprintf(file, "TUNECONST VPair evalKnightPawnAffinity={%.0f,%.0f};\n", weights[EvalTTuneParamKnightPawnAffinityMG], weights[EvalTTuneParamKnightPawnAffinityEG]);
+	fprintf(file, "TUNECONST VPair evalRookPawnAffinity={%.0f,%.0f};\n", weights[EvalTTuneParamRookPawnAffinityMG], weights[EvalTTuneParamRookPawnAffinityEG]);
+	fprintf(file, "TUNECONST VPair evalRookOpenFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookOpenFileMG], weights[EvalTTuneParamRookOpenFileEG]);
+	fprintf(file, "TUNECONST VPair evalRookSemiOpenFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookSemiOpenFileMG], weights[EvalTTuneParamRookSemiOpenFileEG]);
+	fprintf(file, "TUNECONST VPair evalKingShieldClose={%.0f,%.0f};\n", weights[EvalTTuneParamKingShieldCloseMG], weights[EvalTTuneParamKingShieldCloseEG]);
+	fprintf(file, "TUNECONST VPair evalKingShieldFar={%.0f,%.0f};\n", weights[EvalTTuneParamKingShieldFarMG], weights[EvalTTuneParamKingShieldFarEG]);
+	fprintf(file, "TUNECONST VPair evalKingCastlingMobility={%.0f,%.0f};\n", weights[EvalTTuneParamKingCastlingMobilityMG], weights[EvalTTuneParamKingCastlingMobilityEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostSq={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostSqMG], weights[EvalTTuneParamOutpostSqEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostKnight={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostKnightMG], weights[EvalTTuneParamOutpostKnightEG]);
+	fprintf(file, "TUNECONST VPair evalTempoDefault={%.0f,%.0f};\n", weights[EvalTTuneParamTempoDefaultMG], weights[EvalTTuneParamTempoDefaultEG]);
 
 	// PSTs
 	fprintf(file, "VPair evalPST[PieceNB][SqNB]={\n");
@@ -786,10 +786,10 @@ void evaluateOutputCode(const char *path, const int *weights) {
 		fprintf(file, "		");
 		for(unsigned x=0; x<8; ++x) {
 			if (y==0 || y==7)
-				fprintf(file, "{%5i,%5i},", 0, 0);
+				fprintf(file, "{%5.0f,%5.0f},", 0.0, 0.0);
 			else {
 				unsigned index=evalTTunePawnPstSqToIndex(sqMake(x,y));
-				fprintf(file, "{%5i,%5i},", weights[EvalTTuneParamPstPawnMGBase+index], weights[EvalTTuneParamPstPawnEGBase+index]);
+				fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstPawnMGBase+index], weights[EvalTTuneParamPstPawnEGBase+index]);
 			}
 		}
 		fprintf(file, "\n");
@@ -801,7 +801,7 @@ void evaluateOutputCode(const char *path, const int *weights) {
 		fprintf(file, "		");
 		for(unsigned x=0; x<8; ++x) {
 			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5i,%5i},", weights[EvalTTuneParamPstKnightMGBase+index], weights[EvalTTuneParamPstKnightEGBase+index]);
+			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstKnightMGBase+index], weights[EvalTTuneParamPstKnightEGBase+index]);
 		}
 		fprintf(file, "\n");
 	}
@@ -812,7 +812,7 @@ void evaluateOutputCode(const char *path, const int *weights) {
 		fprintf(file, "		");
 		for(unsigned x=0; x<8; ++x) {
 			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5i,%5i},", weights[EvalTTuneParamPstBishopMGBase+index], weights[EvalTTuneParamPstBishopEGBase+index]);
+			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstBishopMGBase+index], weights[EvalTTuneParamPstBishopEGBase+index]);
 		}
 		fprintf(file, "\n");
 	}
@@ -823,7 +823,7 @@ void evaluateOutputCode(const char *path, const int *weights) {
 		fprintf(file, "		");
 		for(unsigned x=0; x<8; ++x) {
 			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5i,%5i},", weights[EvalTTuneParamPstRookMGBase+index], weights[EvalTTuneParamPstRookEGBase+index]);
+			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstRookMGBase+index], weights[EvalTTuneParamPstRookEGBase+index]);
 		}
 		fprintf(file, "\n");
 	}
@@ -834,7 +834,7 @@ void evaluateOutputCode(const char *path, const int *weights) {
 		fprintf(file, "		");
 		for(unsigned x=0; x<8; ++x) {
 			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5i,%5i},", weights[EvalTTuneParamPstQueenMGBase+index], weights[EvalTTuneParamPstQueenEGBase+index]);
+			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstQueenMGBase+index], weights[EvalTTuneParamPstQueenEGBase+index]);
 		}
 		fprintf(file, "\n");
 	}
@@ -845,7 +845,7 @@ void evaluateOutputCode(const char *path, const int *weights) {
 		fprintf(file, "		");
 		for(unsigned x=0; x<8; ++x) {
 			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5i,%5i},", weights[EvalTTuneParamPstKingMGBase+index], weights[EvalTTuneParamPstKingEGBase+index]);
+			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstKingMGBase+index], weights[EvalTTuneParamPstKingEGBase+index]);
 		}
 		fprintf(file, "\n");
 	}

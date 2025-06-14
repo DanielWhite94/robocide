@@ -110,9 +110,9 @@ typedef enum {
 	EvalTTuneParamTempoDefaultEG,
 	// PSTS use two sets (MG/EG) of 32 parameters from A1 to D8 (first four squares of each rank, sq is mirrored if not on left side)
 	EvalTTuneParamPstPawnMGBase,
-	EvalTTuneParamPstPawnMGEnd=EvalTTuneParamPstPawnMGBase+31,
+	EvalTTuneParamPstPawnMGEnd=EvalTTuneParamPstPawnMGBase+23, // don't need ranks 1 & 8 for pawns
 	EvalTTuneParamPstPawnEGBase,
-	EvalTTuneParamPstPawnEGEnd=EvalTTuneParamPstPawnEGBase+31,
+	EvalTTuneParamPstPawnEGEnd=EvalTTuneParamPstPawnEGBase+23, // don't need ranks 1 & 8 for pawns
 	EvalTTuneParamPstKnightMGBase,
 	EvalTTuneParamPstKnightMGEnd=EvalTTuneParamPstKnightMGBase+31,
 	EvalTTuneParamPstKnightEGBase,
@@ -195,6 +195,8 @@ void evalPstDraw(PieceType type);
 
 Sq evalTTunePstIndexToSq(unsigned index);
 unsigned evalTTunePstSqToIndex(Sq sq);
+Sq evalTTunePawnPstIndexToSq(unsigned index);
+unsigned evalTTunePawnPstSqToIndex(Sq sq);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
@@ -276,8 +278,8 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamRookMobRankMG, "RookMobRankMG", ttMin, ttMax, evalRookMobRank.mg);
 	ttuneAddParameter(EvalTTuneParamRookMobRankEG, "RookMobRankEG", ttMin, ttMax, evalRookMobRank.eg);
 	char str[32];
-	for(unsigned i=0; i<32; ++i) {
-		Sq sq=evalTTunePstIndexToSq(i);
+	for(unsigned i=0; i<24; ++i) {
+		Sq sq=evalTTunePawnPstIndexToSq(i);
 		sprintf(str, "PawnPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
 		ttuneAddParameter(EvalTTuneParamPstPawnMGBase+i, str, ttMin, ttMax, evalPST[PieceTypePawn][sq].mg-evalMaterial[PieceTypePawn].mg);
 		sprintf(str, "PawnPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
@@ -516,14 +518,14 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	pieceSet=posGetBBPiece(pos, PieceWPawn);
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
+		unsigned pstIndex=evalTTunePawnPstSqToIndex(sq);
 		coefficients[EvalTTuneParamPstPawnMGBase+pstIndex]+=factorMG;
 		coefficients[EvalTTuneParamPstPawnEGBase+pstIndex]+=factorEG;
 	}
 	pieceSet=posGetBBPiece(pos, PieceBPawn);
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
+		unsigned pstIndex=evalTTunePawnPstSqToIndex(sq);
 		coefficients[EvalTTuneParamPstPawnMGBase+pstIndex]-=factorMG;
 		coefficients[EvalTTuneParamPstPawnEGBase+pstIndex]-=factorEG;
 	}
@@ -783,8 +785,12 @@ void evaluateOutputCode(const char *path, const int *weights) {
 	for(unsigned y=0; y<8; ++y) {
 		fprintf(file, "		");
 		for(unsigned x=0; x<8; ++x) {
-			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5i,%5i},", weights[EvalTTuneParamPstPawnMGBase+index], weights[EvalTTuneParamPstPawnEGBase+index]);
+			if (y==0 || y==7)
+				fprintf(file, "{%5i,%5i},", 0, 0);
+			else {
+				unsigned index=evalTTunePawnPstSqToIndex(sqMake(x,y));
+				fprintf(file, "{%5i,%5i},", weights[EvalTTuneParamPstPawnMGBase+index], weights[EvalTTuneParamPstPawnEGBase+index]);
+			}
 		}
 		fprintf(file, "\n");
 	}
@@ -1902,4 +1908,16 @@ unsigned evalTTunePstSqToIndex(Sq sq) {
 	if (sqFile(sq)>=FileE)
 		sq=sqMirror(sq);
 	return 4*sqRank(sq)+sqFile(sq);
+}
+
+Sq evalTTunePawnPstIndexToSq(unsigned index) {
+	assert(index<24);
+
+	return sqMake(index%4, index/4+1);
+}
+
+unsigned evalTTunePawnPstSqToIndex(Sq sq) {
+	if (sqFile(sq)>=FileE)
+		sq=sqMirror(sq);
+	return 4*(sqRank(sq)-1)+sqFile(sq);
 }

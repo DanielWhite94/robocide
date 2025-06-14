@@ -9,7 +9,7 @@
 #include "time.h"
 #include "ttune.h"
 
-typedef double TTuneCoefficient; // count of a particular feature in the eval of a position (fractional to allow MG/EG phasing)
+typedef float TTuneCoefficient; // count of a particular feature in the eval of a position (fractional to allow MG/EG phasing)
 
 typedef struct {
 	TTuneCoefficient *coefficients; // coefficients for position n begin at n*ttuneParametersCount
@@ -327,10 +327,10 @@ double ttuneComputeQ(const TTuneCoefficient *coefficients, const int *weights) {
 	double total0=0.0, total1=0.0, total2=0.0, total3=0.0;
 	unsigned i;
 	for(i=0; i+3<ttuneParametersCount; i+=4) {
-		total0+=coefficients[i+0]*((double)weights[i+0]);
-		total1+=coefficients[i+1]*((double)weights[i+1]);
-		total2+=coefficients[i+2]*((double)weights[i+2]);
-		total3+=coefficients[i+3]*((double)weights[i+3]);
+		total0+=coefficients[i+0]*((float)weights[i+0]);
+		total1+=coefficients[i+1]*((float)weights[i+1]);
+		total2+=coefficients[i+2]*((float)weights[i+2]);
+		total3+=coefficients[i+3]*((float)weights[i+3]);
 	}
 	for(; i<ttuneParametersCount; ++i)
 		total0+=coefficients[i]*((double)weights[i]);

@@ -387,7 +387,7 @@ Score evaluate(const Pos *pos) {
 	return score;
 }
 
-void evaluateCoefficients(const Pos *pos, double *coefficients) {
+void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	// Precomputed info
 	int wPawnCount=bbPopCount(posGetBBPiece(pos, PieceWPawn));
 	int bPawnCount=bbPopCount(posGetBBPiece(pos, PieceBPawn));
@@ -410,8 +410,8 @@ void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	int weightEG=evalWeightEGFactors[pieceWeight];
 	int weightMG=256-weightEG;
 
-	double factorMG=weightMG/256.0;
-	double factorEG=weightEG/256.0;
+	float factorMG=weightMG/256.0;
+	float factorEG=weightEG/256.0;
 
 	// Piece counts (material)
 	coefficients[EvalTTuneParamPawnMG]=factorMG*(wPawnCount-bPawnCount);
@@ -436,7 +436,7 @@ void evaluateCoefficients(const Pos *pos, double *coefficients) {
 	coefficients[EvalTTuneParamRookMobRankEG]=0.0;
 
 	BB pieceSet;
-	double count;
+	float count;
 
 	BB wp=posGetBBPiece(pos, PieceWPawn);
 	BB bp=posGetBBPiece(pos, PieceBPawn);

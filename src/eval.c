@@ -391,16 +391,30 @@ Score evaluate(const Pos *pos) {
 
 void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	// Precomputed info
-	int wPawnCount=bbPopCount(posGetBBPiece(pos, PieceWPawn));
-	int bPawnCount=bbPopCount(posGetBBPiece(pos, PieceBPawn));
-	int wKnightCount=bbPopCount(posGetBBPiece(pos, PieceWKnight));
-	int bKnightCount=bbPopCount(posGetBBPiece(pos, PieceBKnight));
-	int wBishopCount=bbPopCount(posGetBBPiece(pos, PieceWBishopL) | posGetBBPiece(pos, PieceWBishopD));
-	int bBishopCount=bbPopCount(posGetBBPiece(pos, PieceBBishopL) | posGetBBPiece(pos, PieceBBishopD));
-	int wRookCount=bbPopCount(posGetBBPiece(pos, PieceWRook));
-	int bRookCount=bbPopCount(posGetBBPiece(pos, PieceBRook));
-	int wQueenCount=bbPopCount(posGetBBPiece(pos, PieceWQueen));
-	int bQueenCount=bbPopCount(posGetBBPiece(pos, PieceBQueen));
+	BB wp=posGetBBPiece(pos, PieceWPawn);
+	BB bp=posGetBBPiece(pos, PieceBPawn);
+	BB wn=posGetBBPiece(pos, PieceWKnight);
+	BB bn=posGetBBPiece(pos, PieceBKnight);
+	BB wb=posGetBBPiece(pos, PieceWBishopL) | posGetBBPiece(pos, PieceWBishopD);
+	BB bb=posGetBBPiece(pos, PieceBBishopL) | posGetBBPiece(pos, PieceBBishopD);
+	BB wr=posGetBBPiece(pos, PieceWRook);
+	BB br=posGetBBPiece(pos, PieceBRook);
+	BB wq=posGetBBPiece(pos, PieceWQueen);
+	BB bq=posGetBBPiece(pos, PieceBQueen);
+	BB wk=posGetBBPiece(pos, PieceWKing);
+	BB bk=posGetBBPiece(pos, PieceBKing);
+	BB occ=posGetBBAll(pos);
+
+	int wPawnCount=bbPopCount(wp);
+	int bPawnCount=bbPopCount(bp);
+	int wKnightCount=bbPopCount(wn);
+	int bKnightCount=bbPopCount(bn);
+	int wBishopCount=bbPopCount(wb);
+	int bBishopCount=bbPopCount(bb);
+	int wRookCount=bbPopCount(wr);
+	int bRookCount=bbPopCount(br);
+	int wQueenCount=bbPopCount(wq);
+	int bQueenCount=bbPopCount(bq);
 
 	int minorCount=wKnightCount+wBishopCount+bKnightCount+bBishopCount;
 	int rookCount=wRookCount+bRookCount;
@@ -440,16 +454,14 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	BB pieceSet;
 	float count;
 
-	BB wp=posGetBBPiece(pos, PieceWPawn);
-	BB bp=posGetBBPiece(pos, PieceBPawn);
 	BB wpAttacks=bbForwardOne(bbWingify(wp), ColourWhite);
 	BB bpAttacks=bbForwardOne(bbWingify(bp), ColourBlack);
 
 	BB mobilityAllowed[ColourNB];
-	mobilityAllowed[ColourWhite]=~(wp | posGetBBPiece(pos, PieceWKing) | bpAttacks);
-	mobilityAllowed[ColourBlack]=~(bp | posGetBBPiece(pos, PieceBKing) | wpAttacks);
+	mobilityAllowed[ColourWhite]=~(wp | wk | bpAttacks);
+	mobilityAllowed[ColourBlack]=~(bp | bk | wpAttacks);
 
-	pieceSet=posGetBBPiece(pos, PieceWKnight);
+	pieceSet=wn;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksKnight(sq);
@@ -457,7 +469,7 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamKnightMobMG]+=factorMG*count;
 		coefficients[EvalTTuneParamKnightMobEG]+=factorEG*count;
 	}
-	pieceSet=posGetBBPiece(pos, PieceBKnight);
+	pieceSet=bn;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksKnight(sq);
@@ -467,10 +479,10 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	}
 
 	BB bishopMobOcc[ColourNB];
-	bishopMobOcc[ColourWhite]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceWQueen)));
-	bishopMobOcc[ColourBlack]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD)|posGetBBPiece(pos, PieceBQueen)));
+	bishopMobOcc[ColourWhite]=(occ^(wb|wq));
+	bishopMobOcc[ColourBlack]=(occ^(bb|bq));
 
-	pieceSet=(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD));
+	pieceSet=wb;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksBishop(sq, bishopMobOcc[ColourWhite]);
@@ -478,7 +490,7 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamBishopMobMG]+=factorMG*count;
 		coefficients[EvalTTuneParamBishopMobEG]+=factorEG*count;
 	}
-	pieceSet=(posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD));
+	pieceSet=bb;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksBishop(sq, bishopMobOcc[ColourBlack]);
@@ -488,10 +500,10 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	}
 
 	BB rookMobOcc[ColourNB];
-	rookMobOcc[ColourWhite]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceWRook)|posGetBBPiece(pos, PieceWQueen)));
-	rookMobOcc[ColourBlack]=(posGetBBAll(pos)^(posGetBBPiece(pos, PieceBRook)|posGetBBPiece(pos, PieceBQueen)));
+	rookMobOcc[ColourWhite]=(occ^(wr|wq));
+	rookMobOcc[ColourBlack]=(occ^(br|bq));
 
-	pieceSet=posGetBBPiece(pos, PieceWRook);
+	pieceSet=wr;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksRook(sq, rookMobOcc[ColourWhite]);
@@ -502,7 +514,7 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamRookMobRankMG]+=factorMG*count;
 		coefficients[EvalTTuneParamRookMobRankEG]+=factorEG*count;
 	}
-	pieceSet=posGetBBPiece(pos, PieceBRook);
+	pieceSet=br;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksRook(sq, rookMobOcc[ColourBlack]);
@@ -515,14 +527,14 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	}
 
 	// PSTs
-	pieceSet=posGetBBPiece(pos, PieceWPawn);
+	pieceSet=wp;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePawnPstSqToIndex(sq);
 		coefficients[EvalTTuneParamPstPawnMGBase+pstIndex]+=factorMG;
 		coefficients[EvalTTuneParamPstPawnEGBase+pstIndex]+=factorEG;
 	}
-	pieceSet=posGetBBPiece(pos, PieceBPawn);
+	pieceSet=bp;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePawnPstSqToIndex(sq);
@@ -530,14 +542,14 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamPstPawnEGBase+pstIndex]-=factorEG;
 	}
 
-	pieceSet=posGetBBPiece(pos, PieceWKnight);
+	pieceSet=wn;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
 		coefficients[EvalTTuneParamPstKnightMGBase+pstIndex]+=factorMG;
 		coefficients[EvalTTuneParamPstKnightEGBase+pstIndex]+=factorEG;
 	}
-	pieceSet=posGetBBPiece(pos, PieceBKnight);
+	pieceSet=bn;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
@@ -545,14 +557,14 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamPstKnightEGBase+pstIndex]-=factorEG;
 	}
 
-	pieceSet=(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD));
+	pieceSet=wb;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
 		coefficients[EvalTTuneParamPstBishopMGBase+pstIndex]+=factorMG;
 		coefficients[EvalTTuneParamPstBishopEGBase+pstIndex]+=factorEG;
 	}
-	pieceSet=(posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD));
+	pieceSet=bb;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
@@ -560,14 +572,14 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamPstBishopEGBase+pstIndex]-=factorEG;
 	}
 
-	pieceSet=posGetBBPiece(pos, PieceWRook);
+	pieceSet=wr;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
 		coefficients[EvalTTuneParamPstRookMGBase+pstIndex]+=factorMG;
 		coefficients[EvalTTuneParamPstRookEGBase+pstIndex]+=factorEG;
 	}
-	pieceSet=posGetBBPiece(pos, PieceBRook);
+	pieceSet=br;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
@@ -575,14 +587,14 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamPstRookEGBase+pstIndex]-=factorEG;
 	}
 
-	pieceSet=posGetBBPiece(pos, PieceWQueen);
+	pieceSet=wq;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
 		coefficients[EvalTTuneParamPstQueenMGBase+pstIndex]+=factorMG;
 		coefficients[EvalTTuneParamPstQueenEGBase+pstIndex]+=factorEG;
 	}
-	pieceSet=posGetBBPiece(pos, PieceBQueen);
+	pieceSet=bq;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
@@ -590,14 +602,14 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamPstQueenEGBase+pstIndex]-=factorEG;
 	}
 
-	pieceSet=posGetBBPiece(pos, PieceWKing);
+	pieceSet=wk;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
 		coefficients[EvalTTuneParamPstKingMGBase+pstIndex]+=factorMG;
 		coefficients[EvalTTuneParamPstKingEGBase+pstIndex]+=factorEG;
 	}
-	pieceSet=posGetBBPiece(pos, PieceBKing);
+	pieceSet=bk;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		unsigned pstIndex=evalTTunePstSqToIndex(sq);
@@ -606,33 +618,30 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	}
 
 	// Pawns
-	BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], pawnAttacks[ColourNB];
+	BB frontSpan[ColourNB], rearSpan[ColourNB], pawnAttacks[ColourNB];
 	BB doubled[ColourNB], isolated[ColourNB];
 	BB influence[ColourNB], fill[ColourNB];
 	BB blocked[ColourNB], passed[ColourNB];
 	BB semiOpenFiles[ColourNB], outposts[ColourNB];
-	BB occ=posGetBBAll(pos);
-	pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn); // All pawns of given colour
-	pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
-	fill[ColourWhite]=bbFileFill(pawns[ColourWhite]);
-	fill[ColourBlack]=bbFileFill(pawns[ColourBlack]);
-	frontSpan[ColourWhite]=bbNorthOne(bbNorthFill(pawns[ColourWhite])); // All squares infront of pawns of given colour
-	frontSpan[ColourBlack]=bbSouthOne(bbSouthFill(pawns[ColourBlack]));
-	rearSpan[ColourWhite]=bbSouthOne(bbSouthFill(pawns[ColourWhite])); // All squares behind pawns of given colour
-	rearSpan[ColourBlack]=bbNorthOne(bbNorthFill(pawns[ColourBlack]));
-	pawnAttacks[ColourWhite]=bbNorthOne(bbWingify(pawns[ColourWhite])); // All squares attacked by pawns of given colour
-	pawnAttacks[ColourBlack]=bbSouthOne(bbWingify(pawns[ColourBlack]));
+	fill[ColourWhite]=bbFileFill(wp);
+	fill[ColourBlack]=bbFileFill(bp);
+	frontSpan[ColourWhite]=bbNorthOne(bbNorthFill(wp)); // All squares infront of pawns of given colour
+	frontSpan[ColourBlack]=bbSouthOne(bbSouthFill(bp));
+	rearSpan[ColourWhite]=bbSouthOne(bbSouthFill(wp)); // All squares behind pawns of given colour
+	rearSpan[ColourBlack]=bbNorthOne(bbNorthFill(bp));
+	pawnAttacks[ColourWhite]=bbNorthOne(bbWingify(wp)); // All squares attacked by pawns of given colour
+	pawnAttacks[ColourBlack]=bbSouthOne(bbWingify(bp));
 	influence[ColourWhite]=(frontSpan[ColourWhite] | bbWingify(frontSpan[ColourWhite])); // Squares which colour in question may attack or move to, now or in the future.
 	influence[ColourBlack]=(frontSpan[ColourBlack] | bbWingify(frontSpan[ColourBlack]));
 
-	doubled[ColourWhite]=(pawns[ColourWhite] & rearSpan[ColourWhite]);
-	doubled[ColourBlack]=(pawns[ColourBlack] & rearSpan[ColourBlack]);
-	isolated[ColourWhite]=(pawns[ColourWhite] & ~bbFileFill(pawnAttacks[ColourWhite]));
-	isolated[ColourBlack]=(pawns[ColourBlack] & ~bbFileFill(pawnAttacks[ColourBlack]));
-	blocked[ColourWhite]=(pawns[ColourWhite] & bbSouthOne(occ));
-	blocked[ColourBlack]=(pawns[ColourBlack] & bbNorthOne(occ));
-	passed[ColourWhite]=(pawns[ColourWhite] & ~(doubled[ColourWhite] | influence[ColourBlack]));
-	passed[ColourBlack]=(pawns[ColourBlack] & ~(doubled[ColourBlack] | influence[ColourWhite]));
+	doubled[ColourWhite]=(wp & rearSpan[ColourWhite]);
+	doubled[ColourBlack]=(bp & rearSpan[ColourBlack]);
+	isolated[ColourWhite]=(wp & ~bbFileFill(pawnAttacks[ColourWhite]));
+	isolated[ColourBlack]=(bp & ~bbFileFill(pawnAttacks[ColourBlack]));
+	blocked[ColourWhite]=(wp & bbSouthOne(occ));
+	blocked[ColourBlack]=(bp & bbNorthOne(occ));
+	passed[ColourWhite]=(wp & ~(doubled[ColourWhite] | influence[ColourBlack]));
+	passed[ColourBlack]=(bp & ~(doubled[ColourBlack] | influence[ColourWhite]));
 
 	semiOpenFiles[ColourWhite]=(fill[ColourBlack] & ~fill[ColourWhite]);
 	semiOpenFiles[ColourBlack]=(fill[ColourWhite] & ~fill[ColourBlack]);
@@ -686,22 +695,20 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamRookPawnAffinityMG]=factorMG*rookAffCount;
 	coefficients[EvalTTuneParamRookPawnAffinityEG]=factorEG*rookAffCount;
 
-	int rookOpenFileCount=((int)bbPopCount(posGetBBPiece(pos, PieceWRook) & openFiles))-((int)bbPopCount(posGetBBPiece(pos, PieceBRook) & openFiles));
+	int rookOpenFileCount=((int)bbPopCount(wr & openFiles))-((int)bbPopCount(br & openFiles));
 	coefficients[EvalTTuneParamRookOpenFileMG]=factorMG*rookOpenFileCount;
 	coefficients[EvalTTuneParamRookOpenFileEG]=factorEG*rookOpenFileCount;
 
-	int rookSemiOpenFileCount=((int)bbPopCount(posGetBBPiece(pos, PieceWRook) & semiOpenFiles[ColourWhite]))-((int)bbPopCount(posGetBBPiece(pos, PieceBRook) & semiOpenFiles[ColourBlack]));
+	int rookSemiOpenFileCount=((int)bbPopCount(wr & semiOpenFiles[ColourWhite]))-((int)bbPopCount(br & semiOpenFiles[ColourBlack]));
 	coefficients[EvalTTuneParamRookSemiOpenFileMG]=factorMG*rookSemiOpenFileCount;
 	coefficients[EvalTTuneParamRookSemiOpenFileEG]=factorEG*rookSemiOpenFileCount;
 
-	BB wKing=posGetBBPiece(pos, PieceWKing);
-	BB bKing=posGetBBPiece(pos, PieceBKing);
-	BB wKingSpan=bbForwardOne((bbWestOne(wKing) | wKing | bbEastOne(wKing)), ColourWhite);
-	BB bKingSpan=bbForwardOne((bbWestOne(bKing) | bKing | bbEastOne(bKing)), ColourBlack);
-	BB wKingShieldClose=(pawns[ColourWhite] & wKingSpan);
-	BB bKingShieldClose=(pawns[ColourBlack] & bKingSpan);
-	BB wKingShieldFar=(pawns[ColourWhite] & bbForwardOne(wKingSpan, ColourWhite));
-	BB bKingShieldFar=(pawns[ColourBlack] & bbForwardOne(bKingSpan, ColourBlack));
+	BB wKingSpan=bbForwardOne((bbWestOne(wk) | wk | bbEastOne(wk)), ColourWhite);
+	BB bKingSpan=bbForwardOne((bbWestOne(bk) | bk | bbEastOne(bk)), ColourBlack);
+	BB wKingShieldClose=(wp & wKingSpan);
+	BB bKingShieldClose=(bp & bKingSpan);
+	BB wKingShieldFar=(wp & bbForwardOne(wKingSpan, ColourWhite));
+	BB bKingShieldFar=(bp & bbForwardOne(bKingSpan, ColourBlack));
 	int kingShieldCloseCount=((int)bbPopCount(wKingShieldClose))-((int)bbPopCount(bKingShieldClose));
 	int kingShieldFarCount=((int)bbPopCount(wKingShieldFar))-((int)bbPopCount(bKingShieldFar));
 	coefficients[EvalTTuneParamKingShieldCloseMG]=factorMG*kingShieldCloseCount;
@@ -719,8 +726,8 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamOutpostSqMG]=factorMG*outpostSqCount;
 	coefficients[EvalTTuneParamOutpostSqEG]=factorEG*outpostSqCount;
 
-	int outpostKnightCount=((int)bbPopCount(outposts[ColourWhite] & posGetBBPiece(pos, PieceWKnight)))-
-	                       ((int)bbPopCount(outposts[ColourBlack] & posGetBBPiece(pos, PieceBKnight)));
+	int outpostKnightCount=((int)bbPopCount(outposts[ColourWhite] & wn))-
+	                       ((int)bbPopCount(outposts[ColourBlack] & bn));
 	coefficients[EvalTTuneParamOutpostKnightMG]=factorMG*outpostKnightCount;
 	coefficients[EvalTTuneParamOutpostKnightEG]=factorEG*outpostKnightCount;
 

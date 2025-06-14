@@ -99,6 +99,8 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	printf("Loaded %u positions\n", positions->count);
 
 	// Allocate weights array and initially set to current engine values
+	printf("Preparing to run iteration loop with %u parameters\n", ttuneParametersCount);
+
 	int *weights=malloc(sizeof(int)*ttuneParametersCount);
 	for(unsigned i=0; i<ttuneParametersCount; ++i)
 		weights[i]=ttuneParameters[i].initialValue;

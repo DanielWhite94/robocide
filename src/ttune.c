@@ -23,6 +23,7 @@ typedef struct {
 	int minValue;
 	int maxValue;
 	int initialValue;
+	bool tune;
 } TTuneParameter;
 
 TTuneParameter *ttuneParameters=NULL;
@@ -117,6 +118,10 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 		// Loop over parameters one by one
 		improvement=false;
 		for(unsigned i=0; i<ttuneParametersCount; ++i) {
+			// Not tuning this parameter?
+			if (!ttuneParameters[i].tune)
+				continue;
+
 			// Consider incrementing and decrementing the weight of the parameter in question
 			double incE=currentE;
 			if (weights[i]<ttuneParameters[i].maxValue) {
@@ -163,7 +168,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	ttunePositionsFree(positions);
 }
 
-void ttuneAddParameter(unsigned id, const char *name, int minValue, int maxValue, int initialValue) {
+void ttuneAddParameter(unsigned id, const char *name, int minValue, int maxValue, int initialValue, bool tune) {
 	assert(id<ttuneParametersCount);
 
 	// Copy fields into our array entry
@@ -171,6 +176,7 @@ void ttuneAddParameter(unsigned id, const char *name, int minValue, int maxValue
 	ttuneParameters[id].minValue=minValue;
 	ttuneParameters[id].maxValue=maxValue;
 	ttuneParameters[id].initialValue=initialValue;
+	ttuneParameters[id].tune=tune;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -422,6 +422,10 @@ Score evaluate(const Pos *pos) {
 }
 
 void evaluateCoefficients(const Pos *pos, float *coefficients) {
+	// Set all coefficents to 0 initially
+	for(unsigned i=0; i<EvalTTuneParamNB; ++i)
+		coefficients[i]=0.0;
+
 	// Precomputed info
 	BB wp=posGetBBPiece(pos, PieceWPawn);
 	BB bp=posGetBBPiece(pos, PieceBPawn);
@@ -474,15 +478,6 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamQueenEG]=factorEG*(wQueenCount-bQueenCount);
 
 	// Mobility
-	coefficients[EvalTTuneParamKnightMobMG]=0.0;
-	coefficients[EvalTTuneParamKnightMobEG]=0.0;
-	coefficients[EvalTTuneParamBishopMobMG]=0.0;
-	coefficients[EvalTTuneParamBishopMobEG]=0.0;
-	coefficients[EvalTTuneParamRookMobFileMG]=0.0;
-	coefficients[EvalTTuneParamRookMobFileEG]=0.0;
-	coefficients[EvalTTuneParamRookMobRankMG]=0.0;
-	coefficients[EvalTTuneParamRookMobRankEG]=0.0;
-
 	BB pieceSet;
 	float count;
 

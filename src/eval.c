@@ -406,6 +406,11 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	}
 
 	// PSTs
+	for(unsigned i=0; i<32; ++i) {
+		coefficients[EvalTTuneParamPstKingMGBase+i]=0;
+		coefficients[EvalTTuneParamPstKingEGBase+i]=0;
+	}
+
 	pieceSet=wk;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);

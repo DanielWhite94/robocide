@@ -309,7 +309,7 @@ double ttunePositionsGetCachedScore(const TTunePositions *positions, unsigned n)
 
 void ttunePositionsUpdateCache(TTunePositions *positions, unsigned paramIndex, double delta) {
 	assert(positions!=NULL);
-	assert(i<ttuneParametersCount);
+	assert(paramIndex<ttuneParametersCount);
 
 	for(unsigned posIndex=0; posIndex<positions->count; ++posIndex) {
 		const TTuneCoefficient *coefficients=ttunePositionsGetCoefficients(positions, posIndex);

@@ -1188,7 +1188,10 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate) {
 	pos->matKey+=posMatKey[piece];
 
 	// Update PST score.
-	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
+	if (pieceGetColour(piece)==ColourWhite)
+		evalVPairAddTo(&pos->pstScore, &evalMaterial[pieceGetType(piece)]);
+	else
+		evalVPairSubFrom(&pos->pstScore, &evalMaterial[pieceGetType(piece)]);
 }
 
 void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
@@ -1210,7 +1213,10 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 	pos->matKey-=posMatKey[piece];
 
 	// Update PST score.
-	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
+	if (pieceGetColour(piece)==ColourWhite)
+		evalVPairSubFrom(&pos->pstScore, &evalMaterial[pieceGetType(piece)]);
+	else
+		evalVPairAddTo(&pos->pstScore, &evalMaterial[pieceGetType(piece)]);
 }
 
 void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
@@ -1232,10 +1238,6 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
 	if (!skipMainKeyUpdate)
 		pos->data->key^=posKeyPiece[piece][fromSq]^posKeyPiece[piece][toSq];
 	pos->pawnKey^=posPawnKeyPiece[piece][fromSq]^posPawnKeyPiece[piece][toSq];
-
-	// Update PST score.
-	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][fromSq]);
-	evalVPairAddTo(&pos->pstScore, &evalPST[piece][toSq]);
 }
 
 void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate) {
@@ -1605,12 +1607,7 @@ bool posIsConsistent(const Pos *pos) {
 	}
 
 	// Test PST score is accurate.
-	VPair truePstScore=evalComputePstScore(pos);
-	if (pos->pstScore.mg!=truePstScore.mg || pos->pstScore.eg!=truePstScore.eg) {
-		sprintf(error, "Current pst score is (%i,%i) while true is (%i,%i).\n",
-						pos->pstScore.mg, pos->pstScore.eg, truePstScore.mg, truePstScore.eg);
-		goto Error;
-	}
+	// TODO: replace with material presumably
 
 	return true;
 

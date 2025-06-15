@@ -8,6 +8,10 @@ typedef struct { Value mg, eg; } VPair;
 extern const VPair VPairZero;
 
 #include "piece.h"
+#include "tune.h"
+
+extern TUNECONST VPair evalMaterial[PieceTypeNB];
+
 #include "pos.h"
 #include "score.h"
 #include "square.h"
@@ -23,8 +27,6 @@ typedef enum {
 } EvalMatType;
 #define EvalMatTypeBit 3
 
-extern VPair evalPST[PieceNB][SqNB];
-
 void evalInit(void);
 void evalQuit(void);
 
@@ -39,9 +41,6 @@ void evalClear(void); // Clear all saved data (called when we receive 'ucinewgam
 EvalMatType evalGetMatType(const Pos *pos);
 
 const char *evalMatTypeToStr(EvalMatType matType);
-
-VPair evalComputePstScore(const Pos *pos);
-void evalPstDebug(void);
 
 void evalVPairAddTo(VPair *a, const VPair *b);
 void evalVPairSubFrom(VPair *a, const VPair *b);

@@ -109,7 +109,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 
 	// Tuning loop (attempting to minimise E by varying evaluation weights)
 	double currentE=ttuneComputeE(positions, weights, k, true);
-	printf("Preparing to run iteration loop with %u parameters (initial E=%f)\n", ttuneParametersCount, currentE);
+	printf("Preparing to run iteration loop with %u parameters (initial E=%.8f)\n", ttuneParametersCount, currentE);
 
 	bool improvement;
 	unsigned currentIteration=0;
@@ -155,7 +155,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 
 		// Terminal output
 		TimeMs deltaTime=timeGet()-startTime;
-		printf("Iteration %u complete (E=%f, took %llu.%03llus)\n", currentIteration, currentE, deltaTime/1000, deltaTime%1000);
+		printf("Iteration %5u complete (E=%.8f, took %llu.%03llus)\n", currentIteration, currentE, deltaTime/1000, deltaTime%1000);
 
 		// Code output
 		evaluateTTuneOutputCode(codeOutputFile, weights);

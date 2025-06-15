@@ -311,7 +311,7 @@ void evalInit(void) {
 #	endif
 
 	// Setup Texel Tuning parameters
-	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", evalMaterial[PieceTypePawn].mg, false); // this is the one fixed value everything else is relative
+	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", evalMaterial[PieceTypePawn].mg, true);
 	ttuneAddParameter(EvalTTuneParamPawnEG, "PawnEG", evalMaterial[PieceTypePawn].eg, true);
 	ttuneAddParameter(EvalTTuneParamKnightMG, "KnightMG", evalMaterial[PieceTypeKnight].mg, true);
 	ttuneAddParameter(EvalTTuneParamKnightEG, "KnightEG", evalMaterial[PieceTypeKnight].eg, true);

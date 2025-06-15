@@ -122,29 +122,22 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 			if (!ttuneParameters[i].tune)
 				continue;
 
-			// Consider incrementing and decrementing the weight of the parameter in question
-			++weights[i];
-			double incE=ttuneComputeE(positions, weights, k);
-			--weights[i];
-
+			// Look for improvement by adjusting weight (first try down then up)
 			--weights[i];
 			double decE=ttuneComputeE(positions, weights, k);
-			++weights[i];
-
-			// No improvement moving in either direction?
-			if (incE>=currentE && decE>=currentE)
-				continue;
-
-			// Adjust weight for this parameter and update our current E value
-			improvement=true;
-
-			if (incE<decE) {
-				++weights[i];
-				currentE=incE;
-			} else {
-				--weights[i];
+			if (decE<currentE) {
+				improvement=true;
 				currentE=decE;
+				continue;
 			}
+			weights[i]+=2; // undo decrement and apply increment instead
+			double incE=ttuneComputeE(positions, weights, k);
+			if (incE<currentE) {
+				improvement=true;
+				currentE=incE;
+				continue;
+			}
+			--weights[i];
 		}
 
 		// Terminal output

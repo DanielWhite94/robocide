@@ -20,8 +20,6 @@ typedef struct {
 
 typedef struct {
 	char name[128];
-	int minValue;
-	int maxValue;
 	int initialValue;
 	bool tune;
 } TTuneParameter;
@@ -81,12 +79,6 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 			printf("Error: parameter %u not initialized\n", i);
 			return;
 		}
-
-		if ((ttuneParameters[i].initialValue>ttuneParameters[i].maxValue) ||
-		    (ttuneParameters[i].initialValue<ttuneParameters[i].minValue)) {
-			printf("Error: parameter %u inconsistent\n", i);
-			return;
-		}
 	}
 
 	// Read (quiet) positions from file (and compute evaluation coefficients for each one)
@@ -123,19 +115,13 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 				continue;
 
 			// Consider incrementing and decrementing the weight of the parameter in question
-			double incE=currentE;
-			if (weights[i]<ttuneParameters[i].maxValue) {
-				++weights[i];
-				incE=ttuneComputeE(positions, weights);
-				--weights[i];
-			}
+			++weights[i];
+			double incE=ttuneComputeE(positions, weights, k);
+			--weights[i];
 
-			double decE=currentE;
-			if (weights[i]>ttuneParameters[i].minValue) {
-				--weights[i];
-				decE=ttuneComputeE(positions, weights);
-				++weights[i];
-			}
+			--weights[i];
+			double decE=ttuneComputeE(positions, weights, k);
+			++weights[i];
 
 			// No improvement moving in either direction?
 			if (incE>=currentE && decE>=currentE)
@@ -168,13 +154,11 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	ttunePositionsFree(positions);
 }
 
-void ttuneAddParameter(unsigned id, const char *name, int minValue, int maxValue, int initialValue, bool tune) {
+void ttuneAddParameter(unsigned id, const char *name, int initialValue, bool tune) {
 	assert(id<ttuneParametersCount);
 
 	// Copy fields into our array entry
 	strcpy(ttuneParameters[id].name, name); // TODO: fix buffer overflow
-	ttuneParameters[id].minValue=minValue;
-	ttuneParameters[id].maxValue=maxValue;
 	ttuneParameters[id].initialValue=initialValue;
 	ttuneParameters[id].tune=tune;
 }

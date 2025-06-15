@@ -273,126 +273,125 @@ void evalInit(void) {
 #	endif
 
 	// Setup Texel Tuning parameters
-	int ttMin=-65536, ttMax=65536; // +-2^16 is an arbitrary limit well beyond queen value
-	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", evalMaterial[PieceTypePawn].mg, evalMaterial[PieceTypePawn].mg, evalMaterial[PieceTypePawn].mg, true); // this is the one fixed value everything else is relative
-	ttuneAddParameter(EvalTTuneParamPawnEG, "PawnEG", ttMin, ttMax, evalMaterial[PieceTypePawn].eg, true);
-	ttuneAddParameter(EvalTTuneParamKnightMG, "KnightMG", ttMin, ttMax, evalMaterial[PieceTypeKnight].mg, true);
-	ttuneAddParameter(EvalTTuneParamKnightEG, "KnightEG", ttMin, ttMax, evalMaterial[PieceTypeKnight].eg, true);
-	ttuneAddParameter(EvalTTuneParamBishopMG, "BishopMG", ttMin, ttMax, evalMaterial[PieceTypeBishopL].mg, true);
-	ttuneAddParameter(EvalTTuneParamBishopEG, "BishopEG", ttMin, ttMax, evalMaterial[PieceTypeBishopL].eg, true);
-	ttuneAddParameter(EvalTTuneParamRookMG, "RookMG", ttMin, ttMax, evalMaterial[PieceTypeRook].mg, true);
-	ttuneAddParameter(EvalTTuneParamRookEG, "RookEG", ttMin, ttMax, evalMaterial[PieceTypeRook].eg, true);
-	ttuneAddParameter(EvalTTuneParamQueenMG, "QueenMG", ttMin, ttMax, evalMaterial[PieceTypeQueen].mg, true);
-	ttuneAddParameter(EvalTTuneParamQueenEG, "QueenEG", ttMin, ttMax, evalMaterial[PieceTypeQueen].eg, true);
-	ttuneAddParameter(EvalTTuneParamKnightMobMG, "KnightMobMG", ttMin, ttMax, evalKnightMob.mg, true);
-	ttuneAddParameter(EvalTTuneParamKnightMobEG, "KnightMobEG", ttMin, ttMax, evalKnightMob.eg, true);
-	ttuneAddParameter(EvalTTuneParamBishopMobMG, "BishopMobMG", ttMin, ttMax, evalBishopMob.mg, true);
-	ttuneAddParameter(EvalTTuneParamBishopMobEG, "BishopMobEG", ttMin, ttMax, evalBishopMob.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookMobFileMG, "RookMobFileMG", ttMin, ttMax, evalRookMobFile.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookMobFileEG, "RookMobFileEG", ttMin, ttMax, evalRookMobFile.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookMobRankMG, "RookMobRankMG", ttMin, ttMax, evalRookMobRank.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookMobRankEG, "RookMobRankEG", ttMin, ttMax, evalRookMobRank.eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnMG, "PawnMG", evalMaterial[PieceTypePawn].mg, false); // this is the one fixed value everything else is relative
+	ttuneAddParameter(EvalTTuneParamPawnEG, "PawnEG", evalMaterial[PieceTypePawn].eg, true);
+	ttuneAddParameter(EvalTTuneParamKnightMG, "KnightMG", evalMaterial[PieceTypeKnight].mg, true);
+	ttuneAddParameter(EvalTTuneParamKnightEG, "KnightEG", evalMaterial[PieceTypeKnight].eg, true);
+	ttuneAddParameter(EvalTTuneParamBishopMG, "BishopMG", evalMaterial[PieceTypeBishopL].mg, true);
+	ttuneAddParameter(EvalTTuneParamBishopEG, "BishopEG", evalMaterial[PieceTypeBishopL].eg, true);
+	ttuneAddParameter(EvalTTuneParamRookMG, "RookMG", evalMaterial[PieceTypeRook].mg, true);
+	ttuneAddParameter(EvalTTuneParamRookEG, "RookEG", evalMaterial[PieceTypeRook].eg, true);
+	ttuneAddParameter(EvalTTuneParamQueenMG, "QueenMG", evalMaterial[PieceTypeQueen].mg, true);
+	ttuneAddParameter(EvalTTuneParamQueenEG, "QueenEG", evalMaterial[PieceTypeQueen].eg, true);
+	ttuneAddParameter(EvalTTuneParamKnightMobMG, "KnightMobMG", evalKnightMob.mg, true);
+	ttuneAddParameter(EvalTTuneParamKnightMobEG, "KnightMobEG", evalKnightMob.eg, true);
+	ttuneAddParameter(EvalTTuneParamBishopMobMG, "BishopMobMG", evalBishopMob.mg, true);
+	ttuneAddParameter(EvalTTuneParamBishopMobEG, "BishopMobEG", evalBishopMob.eg, true);
+	ttuneAddParameter(EvalTTuneParamRookMobFileMG, "RookMobFileMG", evalRookMobFile.mg, true);
+	ttuneAddParameter(EvalTTuneParamRookMobFileEG, "RookMobFileEG", evalRookMobFile.eg, true);
+	ttuneAddParameter(EvalTTuneParamRookMobRankMG, "RookMobRankMG", evalRookMobRank.mg, true);
+	ttuneAddParameter(EvalTTuneParamRookMobRankEG, "RookMobRankEG", evalRookMobRank.eg, true);
 	char str[32];
 	for(unsigned i=0; i<24; ++i) {
 		Sq sq=evalTTunePawnPstIndexToSq(i);
 		sprintf(str, "PawnPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstPawnMGBase+i, str, ttMin, ttMax, evalPST[PieceTypePawn][sq].mg-evalMaterial[PieceTypePawn].mg, true);
+		ttuneAddParameter(EvalTTuneParamPstPawnMGBase+i, str, evalPST[PieceTypePawn][sq].mg-evalMaterial[PieceTypePawn].mg, true);
 		sprintf(str, "PawnPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstPawnEGBase+i, str, ttMin, ttMax, evalPST[PieceTypePawn][sq].eg-evalMaterial[PieceTypePawn].eg, true);
+		ttuneAddParameter(EvalTTuneParamPstPawnEGBase+i, str, evalPST[PieceTypePawn][sq].eg-evalMaterial[PieceTypePawn].eg, true);
 	}
 	for(unsigned i=0; i<32; ++i) {
 		Sq sq=evalTTunePstIndexToSq(i);
 		sprintf(str, "KnightPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstKnightMGBase+i, str, ttMin, ttMax, evalPST[PieceTypeKnight][sq].mg-evalMaterial[PieceTypeKnight].mg, true);
+		ttuneAddParameter(EvalTTuneParamPstKnightMGBase+i, str, evalPST[PieceTypeKnight][sq].mg-evalMaterial[PieceTypeKnight].mg, true);
 		sprintf(str, "KnightPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstKnightEGBase+i, str, ttMin, ttMax, evalPST[PieceTypeKnight][sq].eg-evalMaterial[PieceTypeKnight].eg, true);
+		ttuneAddParameter(EvalTTuneParamPstKnightEGBase+i, str, evalPST[PieceTypeKnight][sq].eg-evalMaterial[PieceTypeKnight].eg, true);
 	}
 	for(unsigned i=0; i<32; ++i) {
 		Sq sq=evalTTunePstIndexToSq(i);
 		sprintf(str, "BishopPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstBishopMGBase+i, str, ttMin, ttMax, evalPST[PieceTypeBishopL][sq].mg-evalMaterial[PieceTypeBishopL].mg, true);
+		ttuneAddParameter(EvalTTuneParamPstBishopMGBase+i, str, evalPST[PieceTypeBishopL][sq].mg-evalMaterial[PieceTypeBishopL].mg, true);
 		sprintf(str, "BishopPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstBishopEGBase+i, str, ttMin, ttMax, evalPST[PieceTypeBishopL][sq].eg-evalMaterial[PieceTypeBishopL].eg, true);
+		ttuneAddParameter(EvalTTuneParamPstBishopEGBase+i, str, evalPST[PieceTypeBishopL][sq].eg-evalMaterial[PieceTypeBishopL].eg, true);
 	}
 	for(unsigned i=0; i<32; ++i) {
 		Sq sq=evalTTunePstIndexToSq(i);
 		sprintf(str, "RookPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstRookMGBase+i, str, ttMin, ttMax, evalPST[PieceTypeRook][sq].mg-evalMaterial[PieceTypeRook].mg, true);
+		ttuneAddParameter(EvalTTuneParamPstRookMGBase+i, str, evalPST[PieceTypeRook][sq].mg-evalMaterial[PieceTypeRook].mg, true);
 		sprintf(str, "RookPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstRookEGBase+i, str, ttMin, ttMax, evalPST[PieceTypeRook][sq].eg-evalMaterial[PieceTypeRook].eg, true);
+		ttuneAddParameter(EvalTTuneParamPstRookEGBase+i, str, evalPST[PieceTypeRook][sq].eg-evalMaterial[PieceTypeRook].eg, true);
 	}
 	for(unsigned i=0; i<32; ++i) {
 		Sq sq=evalTTunePstIndexToSq(i);
 		sprintf(str, "QueenPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstQueenMGBase+i, str, ttMin, ttMax, evalPST[PieceTypeQueen][sq].mg-evalMaterial[PieceTypeQueen].mg, true);
+		ttuneAddParameter(EvalTTuneParamPstQueenMGBase+i, str, evalPST[PieceTypeQueen][sq].mg-evalMaterial[PieceTypeQueen].mg, true);
 		sprintf(str, "QueenPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstQueenEGBase+i, str, ttMin, ttMax, evalPST[PieceTypeQueen][sq].eg-evalMaterial[PieceTypeQueen].eg, true);
+		ttuneAddParameter(EvalTTuneParamPstQueenEGBase+i, str, evalPST[PieceTypeQueen][sq].eg-evalMaterial[PieceTypeQueen].eg, true);
 	}
 	for(unsigned i=0; i<32; ++i) {
 		Sq sq=evalTTunePstIndexToSq(i);
 		sprintf(str, "KingPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstKingMGBase+i, str, ttMin, ttMax, evalPST[PieceTypeKing][sq].mg-evalMaterial[PieceTypeKing].mg, true);
+		ttuneAddParameter(EvalTTuneParamPstKingMGBase+i, str, evalPST[PieceTypeKing][sq].mg-evalMaterial[PieceTypeKing].mg, true);
 		sprintf(str, "KingPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstKingEGBase+i, str, ttMin, ttMax, evalPST[PieceTypeKing][sq].eg-evalMaterial[PieceTypeKing].eg, true);
+		ttuneAddParameter(EvalTTuneParamPstKingEGBase+i, str, evalPST[PieceTypeKing][sq].eg-evalMaterial[PieceTypeKing].eg, true);
 	}
-	ttuneAddParameter(EvalTTuneParamPawnDoubledMG, "PawnDoubledMG", ttMin, ttMax, evalPawnDoubled.mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnDoubledEG, "PawnDoubledEG", ttMin, ttMax, evalPawnDoubled.eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnIsolatedMG, "PawnIsolatedMG", ttMin, ttMax, evalPawnIsolated.mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnIsolatedEG, "PawnIsolatedEG", ttMin, ttMax, evalPawnIsolated.eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnBlockedMG, "PawnBlockedMG", ttMin, ttMax, evalPawnBlocked.mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnBlockedEG, "PawnBlockedEG", ttMin, ttMax, evalPawnBlocked.mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR2MG, "PawnPassedR2MG", ttMin, ttMax, evalPawnPassed[Rank2].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR2EG, "PawnPassedR2EG", ttMin, ttMax, evalPawnPassed[Rank2].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR3MG, "PawnPassedR3MG", ttMin, ttMax, evalPawnPassed[Rank3].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR3EG, "PawnPassedR3EG", ttMin, ttMax, evalPawnPassed[Rank3].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR4MG, "PawnPassedR4MG", ttMin, ttMax, evalPawnPassed[Rank4].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR4EG, "PawnPassedR4EG", ttMin, ttMax, evalPawnPassed[Rank4].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR5MG, "PawnPassedR5MG", ttMin, ttMax, evalPawnPassed[Rank5].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR5EG, "PawnPassedR5EG", ttMin, ttMax, evalPawnPassed[Rank5].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR6MG, "PawnPassedR6MG", ttMin, ttMax, evalPawnPassed[Rank6].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR6EG, "PawnPassedR6EG", ttMin, ttMax, evalPawnPassed[Rank6].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR7MG, "PawnPassedR7MG", ttMin, ttMax, evalPawnPassed[Rank7].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR7EG, "PawnPassedR7EG", ttMin, ttMax, evalPawnPassed[Rank7].eg, true);
-	ttuneAddParameter(EvalTTuneParamBishopPairMG, "BishopPairMG", ttMin, ttMax, evalBishopPair.mg, true);
-	ttuneAddParameter(EvalTTuneParamBishopPairEG, "BishopPairEG", ttMin, ttMax, evalBishopPair.eg, true);
-	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityMG, "KnightPawnAffinityMG", ttMin, ttMax, evalKnightPawnAffinity.mg, true);
-	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityEG, "KnightPawnAffinityEG", ttMin, ttMax, evalKnightPawnAffinity.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookPawnAffinityMG, "RookPawnAffinityMG", ttMin, ttMax, evalRookPawnAffinity.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookPawnAffinityEG, "RookPawnAffinityEG", ttMin, ttMax, evalRookPawnAffinity.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookOpenFileMG, "RookOpenFileMG", ttMin, ttMax, evalRookOpenFile.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookOpenFileEG, "RookOpenFileEG", ttMin, ttMax, evalRookOpenFile.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileMG, "RookSemiOpenFileMG", ttMin, ttMax, evalRookSemiOpenFile.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileEG, "RookSemiOpenFileEG", ttMin, ttMax, evalRookSemiOpenFile.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookOn7thMG, "RookOn7thMG", ttMin, ttMax, evalRookOn7th.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookOn7thEG, "RookOn7thEG", ttMin, ttMax, evalRookOn7th.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookTrappedMG, "RookTrappedMG", ttMin, ttMax, evalRookTrapped.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookTrappedEG, "RookTrappedEG", ttMin, ttMax, evalRookTrapped.eg, true);
-	ttuneAddParameter(EvalTTuneParamKingShieldCloseMG, "KingShieldCloseMG", ttMin, ttMax, evalKingShieldClose.mg, true);
-	ttuneAddParameter(EvalTTuneParamKingShieldCloseEG, "KingShieldCloseEG", ttMin, ttMax, evalKingShieldClose.eg, true);
-	ttuneAddParameter(EvalTTuneParamKingShieldFarMG, "KingShieldFarMG", ttMin, ttMax, evalKingShieldFar.mg, true);
-	ttuneAddParameter(EvalTTuneParamKingShieldFarEG, "KingShieldFarEG", ttMin, ttMax, evalKingShieldFar.eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser1MG, "KingNearPasser1MG", ttMin, ttMax, evalKingNearPasser[1].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser1EG, "KingNearPasser1EG", ttMin, ttMax, evalKingNearPasser[1].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser2MG, "KingNearPasser2MG", ttMin, ttMax, evalKingNearPasser[2].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser2EG, "KingNearPasser2EG", ttMin, ttMax, evalKingNearPasser[2].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser3MG, "KingNearPasser3MG", ttMin, ttMax, evalKingNearPasser[3].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser3EG, "KingNearPasser3EG", ttMin, ttMax, evalKingNearPasser[3].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser4MG, "KingNearPasser4MG", ttMin, ttMax, evalKingNearPasser[4].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser4EG, "KingNearPasser4EG", ttMin, ttMax, evalKingNearPasser[4].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser5MG, "KingNearPasser5MG", ttMin, ttMax, evalKingNearPasser[5].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser5EG, "KingNearPasser5EG", ttMin, ttMax, evalKingNearPasser[5].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser6MG, "KingNearPasser6MG", ttMin, ttMax, evalKingNearPasser[6].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser6EG, "KingNearPasser6EG", ttMin, ttMax, evalKingNearPasser[6].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser7MG, "KingNearPasser7MG", ttMin, ttMax, evalKingNearPasser[7].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser7EG, "KingNearPasser7EG", ttMin, ttMax, evalKingNearPasser[7].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityMG, "KingCastlingMobilityMG", ttMin, ttMax, evalKingCastlingMobility.mg, true);
-	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityEG, "KingCastlingMobilityEG", ttMin, ttMax, evalKingCastlingMobility.eg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostSqMG, "OutpostSqMG", ttMin, ttMax, evalOutpostSq.mg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostSqEG, "OutpostSqEG", ttMin, ttMax, evalOutpostSq.eg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostKnightMG, "OutpostKnightMG", ttMin, ttMax, evalOutpostKnight.mg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostKnightEG, "OutpostKnightEG", ttMin, ttMax, evalOutpostKnight.eg, true);
-	ttuneAddParameter(EvalTTuneParamTempoDefaultMG, "TempoDefaultMG", ttMin, ttMax, evalTempoDefault.mg, true);
-	ttuneAddParameter(EvalTTuneParamTempoDefaultEG, "TempoDefaultEG", ttMin, ttMax, evalTempoDefault.eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnDoubledMG, "PawnDoubledMG", evalPawnDoubled.mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnDoubledEG, "PawnDoubledEG", evalPawnDoubled.eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnIsolatedMG, "PawnIsolatedMG", evalPawnIsolated.mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnIsolatedEG, "PawnIsolatedEG", evalPawnIsolated.eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnBlockedMG, "PawnBlockedMG", evalPawnBlocked.mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnBlockedEG, "PawnBlockedEG", evalPawnBlocked.mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR2MG, "PawnPassedR2MG", evalPawnPassed[Rank2].mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR2EG, "PawnPassedR2EG", evalPawnPassed[Rank2].eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR3MG, "PawnPassedR3MG", evalPawnPassed[Rank3].mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR3EG, "PawnPassedR3EG", evalPawnPassed[Rank3].eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR4MG, "PawnPassedR4MG", evalPawnPassed[Rank4].mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR4EG, "PawnPassedR4EG", evalPawnPassed[Rank4].eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR5MG, "PawnPassedR5MG", evalPawnPassed[Rank5].mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR5EG, "PawnPassedR5EG", evalPawnPassed[Rank5].eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR6MG, "PawnPassedR6MG", evalPawnPassed[Rank6].mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR6EG, "PawnPassedR6EG", evalPawnPassed[Rank6].eg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR7MG, "PawnPassedR7MG", evalPawnPassed[Rank7].mg, true);
+	ttuneAddParameter(EvalTTuneParamPawnPassedR7EG, "PawnPassedR7EG", evalPawnPassed[Rank7].eg, true);
+	ttuneAddParameter(EvalTTuneParamBishopPairMG, "BishopPairMG", evalBishopPair.mg, true);
+	ttuneAddParameter(EvalTTuneParamBishopPairEG, "BishopPairEG", evalBishopPair.eg, true);
+	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityMG, "KnightPawnAffinityMG", evalKnightPawnAffinity.mg, true);
+	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityEG, "KnightPawnAffinityEG", evalKnightPawnAffinity.eg, true);
+	ttuneAddParameter(EvalTTuneParamRookPawnAffinityMG, "RookPawnAffinityMG", evalRookPawnAffinity.mg, true);
+	ttuneAddParameter(EvalTTuneParamRookPawnAffinityEG, "RookPawnAffinityEG", evalRookPawnAffinity.eg, true);
+	ttuneAddParameter(EvalTTuneParamRookOpenFileMG, "RookOpenFileMG", evalRookOpenFile.mg, true);
+	ttuneAddParameter(EvalTTuneParamRookOpenFileEG, "RookOpenFileEG", evalRookOpenFile.eg, true);
+	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileMG, "RookSemiOpenFileMG", evalRookSemiOpenFile.mg, true);
+	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileEG, "RookSemiOpenFileEG", evalRookSemiOpenFile.eg, true);
+	ttuneAddParameter(EvalTTuneParamRookOn7thMG, "RookOn7thMG", evalRookOn7th.mg, true);
+	ttuneAddParameter(EvalTTuneParamRookOn7thEG, "RookOn7thEG", evalRookOn7th.eg, true);
+	ttuneAddParameter(EvalTTuneParamRookTrappedMG, "RookTrappedMG", evalRookTrapped.mg, true);
+	ttuneAddParameter(EvalTTuneParamRookTrappedEG, "RookTrappedEG", evalRookTrapped.eg, true);
+	ttuneAddParameter(EvalTTuneParamKingShieldCloseMG, "KingShieldCloseMG", evalKingShieldClose.mg, true);
+	ttuneAddParameter(EvalTTuneParamKingShieldCloseEG, "KingShieldCloseEG", evalKingShieldClose.eg, true);
+	ttuneAddParameter(EvalTTuneParamKingShieldFarMG, "KingShieldFarMG", evalKingShieldFar.mg, true);
+	ttuneAddParameter(EvalTTuneParamKingShieldFarEG, "KingShieldFarEG", evalKingShieldFar.eg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser1MG, "KingNearPasser1MG", evalKingNearPasser[1].mg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser1EG, "KingNearPasser1EG", evalKingNearPasser[1].eg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser2MG, "KingNearPasser2MG", evalKingNearPasser[2].mg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser2EG, "KingNearPasser2EG", evalKingNearPasser[2].eg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser3MG, "KingNearPasser3MG", evalKingNearPasser[3].mg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser3EG, "KingNearPasser3EG", evalKingNearPasser[3].eg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser4MG, "KingNearPasser4MG", evalKingNearPasser[4].mg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser4EG, "KingNearPasser4EG", evalKingNearPasser[4].eg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser5MG, "KingNearPasser5MG", evalKingNearPasser[5].mg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser5EG, "KingNearPasser5EG", evalKingNearPasser[5].eg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser6MG, "KingNearPasser6MG", evalKingNearPasser[6].mg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser6EG, "KingNearPasser6EG", evalKingNearPasser[6].eg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser7MG, "KingNearPasser7MG", evalKingNearPasser[7].mg, true);
+	ttuneAddParameter(EvalTTuneParamKingNearPasser7EG, "KingNearPasser7EG", evalKingNearPasser[7].eg, true);
+	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityMG, "KingCastlingMobilityMG", evalKingCastlingMobility.mg, true);
+	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityEG, "KingCastlingMobilityEG", evalKingCastlingMobility.eg, true);
+	ttuneAddParameter(EvalTTuneParamOutpostSqMG, "OutpostSqMG", evalOutpostSq.mg, true);
+	ttuneAddParameter(EvalTTuneParamOutpostSqEG, "OutpostSqEG", evalOutpostSq.eg, true);
+	ttuneAddParameter(EvalTTuneParamOutpostKnightMG, "OutpostKnightMG", evalOutpostKnight.mg, true);
+	ttuneAddParameter(EvalTTuneParamOutpostKnightEG, "OutpostKnightEG", evalOutpostKnight.eg, true);
+	ttuneAddParameter(EvalTTuneParamTempoDefaultMG, "TempoDefaultMG", evalTempoDefault.mg, true);
+	ttuneAddParameter(EvalTTuneParamTempoDefaultEG, "TempoDefaultEG", evalTempoDefault.eg, true);
 }
 
 void evalQuit(void) {

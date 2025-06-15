@@ -148,6 +148,11 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 			ttunePositionsUpdateCache(positions, i, -1.0);
 		}
 
+		// Simplify weights (e.g. averaging PSTs to zero)
+		evaluateTTuneSimplifyWeights(weights);
+
+		currentE=ttuneComputeE(positions, weights, k, true); // need to recompute cached values due to above call
+
 		// Terminal output
 		TimeMs deltaTime=timeGet()-startTime;
 		printf("Iteration %u complete (E=%f, took %llu.%03llus)\n", currentIteration, currentE, deltaTime/1000, deltaTime%1000);

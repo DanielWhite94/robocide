@@ -154,6 +154,24 @@ typedef enum {
 	EvalTTuneParamNB,
 } EvalTTuneParam;
 
+const unsigned evalTTuneParamMaterialMG[PieceTypeNB]={
+	[PieceTypePawn]=EvalTTuneParamPawnMG,
+	[PieceTypeKnight]=EvalTTuneParamKnightMG,
+	[PieceTypeBishopL]=EvalTTuneParamBishopMG,
+	[PieceTypeBishopD]=EvalTTuneParamBishopMG,
+	[PieceTypeRook]=EvalTTuneParamRookMG,
+	[PieceTypeQueen]=EvalTTuneParamQueenMG,
+};
+
+const unsigned evalTTuneParamMaterialEG[PieceTypeNB]={
+	[PieceTypePawn]=EvalTTuneParamPawnEG,
+	[PieceTypeKnight]=EvalTTuneParamKnightEG,
+	[PieceTypeBishopL]=EvalTTuneParamBishopEG,
+	[PieceTypeBishopD]=EvalTTuneParamBishopEG,
+	[PieceTypeRook]=EvalTTuneParamRookEG,
+	[PieceTypeQueen]=EvalTTuneParamQueenEG,
+};
+
 const unsigned evalTTuneParamPstMGBase[PieceTypeNB]={
 	[PieceTypePawn]=EvalTTuneParamPstPawnMGBase,
 	[PieceTypeKnight]=EvalTTuneParamPstKnightMGBase,
@@ -851,6 +869,35 @@ void evaluateTTuneOutputCode(const char *path, const float *weights) {
 
 	// Close file
 	fclose(file);
+}
+
+void evaluateTTuneSimplifyWeights(float *weights) {
+	// Average PSTs to (near) 0 and compensate material table accordingly
+	for(unsigned type=PieceTypePawn; type<=PieceTypeKing; ++type) {
+		unsigned sqCount=(type==PieceTypePawn ? 24 : 32);
+
+		// Find PST total and thus average
+		double totalMG=0.0;
+		double totalEG=0.0;
+		for(unsigned i=0; i<sqCount; ++i) {
+			totalMG+=weights[evalTTuneParamPstMGBase[type]+i];
+			totalEG+=weights[evalTTuneParamPstEGBase[type]+i];
+		}
+		double avgMG=floor(totalMG/sqCount);
+		double avgEG=floor(totalEG/sqCount);
+
+		// Subtract average from each sq in PSTs (to make average zero)
+		for(unsigned i=0; i<sqCount; ++i) {
+			weights[evalTTuneParamPstMGBase[type]+i]-=avgMG;
+			weights[evalTTuneParamPstEGBase[type]+i]-=avgEG;
+		}
+
+		// Add average to material value to compensate
+		if (type!=PieceTypeKing) {
+			weights[evalTTuneParamMaterialMG[type]]+=avgMG;
+			weights[evalTTuneParamMaterialEG[type]]+=avgEG;
+		}
+	}
 }
 
 void evalClear(void) {

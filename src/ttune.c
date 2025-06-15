@@ -20,8 +20,8 @@ typedef struct {
 } TTunePositions;
 
 typedef struct {
-	char name[128];
 	int initialValue;
+	bool init;
 	bool tune;
 } TTuneParameter;
 
@@ -61,7 +61,7 @@ void ttuneInit(unsigned parameterCount) {
 
 	// Indicate all parameters are uninitialized
 	for(unsigned i=0; i<ttuneParametersCount; ++i)
-		ttuneParameters[i].name[0]='\0';
+		ttuneParameters[i].init=false;
 }
 
 void ttuneQuit(void) {
@@ -79,7 +79,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	}
 
 	for(unsigned i=0; i<ttuneParametersCount; ++i) {
-		if (ttuneParameters[i].name[0]=='\0') {
+		if (!ttuneParameters[i].init) {
 			printf("Error: parameter %u not initialized\n", i);
 			return;
 		}
@@ -168,12 +168,13 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	ttunePositionsFree(positions);
 }
 
-void ttuneAddParameter(unsigned id, const char *name, int initialValue, bool tune) {
+void ttuneAddParameter(unsigned id, int initialValue, bool tune) {
 	assert(id<ttuneParametersCount);
+	assert(!ttuneParameters[id].init);
 
 	// Copy fields into our array entry
-	strcpy(ttuneParameters[id].name, name); // TODO: fix buffer overflow
 	ttuneParameters[id].initialValue=initialValue;
+	ttuneParameters[id].init=true;
 	ttuneParameters[id].tune=tune;
 }
 

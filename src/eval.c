@@ -324,9 +324,9 @@ void evalInit(void) {
 		for(unsigned i=0; i<32; ++i) {
 			Sq sq=evalTTunePstIndexToSq(i);
 			sprintf(str, "%sPst%c%cMG", pieceTypeToStr(t), fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-			ttuneAddParameter(evalTTuneParamPstMGBase[t]+i, str, evalPST[PieceTypeKnight][sq].mg-evalMaterial[PieceTypeKnight].mg, true);
+			ttuneAddParameter(evalTTuneParamPstMGBase[t]+i, str, evalPST[t][sq].mg-evalMaterial[t].mg, true);
 			sprintf(str, "%sPst%c%cEG", pieceTypeToStr(t), fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-			ttuneAddParameter(evalTTuneParamPstEGBase[t]+i, str, evalPST[PieceTypeKnight][sq].eg-evalMaterial[PieceTypeKnight].eg, true);
+			ttuneAddParameter(evalTTuneParamPstEGBase[t]+i, str, evalPST[t][sq].eg-evalMaterial[t].eg, true);
 		}
 	}
 
@@ -840,7 +840,7 @@ void evaluateTTuneOutputCode(const char *path, const float *weights) {
 			fprintf(file, "		");
 			for(unsigned x=0; x<8; ++x) {
 				unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-				fprintf(file, "{%5.0f,%5.0f},", weights[evalTTuneParamPstMGBase[type]+index], weights[evalTTuneParamPstMGBase[type]+index]);
+				fprintf(file, "{%5.0f,%5.0f},", weights[evalTTuneParamPstMGBase[type]+index], weights[evalTTuneParamPstEGBase[type]+index]);
 			}
 			fprintf(file, "\n");
 		}

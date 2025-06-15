@@ -191,8 +191,8 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamRookMobFileEG, "RookMobFileEG", evalRookMobFile.eg, true);
 	ttuneAddParameter(EvalTTuneParamRookMobRankMG, "RookMobRankMG", evalRookMobRank.mg, true);
 	ttuneAddParameter(EvalTTuneParamRookMobRankEG, "RookMobRankEG", evalRookMobRank.eg, true);
-	ttuneAddParameter(EvalTTuneParamBishopMobMG, "QueemMobMG", evalQueenMob.mg, true);
-	ttuneAddParameter(EvalTTuneParamBishopMobEG, "QueemMobEG", evalQueenMob.eg, true);
+	ttuneAddParameter(EvalTTuneParamQueenMobMG, "QueemMobMG", evalQueenMob.mg, true);
+	ttuneAddParameter(EvalTTuneParamQueenMobEG, "QueemMobEG", evalQueenMob.eg, true);
 }
 
 void evalQuit(void) {

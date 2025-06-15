@@ -1124,6 +1124,13 @@ VPair evaluateDefaultKing(EvalData *data, Colour colour) {
 	assert(data!=NULL);
 
 	VPair score=VPairZero;
+
+	// PST
+	Sq normKingSq=posGetKingSq(data->pos, colour);
+	if (colour==ColourBlack)
+		normKingSq=sqFlip(normKingSq);
+	evalVPairAddTo(&score, &evalKingPST[normKingSq]);
+
 	return score;
 }
 

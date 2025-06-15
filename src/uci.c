@@ -268,9 +268,6 @@ void uciLoop(void) {
 
 			// Call mainReplay to do the actual work
 			mainReplay(replayPath, replayDate);
-		} else if (utilStrEqual(part, "pst")) {
-			evalPstDebug();
-		} else if (utilStrEqual(part, "ttune")) {
 			// Grab arguments
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
 				printf("Error: missing input EPD file argument\n");

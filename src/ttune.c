@@ -39,9 +39,10 @@ void ttunePositionsAdd(TTunePositions *positions, const TTuneCoefficient *coeffi
 const TTuneCoefficient *ttunePositionsGetCoefficients(const TTunePositions *positions, unsigned n);
 double ttunePositionsGetResult(const TTunePositions *positions, unsigned n);
 
-double ttuneComputeE(const TTunePositions *positions, const float *weights);
+double ttuneComputeE(const TTunePositions *positions, const float *weights, double k);
 double ttuneComputeQ(const TTuneCoefficient *coefficients, const float *weights); // white-relative score
-double ttuneComputeSigmoid(double s);
+double ttuneComputeSigmoid(double s, double k);
+double ttuneComputeOptimalK(const TTunePositions *positions, const float *weights);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
@@ -92,14 +93,21 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	printf("Loaded %u positions\n", positions->count);
 
 	// Allocate weights array and initially set to current engine values
-	printf("Preparing to run iteration loop with %u parameters\n", ttuneParametersCount);
-
 	float *weights=malloc(sizeof(float)*ttuneParametersCount);
 	for(unsigned i=0; i<ttuneParametersCount; ++i)
 		weights[i]=ttuneParameters[i].initialValue;
 
+	// Find k (which minimises E)
+	printf("Computing optimal K value...\n");
+
+	double k=ttuneComputeOptimalK(positions, weights);
+
+	printf("Found K=%f\n", k);
+
 	// Tuning loop (attempting to minimise E by varying evaluation weights)
-	double currentE=ttuneComputeE(positions, weights);
+	double currentE=ttuneComputeE(positions, weights, k);
+	printf("Preparing to run iteration loop with %u parameters (initial E=%f)\n", ttuneParametersCount, currentE);
+
 	bool improvement;
 	unsigned currentIteration=0;
 	do {
@@ -281,7 +289,7 @@ double ttunePositionsGetResult(const TTunePositions *positions, unsigned n) {
 	return positions->results[n];
 }
 
-double ttuneComputeE(const TTunePositions *positions, const float *weights) {
+double ttuneComputeE(const TTunePositions *positions, const float *weights, double k) {
 	assert(positions!=NULL);
 
 	// Loop over all positions
@@ -294,7 +302,7 @@ double ttuneComputeE(const TTunePositions *positions, const float *weights) {
 
 		// Compute score and squared difference
 		double q=ttuneComputeQ(coefficients, weights);
-		double s=ttuneComputeSigmoid(q);
+		double s=ttuneComputeSigmoid(q, k);
 		double delta=result-s;
 		double delta2=delta*delta;
 
@@ -328,8 +336,33 @@ double ttuneComputeQ(const TTuneCoefficient *coefficients, const float *weights)
 	return (total0+total1)+(total2+total3);
 }
 
-double ttuneComputeSigmoid(double s) {
+double ttuneComputeSigmoid(double s, double k) {
 	// Convert evaluation/search score s into a logistic win/draw/loss value in the range [0,1]
 	// Roughly equivalent to K=0.12041 in original Texel Tuning description
-	return 1.0/(1.0+pow(2.0, -0.001*s));
+	return 1.0/(1.0+pow(2.0, -k*s));
+}
+
+double ttuneComputeOptimalK(const TTunePositions *positions, const float *weights) {
+	// Find k such that E is minimised
+	double start=0.0, end=10.0, step=1.0;
+	double curr=start;
+	double best=ttuneComputeE(positions, weights, start);
+	for (int i=0; i<10; ++i) {
+		// Find the minimum within [start, end] using the current step
+		curr=start-step;
+		while (curr<end) {
+			curr=curr+step;
+			double error=ttuneComputeE(positions, weights, curr);
+			if (error<best) {
+				best=error;
+				start=curr;
+			}
+		}
+		// Adjust the search space
+		end=start+step;
+		start=start-step;
+		step=step/10.0;
+	}
+
+	return start;
 }

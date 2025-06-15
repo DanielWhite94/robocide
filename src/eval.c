@@ -154,6 +154,26 @@ typedef enum {
 	EvalTTuneParamNB,
 } EvalTTuneParam;
 
+const unsigned evalTTuneParamPstMGBase[PieceTypeNB]={
+	[PieceTypePawn]=EvalTTuneParamPstPawnMGBase,
+	[PieceTypeKnight]=EvalTTuneParamPstKnightMGBase,
+	[PieceTypeBishopL]=EvalTTuneParamPstBishopMGBase,
+	[PieceTypeBishopD]=EvalTTuneParamPstBishopMGBase,
+	[PieceTypeRook]=EvalTTuneParamPstRookMGBase,
+	[PieceTypeQueen]=EvalTTuneParamPstQueenMGBase,
+	[PieceTypeKing]=EvalTTuneParamPstKingMGBase,
+};
+
+const unsigned evalTTuneParamPstEGBase[PieceTypeNB]={
+	[PieceTypePawn]=EvalTTuneParamPstPawnEGBase,
+	[PieceTypeKnight]=EvalTTuneParamPstKnightEGBase,
+	[PieceTypeBishopL]=EvalTTuneParamPstBishopEGBase,
+	[PieceTypeBishopD]=EvalTTuneParamPstBishopEGBase,
+	[PieceTypeRook]=EvalTTuneParamPstRookEGBase,
+	[PieceTypeQueen]=EvalTTuneParamPstQueenEGBase,
+	[PieceTypeKing]=EvalTTuneParamPstKingEGBase,
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values.
 ////////////////////////////////////////////////////////////////////////////////
@@ -291,6 +311,7 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamRookMobFileEG, "RookMobFileEG", evalRookMobFile.eg, true);
 	ttuneAddParameter(EvalTTuneParamRookMobRankMG, "RookMobRankMG", evalRookMobRank.mg, true);
 	ttuneAddParameter(EvalTTuneParamRookMobRankEG, "RookMobRankEG", evalRookMobRank.eg, true);
+
 	char str[32];
 	for(unsigned i=0; i<24; ++i) {
 		Sq sq=evalTTunePawnPstIndexToSq(i);
@@ -299,41 +320,16 @@ void evalInit(void) {
 		sprintf(str, "PawnPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
 		ttuneAddParameter(EvalTTuneParamPstPawnEGBase+i, str, evalPST[PieceTypePawn][sq].eg-evalMaterial[PieceTypePawn].eg, true);
 	}
-	for(unsigned i=0; i<32; ++i) {
-		Sq sq=evalTTunePstIndexToSq(i);
-		sprintf(str, "KnightPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstKnightMGBase+i, str, evalPST[PieceTypeKnight][sq].mg-evalMaterial[PieceTypeKnight].mg, true);
-		sprintf(str, "KnightPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstKnightEGBase+i, str, evalPST[PieceTypeKnight][sq].eg-evalMaterial[PieceTypeKnight].eg, true);
+	for(unsigned t=PieceTypeKnight; t<=PieceTypeKing; ++t) {
+		for(unsigned i=0; i<32; ++i) {
+			Sq sq=evalTTunePstIndexToSq(i);
+			sprintf(str, "%sPst%c%cMG", pieceTypeToStr(t), fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
+			ttuneAddParameter(evalTTuneParamPstMGBase[t]+i, str, evalPST[PieceTypeKnight][sq].mg-evalMaterial[PieceTypeKnight].mg, true);
+			sprintf(str, "%sPst%c%cEG", pieceTypeToStr(t), fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
+			ttuneAddParameter(evalTTuneParamPstEGBase[t]+i, str, evalPST[PieceTypeKnight][sq].eg-evalMaterial[PieceTypeKnight].eg, true);
+		}
 	}
-	for(unsigned i=0; i<32; ++i) {
-		Sq sq=evalTTunePstIndexToSq(i);
-		sprintf(str, "BishopPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstBishopMGBase+i, str, evalPST[PieceTypeBishopL][sq].mg-evalMaterial[PieceTypeBishopL].mg, true);
-		sprintf(str, "BishopPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstBishopEGBase+i, str, evalPST[PieceTypeBishopL][sq].eg-evalMaterial[PieceTypeBishopL].eg, true);
-	}
-	for(unsigned i=0; i<32; ++i) {
-		Sq sq=evalTTunePstIndexToSq(i);
-		sprintf(str, "RookPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstRookMGBase+i, str, evalPST[PieceTypeRook][sq].mg-evalMaterial[PieceTypeRook].mg, true);
-		sprintf(str, "RookPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstRookEGBase+i, str, evalPST[PieceTypeRook][sq].eg-evalMaterial[PieceTypeRook].eg, true);
-	}
-	for(unsigned i=0; i<32; ++i) {
-		Sq sq=evalTTunePstIndexToSq(i);
-		sprintf(str, "QueenPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstQueenMGBase+i, str, evalPST[PieceTypeQueen][sq].mg-evalMaterial[PieceTypeQueen].mg, true);
-		sprintf(str, "QueenPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstQueenEGBase+i, str, evalPST[PieceTypeQueen][sq].eg-evalMaterial[PieceTypeQueen].eg, true);
-	}
-	for(unsigned i=0; i<32; ++i) {
-		Sq sq=evalTTunePstIndexToSq(i);
-		sprintf(str, "KingPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstKingMGBase+i, str, evalPST[PieceTypeKing][sq].mg-evalMaterial[PieceTypeKing].mg, true);
-		sprintf(str, "KingPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
-		ttuneAddParameter(EvalTTuneParamPstKingEGBase+i, str, evalPST[PieceTypeKing][sq].eg-evalMaterial[PieceTypeKing].eg, true);
-	}
+
 	ttuneAddParameter(EvalTTuneParamPawnDoubledMG, "PawnDoubledMG", evalPawnDoubled.mg, true);
 	ttuneAddParameter(EvalTTuneParamPawnDoubledEG, "PawnDoubledEG", evalPawnDoubled.eg, true);
 	ttuneAddParameter(EvalTTuneParamPawnIsolatedMG, "PawnIsolatedMG", evalPawnIsolated.mg, true);
@@ -569,79 +565,21 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamPstPawnEGBase+pstIndex]-=factorEG;
 	}
 
-	pieceSet=wn;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstKnightMGBase+pstIndex]+=factorMG;
-		coefficients[EvalTTuneParamPstKnightEGBase+pstIndex]+=factorEG;
-	}
-	pieceSet=bn;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstKnightMGBase+pstIndex]-=factorMG;
-		coefficients[EvalTTuneParamPstKnightEGBase+pstIndex]-=factorEG;
-	}
-
-	pieceSet=wb;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstBishopMGBase+pstIndex]+=factorMG;
-		coefficients[EvalTTuneParamPstBishopEGBase+pstIndex]+=factorEG;
-	}
-	pieceSet=bb;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstBishopMGBase+pstIndex]-=factorMG;
-		coefficients[EvalTTuneParamPstBishopEGBase+pstIndex]-=factorEG;
-	}
-
-	pieceSet=wr;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstRookMGBase+pstIndex]+=factorMG;
-		coefficients[EvalTTuneParamPstRookEGBase+pstIndex]+=factorEG;
-	}
-	pieceSet=br;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstRookMGBase+pstIndex]-=factorMG;
-		coefficients[EvalTTuneParamPstRookEGBase+pstIndex]-=factorEG;
-	}
-
-	pieceSet=wq;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstQueenMGBase+pstIndex]+=factorMG;
-		coefficients[EvalTTuneParamPstQueenEGBase+pstIndex]+=factorEG;
-	}
-	pieceSet=bq;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstQueenMGBase+pstIndex]-=factorMG;
-		coefficients[EvalTTuneParamPstQueenEGBase+pstIndex]-=factorEG;
-	}
-
-	pieceSet=wk;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstKingMGBase+pstIndex]+=factorMG;
-		coefficients[EvalTTuneParamPstKingEGBase+pstIndex]+=factorEG;
-	}
-	pieceSet=bk;
-	while(pieceSet) {
-		Sq sq=bbScanReset(&pieceSet);
-		unsigned pstIndex=evalTTunePstSqToIndex(sq);
-		coefficients[EvalTTuneParamPstKingMGBase+pstIndex]-=factorMG;
-		coefficients[EvalTTuneParamPstKingEGBase+pstIndex]-=factorEG;
+	for(unsigned type=PieceTypeKnight; type<=PieceTypeKing; ++type) {
+		pieceSet=posGetBBPiece(pos, pieceMake(type, ColourWhite));
+		while(pieceSet) {
+			Sq sq=bbScanReset(&pieceSet);
+			unsigned pstIndex=evalTTunePstSqToIndex(sq);
+			coefficients[evalTTuneParamPstMGBase[type]+pstIndex]+=factorMG;
+			coefficients[evalTTuneParamPstEGBase[type]+pstIndex]+=factorEG;
+		}
+		pieceSet=posGetBBPiece(pos, pieceMake(type, ColourBlack));
+		while(pieceSet) {
+			Sq sq=bbScanReset(&pieceSet);
+			unsigned pstIndex=evalTTunePstSqToIndex(sq);
+			coefficients[evalTTuneParamPstMGBase[type]+pstIndex]-=factorMG;
+			coefficients[evalTTuneParamPstEGBase[type]+pstIndex]-=factorEG;
+		}
 	}
 
 	// Pawns
@@ -890,60 +828,24 @@ void evaluateOutputCode(const char *path, const float *weights) {
 	}
 	fprintf(file, "	},\n");
 
-	fprintf(file, "	[PieceTypeKnight]={\n");
-	for(unsigned y=0; y<8; ++y) {
-		fprintf(file, "		");
-		for(unsigned x=0; x<8; ++x) {
-			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstKnightMGBase+index], weights[EvalTTuneParamPstKnightEGBase+index]);
-		}
-		fprintf(file, "\n");
-	}
-	fprintf(file, "	},\n");
+	for(unsigned type=PieceTypeKnight; type<=PieceTypeKing; ++type) {
+		if (type==PieceTypeBishopD)
+			continue;
 
-	fprintf(file, "	[PieceTypeBishopL]={\n");
-	for(unsigned y=0; y<8; ++y) {
-		fprintf(file, "		");
-		for(unsigned x=0; x<8; ++x) {
-			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstBishopMGBase+index], weights[EvalTTuneParamPstBishopEGBase+index]);
+		if (type==PieceTypeBishopL)
+			fprintf(file, "	[PieceTypeBishopL]={\n");
+		else
+			fprintf(file, "	[PieceType%s]={\n", pieceTypeToStr(type));
+		for(unsigned y=0; y<8; ++y) {
+			fprintf(file, "		");
+			for(unsigned x=0; x<8; ++x) {
+				unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
+				fprintf(file, "{%5.0f,%5.0f},", weights[evalTTuneParamPstMGBase[type]+index], weights[evalTTuneParamPstMGBase[type]+index]);
+			}
+			fprintf(file, "\n");
 		}
-		fprintf(file, "\n");
+		fprintf(file, "	},\n");
 	}
-	fprintf(file, "	},\n");
-
-	fprintf(file, "	[PieceTypeRook]={\n");
-	for(unsigned y=0; y<8; ++y) {
-		fprintf(file, "		");
-		for(unsigned x=0; x<8; ++x) {
-			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstRookMGBase+index], weights[EvalTTuneParamPstRookEGBase+index]);
-		}
-		fprintf(file, "\n");
-	}
-	fprintf(file, "	},\n");
-
-	fprintf(file, "	[PieceTypeQueen]={\n");
-	for(unsigned y=0; y<8; ++y) {
-		fprintf(file, "		");
-		for(unsigned x=0; x<8; ++x) {
-			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstQueenMGBase+index], weights[EvalTTuneParamPstQueenEGBase+index]);
-		}
-		fprintf(file, "\n");
-	}
-	fprintf(file, "	},\n");
-
-	fprintf(file, "	[PieceTypeKing]={\n");
-	for(unsigned y=0; y<8; ++y) {
-		fprintf(file, "		");
-		for(unsigned x=0; x<8; ++x) {
-			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
-			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstKingMGBase+index], weights[EvalTTuneParamPstKingEGBase+index]);
-		}
-		fprintf(file, "\n");
-	}
-	fprintf(file, "	},\n");
 
 	fprintf(file, "};\n");
 

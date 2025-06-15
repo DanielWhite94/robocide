@@ -14,6 +14,7 @@ typedef float TTuneCoefficient; // count of a particular feature in the eval of 
 typedef struct {
 	TTuneCoefficient *coefficients; // coefficients for position n begin at n*ttuneParametersCount
 	double *results; // game results for each position (0.0 for black win, 0.5 for draw, 1.0 for white win)
+	double *cachedScores; // used to avoid calling ttuneComputeQ when we only make individual weight changes (calling ttunePositionsUpdateCache as needed)
 	unsigned count; // actual number of positions added
 	unsigned size; // max number of positions
 } TTunePositions;
@@ -38,11 +39,13 @@ void ttunePositionsFree(TTunePositions *positions);
 void ttunePositionsAdd(TTunePositions *positions, const TTuneCoefficient *coefficients, double result);
 const TTuneCoefficient *ttunePositionsGetCoefficients(const TTunePositions *positions, unsigned n);
 double ttunePositionsGetResult(const TTunePositions *positions, unsigned n);
+double ttunePositionsGetCachedScore(const TTunePositions *positions, unsigned n);
+void ttunePositionsUpdateCache(TTunePositions *positions, unsigned paramIndex, double delta);
 
-double ttuneComputeE(const TTunePositions *positions, const float *weights, double k);
+double ttuneComputeE(TTunePositions *positions, const float *weights, double k, bool updateCache);
 double ttuneComputeQ(const TTuneCoefficient *coefficients, const float *weights); // white-relative score
 double ttuneComputeSigmoid(double s, double k);
-double ttuneComputeOptimalK(const TTunePositions *positions, const float *weights);
+double ttuneComputeOptimalK(TTunePositions *positions, const float *weights);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
@@ -105,7 +108,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	printf("Found K=%f\n", k);
 
 	// Tuning loop (attempting to minimise E by varying evaluation weights)
-	double currentE=ttuneComputeE(positions, weights, k);
+	double currentE=ttuneComputeE(positions, weights, k, true);
 	printf("Preparing to run iteration loop with %u parameters (initial E=%f)\n", ttuneParametersCount, currentE);
 
 	bool improvement;
@@ -124,20 +127,25 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 
 			// Look for improvement by adjusting weight (first try down then up)
 			--weights[i];
-			double decE=ttuneComputeE(positions, weights, k);
+			ttunePositionsUpdateCache(positions, i, -1.0);
+			double decE=ttuneComputeE(positions, weights, k, false);
 			if (decE<currentE) {
 				improvement=true;
 				currentE=decE;
 				continue;
 			}
+
 			weights[i]+=2; // undo decrement and apply increment instead
-			double incE=ttuneComputeE(positions, weights, k);
+			ttunePositionsUpdateCache(positions, i, +2.0);
+			double incE=ttuneComputeE(positions, weights, k, false);
 			if (incE<currentE) {
 				improvement=true;
 				currentE=incE;
 				continue;
 			}
+
 			--weights[i];
+			ttunePositionsUpdateCache(positions, i, -1.0);
 		}
 
 		// Terminal output
@@ -231,7 +239,8 @@ TTunePositions *ttunePositionsNew(unsigned size) {
 	TTunePositions *positions=malloc(sizeof(TTunePositions));
 	TTuneCoefficient *coefficients=malloc(sizeof(TTuneCoefficient)*ttuneParametersCount*size);
 	double *results=malloc(sizeof(double)*size);
-	if (positions==NULL || coefficients==NULL || results==NULL) {
+	double *cachedScores=malloc(sizeof(double)*size);
+	if (positions==NULL || coefficients==NULL || results==NULL || cachedScores==NULL) {
 		free(positions);
 		free(coefficients);
 		free(results);
@@ -241,6 +250,7 @@ TTunePositions *ttunePositionsNew(unsigned size) {
 	// Set fields
 	positions->coefficients=coefficients;
 	positions->results=results;
+	positions->cachedScores=cachedScores;
 	positions->count=0;
 	positions->size=size;
 
@@ -255,6 +265,7 @@ void ttunePositionsFree(TTunePositions *positions) {
 	// Free memory
 	free(positions->coefficients);
 	free(positions->results);
+	free(positions->cachedScores);
 	free(positions);
 }
 
@@ -265,6 +276,7 @@ void ttunePositionsAdd(TTunePositions *positions, const TTuneCoefficient *coeffi
 	// TODO: can probably avoid this memcpy by passing the adjusted positions->coefficients pointer directly into the evaluation function
 	memcpy(positions->coefficients+ttuneParametersCount*positions->count, coefficients, sizeof(TTuneCoefficient)*ttuneParametersCount);
 	positions->results[positions->count]=result;
+	positions->cachedScores[positions->count]=0.0;
 	++positions->count;
 }
 
@@ -282,19 +294,40 @@ double ttunePositionsGetResult(const TTunePositions *positions, unsigned n) {
 	return positions->results[n];
 }
 
-double ttuneComputeE(const TTunePositions *positions, const float *weights, double k) {
+double ttunePositionsGetCachedScore(const TTunePositions *positions, unsigned n) {
+	assert(positions!=NULL);
+	assert(n<positions->count);
+
+	return positions->cachedScores[n];
+}
+
+void ttunePositionsUpdateCache(TTunePositions *positions, unsigned paramIndex, double delta) {
+	assert(positions!=NULL);
+	assert(i<ttuneParametersCount);
+
+	for(unsigned posIndex=0; posIndex<positions->count; ++posIndex) {
+		const TTuneCoefficient *coefficients=ttunePositionsGetCoefficients(positions, posIndex);
+		positions->cachedScores[posIndex]+=delta*coefficients[paramIndex];
+	}
+}
+
+double ttuneComputeE(TTunePositions *positions, const float *weights, double k, bool updateCache) {
 	assert(positions!=NULL);
 
 	// Loop over all positions
 	double total=0.0;
 	double correction=0.0; // ensure accuracy by using Kahan summation
-	for(unsigned i=0; i<positions->count; ++i) {
+	for(unsigned posIndex=0; posIndex<positions->count; ++posIndex) {
 		// Grab eval coefficients and the actual game result for this position
-		const TTuneCoefficient *coefficients=ttunePositionsGetCoefficients(positions, i);
-		const double result=ttunePositionsGetResult(positions, i);
+		const TTuneCoefficient *coefficients=ttunePositionsGetCoefficients(positions, posIndex);
+		const double result=ttunePositionsGetResult(positions, posIndex);
 
 		// Compute score and squared difference
-		double q=ttuneComputeQ(coefficients, weights);
+		if (updateCache)
+			positions->cachedScores[posIndex]=ttuneComputeQ(coefficients, weights);
+		else
+			assert(abs(positions->cachedScores[posIndex]-ttuneComputeQ(coefficients, weights))<0.0001);
+		double q=ttunePositionsGetCachedScore(positions, posIndex);
 		double s=ttuneComputeSigmoid(q, k);
 		double delta=result-s;
 		double delta2=delta*delta;
@@ -335,17 +368,17 @@ double ttuneComputeSigmoid(double s, double k) {
 	return 1.0/(1.0+pow(2.0, -k*s));
 }
 
-double ttuneComputeOptimalK(const TTunePositions *positions, const float *weights) {
+double ttuneComputeOptimalK(TTunePositions *positions, const float *weights) {
 	// Find k such that E is minimised
 	double start=0.0, end=10.0, step=1.0;
 	double curr=start;
-	double best=ttuneComputeE(positions, weights, start);
+	double best=ttuneComputeE(positions, weights, start, true);
 	for (int i=0; i<10; ++i) {
 		// Find the minimum within [start, end] using the current step
 		curr=start-step;
 		while (curr<end) {
 			curr=curr+step;
-			double error=ttuneComputeE(positions, weights, curr);
+			double error=ttuneComputeE(positions, weights, curr, true);
 			if (error<best) {
 				best=error;
 				start=curr;

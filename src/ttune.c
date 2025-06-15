@@ -153,7 +153,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 		printf("Iteration %u complete (E=%f, took %llu.%03llus)\n", currentIteration, currentE, deltaTime/1000, deltaTime%1000);
 
 		// Code output
-		evaluateOutputCode(codeOutputFile, weights);
+		evaluateTTuneOutputCode(codeOutputFile, weights);
 	} while(improvement);
 
 	printf("Tuning complete\n");
@@ -220,7 +220,7 @@ TTunePositions *ttuneReadEpd(const char *path) {
 		if (!posSetToFEN(pos, fenStr))
 			continue;
 
-		evaluateCoefficients(pos, coefficients);
+		evaluateTTuneCoefficients(pos, coefficients);
 
 		// Add position to list
 		ttunePositionsAdd(positions, coefficients, result);

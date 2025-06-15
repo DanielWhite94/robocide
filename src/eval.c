@@ -417,7 +417,7 @@ Score evaluate(const Pos *pos) {
 	return score;
 }
 
-void evaluateCoefficients(const Pos *pos, float *coefficients) {
+void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	// Set all coefficents to 0 initially
 	for(unsigned i=0; i<EvalTTuneParamNB; ++i)
 		coefficients[i]=0.0;
@@ -749,7 +749,7 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamTempoDefaultEG]=factorEG*tempoCount;
 }
 
-void evaluateOutputCode(const char *path, const float *weights) {
+void evaluateTTuneOutputCode(const char *path, const float *weights) {
 	// Open file
 	FILE *file=fopen(path, "w");
 	if (file==NULL)

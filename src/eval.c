@@ -126,6 +126,10 @@ typedef enum {
 	EvalTTuneParamOutpostSqEG,
 	EvalTTuneParamOutpostKnightMG,
 	EvalTTuneParamOutpostKnightEG,
+	EvalTTuneParamOutpostBishopMG,
+	EvalTTuneParamOutpostBishopEG,
+	EvalTTuneParamOutpostRookMG,
+	EvalTTuneParamOutpostRookEG,
 	EvalTTuneParamTempoDefaultMG,
 	EvalTTuneParamTempoDefaultEG,
 	// PSTS use two sets (MG/EG) of 32 parameters from A1 to D8 (first four squares of each rank, sq is mirrored if not on left side)
@@ -308,6 +312,8 @@ void evalInit(void) {
 	evalOptionNewVPair("KingCastlingMobility", &evalKingCastlingMobility, 0, 200);
 	evalOptionNewVPair("OutpostSq", &evalOutpostSq, 0, 500);
 	evalOptionNewVPair("OutpostKnight", &evalOutpostKnight, 0, 1000);
+	evalOptionNewVPair("OutpostBishop", &evalOutpostBishop, 0, 1000);
+	evalOptionNewVPair("OutpostRook", &evalOutpostRook, 0, 1000);
 	evalOptionNewVPair("Tempo", &evalTempoDefault, 0, 100);
 	uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 4096, evalHalfMoveFactor);
 	uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 512, evalWeightFactor);
@@ -406,6 +412,10 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamOutpostSqEG, evalOutpostSq.eg, true);
 	ttuneAddParameter(EvalTTuneParamOutpostKnightMG, evalOutpostKnight.mg, true);
 	ttuneAddParameter(EvalTTuneParamOutpostKnightEG, evalOutpostKnight.eg, true);
+	ttuneAddParameter(EvalTTuneParamOutpostBishopMG, evalOutpostBishop.mg, true);
+	ttuneAddParameter(EvalTTuneParamOutpostBishopEG, evalOutpostBishop.eg, true);
+	ttuneAddParameter(EvalTTuneParamOutpostRookMG, evalOutpostRook.mg, true);
+	ttuneAddParameter(EvalTTuneParamOutpostRookEG, evalOutpostRook.eg, true);
 	ttuneAddParameter(EvalTTuneParamTempoDefaultMG, evalTempoDefault.mg, true);
 	ttuneAddParameter(EvalTTuneParamTempoDefaultEG, evalTempoDefault.eg, true);
 }
@@ -783,6 +793,16 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamOutpostKnightMG]=factorMG*outpostKnightCount;
 	coefficients[EvalTTuneParamOutpostKnightEG]=factorEG*outpostKnightCount;
 
+	int outpostBishopCount=((int)bbPopCount(outposts[ColourWhite] & wb))-
+	                       ((int)bbPopCount(outposts[ColourBlack] & bb));
+	coefficients[EvalTTuneParamOutpostBishopMG]=factorMG*outpostBishopCount;
+	coefficients[EvalTTuneParamOutpostBishopEG]=factorEG*outpostBishopCount;
+
+	int outpostRookCount=((int)bbPopCount(outposts[ColourWhite] & wr))-
+	                     ((int)bbPopCount(outposts[ColourBlack] & br));
+	coefficients[EvalTTuneParamOutpostRookMG]=factorMG*outpostRookCount;
+	coefficients[EvalTTuneParamOutpostRookEG]=factorEG*outpostRookCount;
+
 	int tempoCount=(posGetSTM(pos)==ColourWhite ? 1 : -1);
 	coefficients[EvalTTuneParamTempoDefaultMG]=factorMG*tempoCount;
 	coefficients[EvalTTuneParamTempoDefaultEG]=factorEG*tempoCount;
@@ -848,6 +868,8 @@ void evaluateTTuneOutputCode(const char *path, const float *weights) {
 	fprintf(file, "TUNECONST VPair evalKingCastlingMobility={%.0f,%.0f};\n", weights[EvalTTuneParamKingCastlingMobilityMG], weights[EvalTTuneParamKingCastlingMobilityEG]);
 	fprintf(file, "TUNECONST VPair evalOutpostSq={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostSqMG], weights[EvalTTuneParamOutpostSqEG]);
 	fprintf(file, "TUNECONST VPair evalOutpostKnight={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostKnightMG], weights[EvalTTuneParamOutpostKnightEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostBishop={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostBishopMG], weights[EvalTTuneParamOutpostBishopEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostRook={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostRookMG], weights[EvalTTuneParamOutpostRookEG]);
 	fprintf(file, "TUNECONST VPair evalTempoDefault={%.0f,%.0f};\n", weights[EvalTTuneParamTempoDefaultMG], weights[EvalTTuneParamTempoDefaultEG]);
 
 	// PSTs
@@ -1679,9 +1701,17 @@ VPair evaluateDefaultGlobal(EvalData *data) {
 	int knightOutpostCountB=bbPopCount(data->pawnData.outposts[ColourBlack] & posGetBBPiece(pos, PieceBKnight));
 	evalVPairAddMulTo(&score, &evalOutpostKnight, (knightOutpostCountW-knightOutpostCountB));
 
+	int bishopOutpostCountW=bbPopCount(data->pawnData.outposts[ColourWhite] & (posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD)));
+	int bishopOutpostCountB=bbPopCount(data->pawnData.outposts[ColourBlack] & (posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD)));
+	evalVPairAddMulTo(&score, &evalOutpostBishop, (bishopOutpostCountW-bishopOutpostCountB));
+
+	int rookOutpostCountW=bbPopCount(data->pawnData.outposts[ColourWhite] & posGetBBPiece(pos, PieceWRook));
+	int rookOutpostCountB=bbPopCount(data->pawnData.outposts[ColourBlack] & posGetBBPiece(pos, PieceBRook));
+	evalVPairAddMulTo(&score, &evalOutpostRook, (rookOutpostCountW-rookOutpostCountB));
+
 	// Extra info
 #ifdef EVALINFO
-	printf("            knight outposts: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	printf("            outposts: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
 	tempScore=score;
 #endif
 

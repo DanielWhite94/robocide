@@ -72,6 +72,11 @@ typedef enum {
 	EvalTTuneParamRookMobRankEG,
 	EvalTTuneParamQueenMobMG,
 	EvalTTuneParamQueenMobEG,
+	// PSTS use two sets (MG/EG) of 32 parameters from A1 to D8 (first four squares of each rank, sq is mirrored if not on left side)
+	EvalTTuneParamPstKingMGBase,
+	EvalTTuneParamPstKingMGEnd=EvalTTuneParamPstKingMGBase+31,
+	EvalTTuneParamPstKingEGBase,
+	EvalTTuneParamPstKingEGEnd=EvalTTuneParamPstKingEGBase+31,
 	EvalTTuneParamNB,
 } EvalTTuneParam;
 
@@ -127,6 +132,9 @@ void evalRecalc(void);
 void evalVerify(void);
 
 EvalMatType evalComputeMatType(const Pos *pos);
+
+Sq evalTTunePstIndexToSq(unsigned index);
+unsigned evalTTunePstSqToIndex(Sq sq);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
@@ -193,6 +201,14 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamRookMobRankEG, "RookMobRankEG", evalRookMobRank.eg, true);
 	ttuneAddParameter(EvalTTuneParamQueenMobMG, "QueemMobMG", evalQueenMob.mg, true);
 	ttuneAddParameter(EvalTTuneParamQueenMobEG, "QueemMobEG", evalQueenMob.eg, true);
+	for(unsigned i=0; i<32; ++i) {
+		Sq sq=evalTTunePstIndexToSq(i);
+		char str[32];
+		sprintf(str, "KingPst%c%cMG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
+		ttuneAddParameter(EvalTTuneParamPstKingMGBase+i, str, evalKingPST[sq].mg, true);
+		sprintf(str, "KingPst%c%cEG", fileToChar(sqFile(sq))-'a'+'A', rankToChar(sqRank(sq)));
+		ttuneAddParameter(EvalTTuneParamPstKingEGBase+i, str, evalKingPST[sq].eg, true);
+	}
 }
 
 void evalQuit(void) {
@@ -388,6 +404,22 @@ void evaluateCoefficients(const Pos *pos, float *coefficients) {
 		coefficients[EvalTTuneParamQueenMobMG]-=factorMG*count;
 		coefficients[EvalTTuneParamQueenMobEG]-=factorEG*count;
 	}
+
+	// PSTs
+	pieceSet=wk;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		unsigned pstIndex=evalTTunePstSqToIndex(sq);
+		coefficients[EvalTTuneParamPstKingMGBase+pstIndex]+=factorMG;
+		coefficients[EvalTTuneParamPstKingEGBase+pstIndex]+=factorEG;
+	}
+	pieceSet=bk;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		unsigned pstIndex=evalTTunePstSqToIndex(sq);
+		coefficients[EvalTTuneParamPstKingMGBase+pstIndex]-=factorMG;
+		coefficients[EvalTTuneParamPstKingEGBase+pstIndex]-=factorEG;
+	}
 }
 
 void evaluateOutputCode(const char *path, const float *weights) {
@@ -414,6 +446,18 @@ void evaluateOutputCode(const char *path, const float *weights) {
 	fprintf(file, "TUNECONST VPair evalRookMobFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileEG]);
 	fprintf(file, "TUNECONST VPair evalRookMobRank={%.0f,%.0f};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankEG]);
 	fprintf(file, "TUNECONST VPair evalQueenMob={%.0f,%.0f};\n", weights[EvalTTuneParamQueenMobMG], weights[EvalTTuneParamQueenMobEG]);
+
+	fprintf(file, "VPair evalKingPST[SqNB]={\n");
+
+	for(unsigned y=0; y<8; ++y) {
+		fprintf(file, "	");
+		for(unsigned x=0; x<8; ++x) {
+			unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
+			fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstKingMGBase+index], weights[EvalTTuneParamPstKingEGBase+index]);
+		}
+		fprintf(file, "\n");
+	}
+	fprintf(file, "};\n");
 
 	// Close file
 	fclose(file);
@@ -1217,4 +1261,16 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 
 #	undef MASK
 #	undef MAKE
+}
+
+Sq evalTTunePstIndexToSq(unsigned index) {
+	assert(index<32);
+
+	return sqMake(index%4, index/4);
+}
+
+unsigned evalTTunePstSqToIndex(Sq sq) {
+	if (sqFile(sq)>=FileE)
+		sq=sqMirror(sq);
+	return 4*sqRank(sq)+sqFile(sq);
 }

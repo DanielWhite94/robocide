@@ -38,51 +38,7 @@ Robocide will not start pondering automatically, instead requiring the
 GUI/interface to send 'go ponder'.
 
 Furthermore, if tuning is enabled (see the section on compiling) many more
-options are available:
-* [PIECE][MG/EG] - The material value of PIECE.
-* PawnCentre[MG/EG] - Bonus for each pawn on D4, D5, E4 or E5.
-* PawnOuterCentre[MG/EG] - Bonus for each pawn on C3-C6, D3-D6, E3-E6 or F3-F6.
-* PawnFiles[FILE][MG/EG] - Bonus for each pawn on the given file, FILE.
-* PawnRank[RANK][MG/EG] - Bonus for each pawn on the given rank, RANK.
-* PawnDoubled[MG/EG] - Bonus for each doubled pawn.
-* PawnIsolated[MG/EG] - Bonus for each isolated pawn.
-* PawnBlocked[MG/EG] - Bonus for each blocked pawn.
-* PawnPassedQuad[COEFFICIENT][MG/EG] - Specifies the quadratic coefficients for
-the bonus applied to a passed pawns (the bonus is given by a*r^2+b*r+c, for a
-pawn on rank r).
-* [PIECE]PawnAffinity[MG/EG] - Bonus a given piece PIECE receives for each
-friendly pawn.
-* BishopPair[MG/EG] - Bonus for having at least one bishop of each colour.
-* BishopMobility[MG/EG] - Bonus for each square a bishop attacks.
-* OppositeBishopFactor[MG/EG] - Factor to reduce the score by if we are in an
-opposite bishop situation. A value of 256 represents no change, 128 would half
-the score.
-* RookMobilityFile[MG/EG] - Bonus for each square a rook attacks along a file.
-* RookMobilityRank[MG/EG] - Bonus for each square a rook attacks along a rank.
-* RookOpenFile[MG/EG] - Bonus for each rook on an open file (a file without any
-pawns).
-* RookSemiOpenFile[MG/EG] - Bonus for each rook on a semi-open file (a file with
-opponent pawns but without any friendly pawns).
-* RookOn7th[MG/EG] - Bonus for having a rook on the 7th rank (does not always
-apply, see eval.c for full details).
-* RookTrapped[MG/EG] - Bonus for rook trapped in by pawns and own king.
-* KingShieldClose[MG/EG] - Bonus for each pawn one rank infront of the king, and
-at most one file away.
-* KingShieldFar[MG/EG] - Bonus for each pawn two ranks infront of the king, and
-at most one file away.
-* Tempo[COMBINATION][MG/EG] - Bonus for having the side to move in the given
-material combination.
-* HalfMoveFactor - How severely to drag score towards 0 as we approach the
-50-move rule. A lower value will drag the score towards 0 sooner.
-* WeightFactor - Determines how we interpolate the score between middlegame and
-endgame values. A lower value will cause the endgame score to be considered more
-important for the same material combination.
-* NullReduction - How much to reduce the search depth by in the case of
-performing null-move-pruning.
-* IIDMin - Minimum depth when entering a node at which internal iterative
-deepening is considered.
-* IIDReduction - How much to reduce the search depth by in the case of
-performing internal iterative deepening.
+options are available (run the engine and type 'uci' to see a list of current parameters).
 
 ### Compiling
 

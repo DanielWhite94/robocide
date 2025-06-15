@@ -34,6 +34,7 @@ TUNECONST VPair evalRookOn7th={35,68};
 TUNECONST VPair evalRookTrapped={-482,-140};
 TUNECONST VPair evalKingShieldClose={290,-66};
 TUNECONST VPair evalKingShieldFar={185,-33};
+TUNECONST VPair evalQueenMob={0,0};
 TUNECONST VPair evalKingNearPasser[8]={ // indexed by distance in interval [1, 7]
 	{0,0}, // unused
 	{148,338},

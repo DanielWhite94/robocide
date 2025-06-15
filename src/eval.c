@@ -68,6 +68,8 @@ typedef enum {
 	EvalTTuneParamRookMobFileEG,
 	EvalTTuneParamRookMobRankMG,
 	EvalTTuneParamRookMobRankEG,
+	EvalTTuneParamQueenMobMG,
+	EvalTTuneParamQueenMobEG,
 	EvalTTuneParamPawnDoubledMG,
 	EvalTTuneParamPawnDoubledEG,
 	EvalTTuneParamPawnIsolatedMG,
@@ -300,6 +302,7 @@ void evalInit(void) {
 	evalOptionNewVPair("RookSemiOpenFile", &evalRookSemiOpenFile, 0, 150);
 	evalOptionNewVPair("RookOn7th", &evalRookOn7th, -200, 200);
 	evalOptionNewVPair("RookTrapped", &evalRookTrapped, -3000, 0);
+	evalOptionNewVPair("QueenMobility", &evalQueenMob, 0, 100);
 	evalOptionNewVPair("KingShieldClose", &evalKingShieldClose, 0, 500);
 	evalOptionNewVPair("KingShieldFar", &evalKingShieldFar, 0, 300);
 	evalOptionNewVPair("KingCastlingMobility", &evalKingCastlingMobility, 0, 200);
@@ -329,6 +332,8 @@ void evalInit(void) {
 	ttuneAddParameter(EvalTTuneParamRookMobFileEG, evalRookMobFile.eg, true);
 	ttuneAddParameter(EvalTTuneParamRookMobRankMG, evalRookMobRank.mg, true);
 	ttuneAddParameter(EvalTTuneParamRookMobRankEG, evalRookMobRank.eg, true);
+	ttuneAddParameter(EvalTTuneParamQueenMobMG, evalQueenMob.mg, true);
+	ttuneAddParameter(EvalTTuneParamQueenMobEG, evalQueenMob.eg, true);
 
 	for(unsigned i=0; i<24; ++i) {
 		Sq sq=evalTTunePawnPstIndexToSq(i);
@@ -562,6 +567,25 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 		count=bbPopCount(attacks & mobilityAllowed[ColourBlack] & bbRank(sqRank(sq)));
 		coefficients[EvalTTuneParamRookMobRankMG]-=factorMG*count;
 		coefficients[EvalTTuneParamRookMobRankEG]-=factorEG*count;
+	}
+
+	pieceSet=wq;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourWhite]);
+		BB attacksR=attacksRook(sq, rookMobOcc[ColourWhite]);
+		count=bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourWhite]);
+		coefficients[EvalTTuneParamQueenMobMG]+=factorMG*count;
+		coefficients[EvalTTuneParamQueenMobEG]+=factorEG*count;
+	}
+	pieceSet=bq;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourBlack]);
+		BB attacksR=attacksRook(sq, rookMobOcc[ColourBlack]);
+		count=bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourBlack]);
+		coefficients[EvalTTuneParamQueenMobMG]-=factorMG*count;
+		coefficients[EvalTTuneParamQueenMobEG]-=factorEG*count;
 	}
 
 	// PSTs
@@ -801,6 +825,7 @@ void evaluateTTuneOutputCode(const char *path, const float *weights) {
 	fprintf(file, "TUNECONST VPair evalBishopMob={%.0f,%.0f};\n", weights[EvalTTuneParamBishopMobMG], weights[EvalTTuneParamBishopMobEG]);
 	fprintf(file, "TUNECONST VPair evalRookMobFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileEG]);
 	fprintf(file, "TUNECONST VPair evalRookMobRank={%.0f,%.0f};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankEG]);
+	fprintf(file, "TUNECONST VPair evalQueenMob={%.0f,%.0f};\n", weights[EvalTTuneParamQueenMobMG], weights[EvalTTuneParamQueenMobEG]);
 
 	fprintf(file, "TUNECONST VPair evalKnightPawnAffinity={%.0f,%.0f};\n", weights[EvalTTuneParamKnightPawnAffinityMG], weights[EvalTTuneParamKnightPawnAffinityEG]);
 	fprintf(file, "TUNECONST VPair evalRookPawnAffinity={%.0f,%.0f};\n", weights[EvalTTuneParamRookPawnAffinityMG], weights[EvalTTuneParamRookPawnAffinityEG]);
@@ -1194,6 +1219,28 @@ VPair evaluateDefault(EvalData *data) {
 	// Extra info
 #ifdef EVALINFO
 	printf("        rook mobility (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
+
+	// Queen mobility
+	pieceSet=posGetBBPiece(pos, PieceWQueen);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourWhite]);
+		BB attacksR=attacksRook(sq, rookMobOcc[ColourWhite]);
+		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourWhite]));
+	}
+	pieceSet=posGetBBPiece(pos, PieceBQueen);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourBlack]);
+		BB attacksR=attacksRook(sq, rookMobOcc[ColourBlack]);
+		evalVPairSubMulFrom(&score, &evalBishopMob, bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourBlack]));
+	}
+
+	// Extra info
+#ifdef EVALINFO
+	printf("        queen mobility (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
 	tempScore=score;
 #endif
 

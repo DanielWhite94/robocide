@@ -107,6 +107,11 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 
 	printf("Found K=%f\n", k);
 
+	if (k<=0.0) {
+		printf("Error: k should be positive\n");
+		return;
+	}
+
 	// Tuning loop (attempting to minimise E by varying evaluation weights)
 	double currentE=ttuneComputeE(positions, weights, k, true);
 	printf("Preparing to run iteration loop with %u parameters (initial E=%.8f)\n", ttuneParametersCount, currentE);

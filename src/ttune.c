@@ -95,16 +95,17 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 
 	printf("Loaded %u positions\n", positions->count);
 
-	// Allocate weights array and initially set to current engine values
+	// Allocate and initialise weights and weightsDelta array
 	float *weights=malloc(sizeof(float)*ttuneParametersCount);
-	for(unsigned i=0; i<ttuneParametersCount; ++i)
-		weights[i]=ttuneParameters[i].initialValue;
+	float *weightsDelta=malloc(sizeof(float)*ttuneParametersCount);
+	for(unsigned i=0; i<ttuneParametersCount; ++i) {
+		weights[i]=ttuneParameters[i].initialValue; // begin with current engine values
+		weightsDelta[i]=-1.0; // delta to adjust weight by during next iteration
+	}
 
 	// Find k (which minimises E)
 	printf("Computing optimal K value...\n");
-
 	double k=ttuneComputeOptimalK(positions, weights);
-
 	printf("Found K=%f\n", k);
 
 	if (k<=0.0) {
@@ -116,7 +117,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 	double currentE=ttuneComputeE(positions, weights, k, true);
 	printf("Preparing to run iteration loop with %u parameters (initial E=%.8f)\n", ttuneParametersCount, currentE);
 
-	bool improvement;
+	bool improvement=true, prevImprovement;
 	unsigned currentIteration=0;
 	do {
 		// Iteration start
@@ -124,33 +125,29 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 		++currentIteration;
 
 		// Loop over parameters one by one
+		prevImprovement=improvement;
 		improvement=false;
 		for(unsigned i=0; i<ttuneParametersCount; ++i) {
 			// Not tuning this parameter?
 			if (!ttuneParameters[i].tune)
 				continue;
 
-			// Look for improvement by adjusting weight (first try down then up)
-			--weights[i];
-			ttunePositionsUpdateCache(positions, i, -1.0);
-			double decE=ttuneComputeE(positions, weights, k, false);
-			if (decE<currentE) {
+			// Adjusting weight ready for test
+			weights[i]+=weightsDelta[i];
+			ttunePositionsUpdateCache(positions, i, weightsDelta[i]);
+
+			// Improvement? If so, continue onto next weight (parameter)
+			double newE=ttuneComputeE(positions, weights, k, false);
+			if (newE<currentE) {
+				currentE=newE;
 				improvement=true;
-				currentE=decE;
 				continue;
 			}
 
-			weights[i]+=2; // undo decrement and apply increment instead
-			ttunePositionsUpdateCache(positions, i, +2.0);
-			double incE=ttuneComputeE(positions, weights, k, false);
-			if (incE<currentE) {
-				improvement=true;
-				currentE=incE;
-				continue;
-			}
-
-			--weights[i];
-			ttunePositionsUpdateCache(positions, i, -1.0);
+			// No improvement - reset weight and update delta for next iteration
+			weights[i]-=weightsDelta[i];
+			ttunePositionsUpdateCache(positions, i, -weightsDelta[i]);
+			weightsDelta[i]=-weightsDelta[i]; // negate to try other direction
 		}
 
 		// Simplify weights (e.g. averaging PSTs to zero)
@@ -164,7 +161,7 @@ void ttuneRun(const char *positionInputFile, const char *codeOutputFile) {
 
 		// Code output
 		evaluateTTuneOutputCode(codeOutputFile, weights);
-	} while(improvement);
+	} while(improvement || prevImprovement); // after one iteration with no improvements we have to run another to check all weights with opposite delta direction
 
 	printf("Tuning complete\n");
 

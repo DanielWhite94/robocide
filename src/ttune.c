@@ -370,7 +370,6 @@ double ttuneComputeQ(const TTuneCoefficient *coefficients, const float *weights)
 
 double ttuneComputeSigmoid(double s, double k) {
 	// Convert evaluation/search score s into a logistic win/draw/loss value in the range [0,1]
-	// Roughly equivalent to K=0.12041 in original Texel Tuning description
 	return 1.0/(1.0+pow(2.0, -k*s));
 }
 

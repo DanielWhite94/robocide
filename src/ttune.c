@@ -1,10 +1,8 @@
 #include <assert.h>
 #include <math.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
-#include "eval.h"
 #include "pos.h"
 #include "time.h"
 #include "ttune.h"
@@ -178,6 +176,23 @@ void ttuneAddParameter(unsigned id, int initialValue, bool tune) {
 	ttuneParameters[id].initialValue=initialValue;
 	ttuneParameters[id].init=true;
 	ttuneParameters[id].tune=tune;
+}
+
+void ttuneAddParameterVPair(unsigned baseId, const VPair *initialValue, bool tune) {
+	ttuneAddParameter(baseId+0, initialValue->mg, tune);
+	ttuneAddParameter(baseId+1, initialValue->eg, tune);
+}
+
+void ttuneAddParameterArray(unsigned parameterCount, unsigned baseId, const int *initialValues, bool tune) {
+	for(unsigned i=0; i<parameterCount; ++i)
+		ttuneAddParameter(baseId+i, initialValues[i], tune);
+}
+
+void ttuneAddParameterVPairArray(unsigned parameterCount, unsigned mgBaseId, unsigned egBaseId, const VPair *initialValues, bool tune) {
+	for(unsigned i=0; i<parameterCount; ++i) {
+		ttuneAddParameter(mgBaseId+i, initialValues[i].mg, tune);
+		ttuneAddParameter(egBaseId+i, initialValues[i].eg, tune);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

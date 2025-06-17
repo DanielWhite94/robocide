@@ -49,114 +49,67 @@ struct EvalData {
 	EvalMatData matData;
 };
 
+#define EvalTTuneParamPstPawnCount 24 // don't need ranks 1 & 8 for pawns
+#define EvalTTuneParamPstKnightCount 32
+#define EvalTTuneParamPstBishopCount 32
+#define EvalTTuneParamPstRookCount 32
+#define EvalTTuneParamPstQueenCount 32
+#define EvalTTuneParamPstKingCount 32
 typedef enum {
-	EvalTTuneParamPawnMG,
-	EvalTTuneParamPawnEG,
-	EvalTTuneParamKnightMG,
-	EvalTTuneParamKnightEG,
-	EvalTTuneParamBishopMG,
-	EvalTTuneParamBishopEG,
-	EvalTTuneParamRookMG,
-	EvalTTuneParamRookEG,
-	EvalTTuneParamQueenMG,
-	EvalTTuneParamQueenEG,
-	EvalTTuneParamKnightMobMG,
-	EvalTTuneParamKnightMobEG,
-	EvalTTuneParamBishopMobMG,
-	EvalTTuneParamBishopMobEG,
-	EvalTTuneParamRookMobFileMG,
-	EvalTTuneParamRookMobFileEG,
-	EvalTTuneParamRookMobRankMG,
-	EvalTTuneParamRookMobRankEG,
-	EvalTTuneParamQueenMobMG,
-	EvalTTuneParamQueenMobEG,
-	EvalTTuneParamPawnDoubledMG,
-	EvalTTuneParamPawnDoubledEG,
-	EvalTTuneParamPawnIsolatedMG,
-	EvalTTuneParamPawnIsolatedEG,
-	EvalTTuneParamPawnBlockedMG,
-	EvalTTuneParamPawnBlockedEG,
-	EvalTTuneParamPawnPassedR2MG,
-	EvalTTuneParamPawnPassedR2EG,
-	EvalTTuneParamPawnPassedR3MG,
-	EvalTTuneParamPawnPassedR3EG,
-	EvalTTuneParamPawnPassedR4MG,
-	EvalTTuneParamPawnPassedR4EG,
-	EvalTTuneParamPawnPassedR5MG,
-	EvalTTuneParamPawnPassedR5EG,
-	EvalTTuneParamPawnPassedR6MG,
-	EvalTTuneParamPawnPassedR6EG,
-	EvalTTuneParamPawnPassedR7MG,
-	EvalTTuneParamPawnPassedR7EG,
-	EvalTTuneParamBishopPairMG,
-	EvalTTuneParamBishopPairEG,
-	EvalTTuneParamKnightPawnAffinityMG,
-	EvalTTuneParamKnightPawnAffinityEG,
-	EvalTTuneParamRookPawnAffinityMG,
-	EvalTTuneParamRookPawnAffinityEG,
-	EvalTTuneParamRookOpenFileMG,
-	EvalTTuneParamRookOpenFileEG,
-	EvalTTuneParamRookSemiOpenFileMG,
-	EvalTTuneParamRookSemiOpenFileEG,
-	EvalTTuneParamRookOn7thMG,
-	EvalTTuneParamRookOn7thEG,
-	EvalTTuneParamRookTrappedMG,
-	EvalTTuneParamRookTrappedEG,
-	EvalTTuneParamKingShieldCloseMG,
-	EvalTTuneParamKingShieldCloseEG,
-	EvalTTuneParamKingShieldFarMG,
-	EvalTTuneParamKingShieldFarEG,
-	EvalTTuneParamKingNearPasser1MG,
-	EvalTTuneParamKingNearPasser1EG,
-	EvalTTuneParamKingNearPasser2MG,
-	EvalTTuneParamKingNearPasser2EG,
-	EvalTTuneParamKingNearPasser3MG,
-	EvalTTuneParamKingNearPasser3EG,
-	EvalTTuneParamKingNearPasser4MG,
-	EvalTTuneParamKingNearPasser4EG,
-	EvalTTuneParamKingNearPasser5MG,
-	EvalTTuneParamKingNearPasser5EG,
-	EvalTTuneParamKingNearPasser6MG,
-	EvalTTuneParamKingNearPasser6EG,
-	EvalTTuneParamKingNearPasser7MG,
-	EvalTTuneParamKingNearPasser7EG,
-	EvalTTuneParamKingCastlingMobilityMG,
-	EvalTTuneParamKingCastlingMobilityEG,
-	EvalTTuneParamOutpostSqMG,
-	EvalTTuneParamOutpostSqEG,
-	EvalTTuneParamOutpostKnightMG,
-	EvalTTuneParamOutpostKnightEG,
-	EvalTTuneParamOutpostBishopMG,
-	EvalTTuneParamOutpostBishopEG,
-	EvalTTuneParamOutpostRookMG,
-	EvalTTuneParamOutpostRookEG,
-	EvalTTuneParamTempoDefaultMG,
-	EvalTTuneParamTempoDefaultEG,
+	EvalTTuneParamPawnMG, EvalTTuneParamPawnEG,
+	EvalTTuneParamKnightMG, EvalTTuneParamKnightEG,
+	EvalTTuneParamBishopMG, EvalTTuneParamBishopEG,
+	EvalTTuneParamRookMG, EvalTTuneParamRookEG,
+	EvalTTuneParamQueenMG, EvalTTuneParamQueenEG,
+	EvalTTuneParamKnightMobMG, EvalTTuneParamKnightMobEG,
+	EvalTTuneParamBishopMobMG, EvalTTuneParamBishopMobEG,
+	EvalTTuneParamRookMobFileMG, EvalTTuneParamRookMobFileEG,
+	EvalTTuneParamRookMobRankMG, EvalTTuneParamRookMobRankEG,
+	EvalTTuneParamQueenMobMG, EvalTTuneParamQueenMobEG,
+	EvalTTuneParamPawnDoubledMG, EvalTTuneParamPawnDoubledEG,
+	EvalTTuneParamPawnIsolatedMG, EvalTTuneParamPawnIsolatedEG,
+	EvalTTuneParamPawnBlockedMG, EvalTTuneParamPawnBlockedEG,
+	EvalTTuneParamPawnPassedR2MG, EvalTTuneParamPawnPassedR2EG,
+	EvalTTuneParamPawnPassedR3MG, EvalTTuneParamPawnPassedR3EG,
+	EvalTTuneParamPawnPassedR4MG, EvalTTuneParamPawnPassedR4EG,
+	EvalTTuneParamPawnPassedR5MG, EvalTTuneParamPawnPassedR5EG,
+	EvalTTuneParamPawnPassedR6MG, EvalTTuneParamPawnPassedR6EG,
+	EvalTTuneParamPawnPassedR7MG, EvalTTuneParamPawnPassedR7EG,
+	EvalTTuneParamBishopPairMG, EvalTTuneParamBishopPairEG,
+	EvalTTuneParamKnightPawnAffinityMG, EvalTTuneParamKnightPawnAffinityEG,
+	EvalTTuneParamRookPawnAffinityMG, EvalTTuneParamRookPawnAffinityEG,
+	EvalTTuneParamRookOpenFileMG, EvalTTuneParamRookOpenFileEG,
+	EvalTTuneParamRookSemiOpenFileMG, EvalTTuneParamRookSemiOpenFileEG,
+	EvalTTuneParamRookOn7thMG, EvalTTuneParamRookOn7thEG,
+	EvalTTuneParamRookTrappedMG, EvalTTuneParamRookTrappedEG,
+	EvalTTuneParamKingShieldCloseMG, EvalTTuneParamKingShieldCloseEG,
+	EvalTTuneParamKingShieldFarMG, EvalTTuneParamKingShieldFarEG,
+	EvalTTuneParamKingNearPasser1MG, EvalTTuneParamKingNearPasser1EG,
+	EvalTTuneParamKingNearPasser2MG, EvalTTuneParamKingNearPasser2EG,
+	EvalTTuneParamKingNearPasser3MG, EvalTTuneParamKingNearPasser3EG,
+	EvalTTuneParamKingNearPasser4MG, EvalTTuneParamKingNearPasser4EG,
+	EvalTTuneParamKingNearPasser5MG, EvalTTuneParamKingNearPasser5EG,
+	EvalTTuneParamKingNearPasser6MG, EvalTTuneParamKingNearPasser6EG,
+	EvalTTuneParamKingNearPasser7MG, EvalTTuneParamKingNearPasser7EG,
+	EvalTTuneParamKingCastlingMobilityMG, EvalTTuneParamKingCastlingMobilityEG,
+	EvalTTuneParamOutpostSqMG, EvalTTuneParamOutpostSqEG,
+	EvalTTuneParamOutpostKnightMG, EvalTTuneParamOutpostKnightEG,
+	EvalTTuneParamOutpostBishopMG, EvalTTuneParamOutpostBishopEG,
+	EvalTTuneParamOutpostRookMG, EvalTTuneParamOutpostRookEG,
+	EvalTTuneParamTempoDefaultMG, EvalTTuneParamTempoDefaultEG,
 	// PSTS use two sets (MG/EG) of 32 parameters from A1 to D8 (first four squares of each rank, sq is mirrored if not on left side)
-	EvalTTuneParamPstPawnMGBase,
-	EvalTTuneParamPstPawnMGEnd=EvalTTuneParamPstPawnMGBase+23, // don't need ranks 1 & 8 for pawns
-	EvalTTuneParamPstPawnEGBase,
-	EvalTTuneParamPstPawnEGEnd=EvalTTuneParamPstPawnEGBase+23, // don't need ranks 1 & 8 for pawns
-	EvalTTuneParamPstKnightMGBase,
-	EvalTTuneParamPstKnightMGEnd=EvalTTuneParamPstKnightMGBase+31,
-	EvalTTuneParamPstKnightEGBase,
-	EvalTTuneParamPstKnightEGEnd=EvalTTuneParamPstKnightEGBase+31,
-	EvalTTuneParamPstBishopMGBase,
-	EvalTTuneParamPstBishopMGEnd=EvalTTuneParamPstBishopMGBase+31,
-	EvalTTuneParamPstBishopEGBase,
-	EvalTTuneParamPstBishopEGEnd=EvalTTuneParamPstBishopEGBase+31,
-	EvalTTuneParamPstRookMGBase,
-	EvalTTuneParamPstRookMGEnd=EvalTTuneParamPstRookMGBase+31,
-	EvalTTuneParamPstRookEGBase,
-	EvalTTuneParamPstRookEGEnd=EvalTTuneParamPstRookEGBase+31,
-	EvalTTuneParamPstQueenMGBase,
-	EvalTTuneParamPstQueenMGEnd=EvalTTuneParamPstQueenMGBase+31,
-	EvalTTuneParamPstQueenEGBase,
-	EvalTTuneParamPstQueenEGEnd=EvalTTuneParamPstQueenEGBase+31,
-	EvalTTuneParamPstKingMGBase,
-	EvalTTuneParamPstKingMGEnd=EvalTTuneParamPstKingMGBase+31,
-	EvalTTuneParamPstKingEGBase,
-	EvalTTuneParamPstKingEGEnd=EvalTTuneParamPstKingEGBase+31,
+	EvalTTuneParamPstPawnMGBase, EvalTTuneParamPstPawnMGEnd=EvalTTuneParamPstPawnMGBase+(EvalTTuneParamPstPawnCount-1),
+	EvalTTuneParamPstPawnEGBase, EvalTTuneParamPstPawnEGEnd=EvalTTuneParamPstPawnEGBase+(EvalTTuneParamPstPawnCount-1),
+	EvalTTuneParamPstKnightMGBase, EvalTTuneParamPstKnightMGEnd=EvalTTuneParamPstKnightMGBase+(EvalTTuneParamPstKnightCount-1),
+	EvalTTuneParamPstKnightEGBase, EvalTTuneParamPstKnightEGEnd=EvalTTuneParamPstKnightEGBase+(EvalTTuneParamPstKnightCount-1),
+	EvalTTuneParamPstBishopMGBase, EvalTTuneParamPstBishopMGEnd=EvalTTuneParamPstBishopMGBase+(EvalTTuneParamPstBishopCount-1),
+	EvalTTuneParamPstBishopEGBase, EvalTTuneParamPstBishopEGEnd=EvalTTuneParamPstBishopEGBase+(EvalTTuneParamPstBishopCount-1),
+	EvalTTuneParamPstRookMGBase, EvalTTuneParamPstRookMGEnd=EvalTTuneParamPstRookMGBase+(EvalTTuneParamPstRookCount-1),
+	EvalTTuneParamPstRookEGBase, EvalTTuneParamPstRookEGEnd=EvalTTuneParamPstRookEGBase+(EvalTTuneParamPstRookCount-1),
+	EvalTTuneParamPstQueenMGBase, EvalTTuneParamPstQueenMGEnd=EvalTTuneParamPstQueenMGBase+(EvalTTuneParamPstQueenCount-1),
+	EvalTTuneParamPstQueenEGBase, EvalTTuneParamPstQueenEGEnd=EvalTTuneParamPstQueenEGBase+(EvalTTuneParamPstQueenCount-1),
+	EvalTTuneParamPstKingMGBase, EvalTTuneParamPstKingMGEnd=EvalTTuneParamPstKingMGBase+(EvalTTuneParamPstKingCount-1),
+	EvalTTuneParamPstKingEGBase, EvalTTuneParamPstKingEGEnd=EvalTTuneParamPstKingEGBase+(EvalTTuneParamPstKingCount-1),
 	EvalTTuneParamNB,
 } EvalTTuneParam;
 
@@ -320,26 +273,16 @@ void evalInit(void) {
 #	endif
 
 	// Setup Texel Tuning parameters
-	ttuneAddParameter(EvalTTuneParamPawnMG, evalMaterial[PieceTypePawn].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnEG, evalMaterial[PieceTypePawn].eg, true);
-	ttuneAddParameter(EvalTTuneParamKnightMG, evalMaterial[PieceTypeKnight].mg, true);
-	ttuneAddParameter(EvalTTuneParamKnightEG, evalMaterial[PieceTypeKnight].eg, true);
-	ttuneAddParameter(EvalTTuneParamBishopMG, evalMaterial[PieceTypeBishopL].mg, true);
-	ttuneAddParameter(EvalTTuneParamBishopEG, evalMaterial[PieceTypeBishopL].eg, true);
-	ttuneAddParameter(EvalTTuneParamRookMG, evalMaterial[PieceTypeRook].mg, true);
-	ttuneAddParameter(EvalTTuneParamRookEG, evalMaterial[PieceTypeRook].eg, true);
-	ttuneAddParameter(EvalTTuneParamQueenMG, evalMaterial[PieceTypeQueen].mg, true);
-	ttuneAddParameter(EvalTTuneParamQueenEG, evalMaterial[PieceTypeQueen].eg, true);
-	ttuneAddParameter(EvalTTuneParamKnightMobMG, evalKnightMob.mg, true);
-	ttuneAddParameter(EvalTTuneParamKnightMobEG, evalKnightMob.eg, true);
-	ttuneAddParameter(EvalTTuneParamBishopMobMG, evalBishopMob.mg, true);
-	ttuneAddParameter(EvalTTuneParamBishopMobEG, evalBishopMob.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookMobFileMG, evalRookMobFile.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookMobFileEG, evalRookMobFile.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookMobRankMG, evalRookMobRank.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookMobRankEG, evalRookMobRank.eg, true);
-	ttuneAddParameter(EvalTTuneParamQueenMobMG, evalQueenMob.mg, true);
-	ttuneAddParameter(EvalTTuneParamQueenMobEG, evalQueenMob.eg, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnMG, &evalMaterial[PieceTypePawn], true);
+	ttuneAddParameterVPair(EvalTTuneParamKnightMG, &evalMaterial[PieceTypeKnight], true);
+	ttuneAddParameterVPair(EvalTTuneParamBishopMG, &evalMaterial[PieceTypeBishopL], true);
+	ttuneAddParameterVPair(EvalTTuneParamRookMG, &evalMaterial[PieceTypeRook], true);
+	ttuneAddParameterVPair(EvalTTuneParamQueenMG, &evalMaterial[PieceTypeQueen], true);
+	ttuneAddParameterVPair(EvalTTuneParamKnightMobMG, &evalKnightMob, true);
+	ttuneAddParameterVPair(EvalTTuneParamBishopMobMG, &evalBishopMob, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookMobFileMG, &evalRookMobFile, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookMobRankMG, &evalRookMobRank, true);
+	ttuneAddParameterVPair(EvalTTuneParamQueenMobMG, &evalQueenMob, true);
 
 	for(unsigned i=0; i<24; ++i) {
 		Sq sq=evalTTunePawnPstIndexToSq(i);
@@ -356,68 +299,37 @@ void evalInit(void) {
 		}
 	}
 
-	ttuneAddParameter(EvalTTuneParamPawnDoubledMG, evalPawnDoubled.mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnDoubledEG, evalPawnDoubled.eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnIsolatedMG, evalPawnIsolated.mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnIsolatedEG, evalPawnIsolated.eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnBlockedMG, evalPawnBlocked.mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnBlockedEG, evalPawnBlocked.mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR2MG, evalPawnPassed[Rank2].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR2EG, evalPawnPassed[Rank2].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR3MG, evalPawnPassed[Rank3].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR3EG, evalPawnPassed[Rank3].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR4MG, evalPawnPassed[Rank4].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR4EG, evalPawnPassed[Rank4].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR5MG, evalPawnPassed[Rank5].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR5EG, evalPawnPassed[Rank5].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR6MG, evalPawnPassed[Rank6].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR6EG, evalPawnPassed[Rank6].eg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR7MG, evalPawnPassed[Rank7].mg, true);
-	ttuneAddParameter(EvalTTuneParamPawnPassedR7EG, evalPawnPassed[Rank7].eg, true);
-	ttuneAddParameter(EvalTTuneParamBishopPairMG, evalBishopPair.mg, true);
-	ttuneAddParameter(EvalTTuneParamBishopPairEG, evalBishopPair.eg, true);
-	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityMG, evalKnightPawnAffinity.mg, true);
-	ttuneAddParameter(EvalTTuneParamKnightPawnAffinityEG, evalKnightPawnAffinity.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookPawnAffinityMG, evalRookPawnAffinity.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookPawnAffinityEG, evalRookPawnAffinity.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookOpenFileMG, evalRookOpenFile.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookOpenFileEG, evalRookOpenFile.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileMG, evalRookSemiOpenFile.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookSemiOpenFileEG, evalRookSemiOpenFile.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookOn7thMG, evalRookOn7th.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookOn7thEG, evalRookOn7th.eg, true);
-	ttuneAddParameter(EvalTTuneParamRookTrappedMG, evalRookTrapped.mg, true);
-	ttuneAddParameter(EvalTTuneParamRookTrappedEG, evalRookTrapped.eg, true);
-	ttuneAddParameter(EvalTTuneParamKingShieldCloseMG, evalKingShieldClose.mg, true);
-	ttuneAddParameter(EvalTTuneParamKingShieldCloseEG, evalKingShieldClose.eg, true);
-	ttuneAddParameter(EvalTTuneParamKingShieldFarMG, evalKingShieldFar.mg, true);
-	ttuneAddParameter(EvalTTuneParamKingShieldFarEG, evalKingShieldFar.eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser1MG, evalKingNearPasser[1].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser1EG, evalKingNearPasser[1].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser2MG, evalKingNearPasser[2].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser2EG, evalKingNearPasser[2].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser3MG, evalKingNearPasser[3].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser3EG, evalKingNearPasser[3].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser4MG, evalKingNearPasser[4].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser4EG, evalKingNearPasser[4].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser5MG, evalKingNearPasser[5].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser5EG, evalKingNearPasser[5].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser6MG, evalKingNearPasser[6].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser6EG, evalKingNearPasser[6].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser7MG, evalKingNearPasser[7].mg, true);
-	ttuneAddParameter(EvalTTuneParamKingNearPasser7EG, evalKingNearPasser[7].eg, true);
-	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityMG, evalKingCastlingMobility.mg, true);
-	ttuneAddParameter(EvalTTuneParamKingCastlingMobilityEG, evalKingCastlingMobility.eg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostSqMG, evalOutpostSq.mg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostSqEG, evalOutpostSq.eg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostKnightMG, evalOutpostKnight.mg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostKnightEG, evalOutpostKnight.eg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostBishopMG, evalOutpostBishop.mg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostBishopEG, evalOutpostBishop.eg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostRookMG, evalOutpostRook.mg, true);
-	ttuneAddParameter(EvalTTuneParamOutpostRookEG, evalOutpostRook.eg, true);
-	ttuneAddParameter(EvalTTuneParamTempoDefaultMG, evalTempoDefault.mg, true);
-	ttuneAddParameter(EvalTTuneParamTempoDefaultEG, evalTempoDefault.eg, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnDoubledMG, &evalPawnDoubled, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnIsolatedMG, &evalPawnIsolated, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnBlockedMG, &evalPawnBlocked, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR2MG, &evalPawnPassed[Rank2], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR3MG, &evalPawnPassed[Rank3], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR4MG, &evalPawnPassed[Rank4], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR5MG, &evalPawnPassed[Rank5], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR6MG, &evalPawnPassed[Rank6], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR7MG, &evalPawnPassed[Rank7], true);
+	ttuneAddParameterVPair(EvalTTuneParamBishopPairMG, &evalBishopPair, true);
+	ttuneAddParameterVPair(EvalTTuneParamKnightPawnAffinityMG, &evalKnightPawnAffinity, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookPawnAffinityMG, &evalRookPawnAffinity, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookOpenFileMG, &evalRookOpenFile, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookSemiOpenFileMG, &evalRookSemiOpenFile, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookOn7thMG, &evalRookOn7th, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookTrappedMG, &evalRookTrapped, true);
+	ttuneAddParameterVPair(EvalTTuneParamKingShieldCloseMG, &evalKingShieldClose, true);
+	ttuneAddParameterVPair(EvalTTuneParamKingShieldFarMG, &evalKingShieldFar, true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser1MG, &evalKingNearPasser[1], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser2MG, &evalKingNearPasser[2], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser3MG, &evalKingNearPasser[3], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser4MG, &evalKingNearPasser[4], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser5MG, &evalKingNearPasser[5], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser6MG, &evalKingNearPasser[6], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser7MG, &evalKingNearPasser[7], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingCastlingMobilityMG, &evalKingCastlingMobility, true);
+	ttuneAddParameterVPair(EvalTTuneParamOutpostSqMG, &evalOutpostSq, true);
+	ttuneAddParameterVPair(EvalTTuneParamOutpostKnightMG, &evalOutpostKnight, true);
+	ttuneAddParameterVPair(EvalTTuneParamOutpostBishopMG, &evalOutpostBishop, true);
+	ttuneAddParameterVPair(EvalTTuneParamOutpostRookMG, &evalOutpostRook, true);
+	ttuneAddParameterVPair(EvalTTuneParamTempoDefaultMG, &evalTempoDefault, true);
 }
 
 void evalQuit(void) {

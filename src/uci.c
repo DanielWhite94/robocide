@@ -12,6 +12,7 @@
 #include "moves.h"
 #include "search.h"
 #include "see.h"
+#include "syzygy.h"
 #include "time.h"
 #include "uci.h"
 
@@ -202,6 +203,8 @@ void uciLoop(void) {
 			char *posStr=uciPosToStr(pos);
 			uciWrite("UCI str: %s\n", posStr);
 			free(posStr);
+
+			uciWrite("Syzygy lookup: %s\n", syzygyWdlToStr(syzygyProbeWdl(pos)));
 		} else if (utilStrEqual(part, "bitbase")) {
 			if (evalGetMatType(pos)==EvalMatTypeKPvK) {
 				uciWrite("BitBase:\n");

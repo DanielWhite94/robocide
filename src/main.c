@@ -12,6 +12,7 @@
 #include "main.h"
 #include "pos.h"
 #include "search.h"
+#include "syzygy.h"
 #include "tt.h"
 #include "uci.h"
 
@@ -35,11 +36,13 @@ int main(int argc, char **argv) {
 	evalInit();
 	ttInit();
 	searchInit();
+	syzygyInit();
 
 	// UCI input loop
 	uciLoop();
 
 	// Quit modules
+	syzygyQuit();
 	searchQuit();
 	ttQuit();
 	evalQuit();

@@ -53,3 +53,4 @@ int scoreMateDistanceMoves(Score score) {
 	assert(scoreIsMate(score));
 	return (scoreMateDistancePly(score)+1)/2;
 }
+

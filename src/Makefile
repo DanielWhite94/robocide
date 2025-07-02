@@ -16,7 +16,7 @@ nobuiltin: default
 debug: default
 tune: default
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) syzygy/tbprobe.o
+OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) syzygy/tbprobe.o syzygy/wrapper.o
 HEADERS = $(wildcard *.h) $(wildcard syzygy/*.h)
 
 %.o: %.c $(HEADERS)

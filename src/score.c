@@ -54,3 +54,13 @@ int scoreMateDistanceMoves(Score score) {
 	return (scoreMateDistancePly(score)+1)/2;
 }
 
+Score scoreTbWin(unsigned int dtz) {
+	assert(dtz<512);
+	return ScoreTbWin-((int)dtz); // ScoreTbWin to indicate winning, -dtz to give shorter wins a higher score (i.e. do not delay).
+}
+
+Score scoreTbLoss(unsigned int dtz) {
+	assert(dtz<512);
+	return -ScoreTbWin+((int)dtz); // -ScoreTbWin to indicate winning, +dtz to give longer wins a higher score (i.e. delay).
+}
+

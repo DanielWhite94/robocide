@@ -13,7 +13,8 @@ typedef int16_t Score;
 #define ScoreDraw 0
 #define ScoreHardWin 0x2000 // e.g. KBNvK
 #define ScoreEasyWin 0x4000 // e.g. KRvK
-#define ScoreMate 0x6000 // forced mate
+#define ScoreTbWin 0x6000 // tablebase win
+#define ScoreMate 0x7000 // forced mate
 #define ScoreInf 0x7FFF
 #define ScoreBit 16 // Number of bits Score actually uses.
 
@@ -26,5 +27,8 @@ Score scoreMateIn(unsigned int ply);
 Score scoreMatedIn(unsigned int ply);
 int scoreMateDistancePly(Score score);
 int scoreMateDistanceMoves(Score score);
+
+Score scoreTbWin(unsigned int dtz);
+Score scoreTbLoss(unsigned int dtz);
 
 #endif

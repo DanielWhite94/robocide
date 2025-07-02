@@ -12,6 +12,7 @@
 #include "score.h"
 #include "search.h"
 #include "see.h"
+#include "syzygy.h"
 #include "thread.h"
 #include "tt.h"
 #include "tune.h"
@@ -538,6 +539,37 @@ void searchNodeInternal(Node *node) {
 	// Node begins.
 	searchPv[node->ply][0]=MoveInvalid;
 	++searchNodeCount;
+
+	// Probe endgame bitbase (Syzygy)
+	if (node->ply==0) {
+		SyzygyWdl tbWdl=SyzygyWdlError;
+		int tbDtz;
+		Move tbMove=syzygyProbeRoot(node->pos, &tbWdl, &tbDtz);
+		if (tbMove!=MoveInvalid) {
+			switch(tbWdl) {
+				case SyzygyWdlError:
+					assert(false);
+					node->bound=BoundNone;
+					node->score=ScoreInvalid;
+				break;
+				case SyzygyWdlWin:
+					node->bound=BoundExact;
+					node->score=scoreTbWin(tbDtz);
+				break;
+				case SyzygyWdlLoss:
+					node->bound=BoundExact;
+					node->score=scoreTbLoss(tbDtz);
+				break;
+				case SyzygyWdlDraw:
+					node->bound=BoundExact;
+					node->score=ScoreDraw;
+				break;
+			}
+			searchPv[node->ply][0]=tbMove;
+			searchPv[node->ply][1]=MoveInvalid;
+			return;
+		}
+	}
 
 	// Mate distance pruning.
 	if (node->ply>0) {
@@ -1205,6 +1237,27 @@ bool searchInteriorRecog(Node *node) {
 			node->score=ScoreDraw;
 
 		return true;
+	}
+
+	// Probe endgame bitbase (Syzygy)
+	switch(syzygyProbeWdl(node->pos)) {
+		case SyzygyWdlError:
+		break;
+		case SyzygyWdlWin:
+			node->bound=BoundLower;
+			node->score=scoreTbWin(256);
+			return true;
+		break;
+		case SyzygyWdlLoss:
+			node->bound=BoundUpper;
+			node->score=scoreTbLoss(256);
+			return true;
+		break;
+		case SyzygyWdlDraw:
+			node->bound=BoundExact;
+			node->score=ScoreDraw;
+			return true;
+		break;
 	}
 
 	// Blocked positions.

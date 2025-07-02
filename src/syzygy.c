@@ -77,6 +77,73 @@ SyzygyWdl syzygyProbeWdl(const Pos *pos) {
 	return SyzygyWdlError;
 }
 
+Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
+	assert(pos!=NULL);
+
+	// Too many pieces for any of the tables we have available?
+	if (bbPopCount(posGetBBAll(pos))>TB_LARGEST)
+		return MoveInvalid;
+
+	// Lookup value
+	SyzygyPosData pd;
+	syzygyGetPosData(&pd, pos);
+
+	unsigned result=tb_probe_root(pd.white, pd.black, pd.kings, pd.queens, pd.rooks, pd.bishops, pd.knights, pd.pawns, pd.rule50, pd.castling, pd.ep, pd.turn, NULL);
+
+	if (result==TB_RESULT_STALEMATE || result==TB_RESULT_CHECKMATE || result==TB_RESULT_FAILED)
+		return MoveInvalid;
+
+	// Grab best move
+	Sq fromSq=TB_GET_FROM(result);
+	Sq toSq=TB_GET_TO(result);
+	Piece toPiece=posGetPieceOnSq(pos, fromSq);
+	switch(TB_GET_PROMOTES(result)) {
+		case TB_PROMOTES_NONE:
+		break;
+		case TB_PROMOTES_QUEEN:
+			toPiece=pieceMake(PieceTypeQueen, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_ROOK:
+			toPiece=pieceMake(PieceTypeRook, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_BISHOP:
+			if (sqIsLight(toSq))
+				toPiece=pieceMake(PieceTypeBishopL, pieceGetColour(toPiece));
+			else
+				toPiece=pieceMake(PieceTypeBishopD, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_KNIGHT:
+			toPiece=pieceMake(PieceTypeKnight, pieceGetColour(toPiece));
+		break;
+	}
+
+	// Set WDL
+	if (wdl!=NULL) {
+		switch(TB_GET_WDL(result)) {
+			case TB_LOSS:
+				*wdl=SyzygyWdlLoss;
+			break;
+			case TB_BLESSED_LOSS:
+			case TB_DRAW:
+			case TB_CURSED_WIN:
+				*wdl=SyzygyWdlDraw;
+			break;
+			case TB_WIN:
+				*wdl=SyzygyWdlWin;
+			break;
+			case TB_RESULT_FAILED:
+				assert(false);
+				*wdl=SyzygyWdlError;
+			break;
+		}
+	}
+
+	if (dtz!=NULL)
+		*dtz=TB_GET_DTZ(result);
+
+	return moveMake(fromSq, toSq, toPiece);
+}
+
 const char *syzygyWdlStr[4]={
 	[SyzygyWdlError]="error",
 	[SyzygyWdlWin]="win",

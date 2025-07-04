@@ -186,9 +186,9 @@ void syzygySetSyzygyPath(void *userData, const char *value) {
 
 	// Initialise
 	if (!tb_init(value)) {
-		uciWrite("Failed to load Syzygy tables at '%s'\n", value);
+		uciWrite("info string Failed to load Syzygy tables at '%s'\n", value);
 		return;
 	}	
 
-	uciWrite("Loaded Syzygy tables at '%s' up to size %u\n", value, TB_LARGEST);
+	uciWrite("info string Loaded Syzygy tables at '%s' up to size %u\n", value, TB_LARGEST);
 }

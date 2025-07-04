@@ -11,6 +11,7 @@
 #include "eval.h"
 #include "htable.h"
 #include "main.h"
+#include "ttune.h"
 #include "tune.h"
 #include "uci.h"
 
@@ -48,56 +49,117 @@ struct EvalData {
 	EvalMatData matData;
 };
 
+#define EvalTTuneParamPstPawnCount 24 // don't need ranks 1 & 8 for pawns
+#define EvalTTuneParamPstKnightCount 32
+#define EvalTTuneParamPstBishopCount 32
+#define EvalTTuneParamPstRookCount 32
+#define EvalTTuneParamPstQueenCount 32
+#define EvalTTuneParamPstKingCount 32
+typedef enum {
+	EvalTTuneParamPawnMG, EvalTTuneParamPawnEG,
+	EvalTTuneParamKnightMG, EvalTTuneParamKnightEG,
+	EvalTTuneParamBishopMG, EvalTTuneParamBishopEG,
+	EvalTTuneParamRookMG, EvalTTuneParamRookEG,
+	EvalTTuneParamQueenMG, EvalTTuneParamQueenEG,
+	EvalTTuneParamKnightMobMG, EvalTTuneParamKnightMobEG,
+	EvalTTuneParamBishopMobMG, EvalTTuneParamBishopMobEG,
+	EvalTTuneParamRookMobFileMG, EvalTTuneParamRookMobFileEG,
+	EvalTTuneParamRookMobRankMG, EvalTTuneParamRookMobRankEG,
+	EvalTTuneParamQueenMobMG, EvalTTuneParamQueenMobEG,
+	EvalTTuneParamPawnDoubledMG, EvalTTuneParamPawnDoubledEG,
+	EvalTTuneParamPawnIsolatedMG, EvalTTuneParamPawnIsolatedEG,
+	EvalTTuneParamPawnBlockedMG, EvalTTuneParamPawnBlockedEG,
+	EvalTTuneParamPawnPassedR2MG, EvalTTuneParamPawnPassedR2EG,
+	EvalTTuneParamPawnPassedR3MG, EvalTTuneParamPawnPassedR3EG,
+	EvalTTuneParamPawnPassedR4MG, EvalTTuneParamPawnPassedR4EG,
+	EvalTTuneParamPawnPassedR5MG, EvalTTuneParamPawnPassedR5EG,
+	EvalTTuneParamPawnPassedR6MG, EvalTTuneParamPawnPassedR6EG,
+	EvalTTuneParamPawnPassedR7MG, EvalTTuneParamPawnPassedR7EG,
+	EvalTTuneParamBishopPairMG, EvalTTuneParamBishopPairEG,
+	EvalTTuneParamKnightPawnAffinityMG, EvalTTuneParamKnightPawnAffinityEG,
+	EvalTTuneParamRookPawnAffinityMG, EvalTTuneParamRookPawnAffinityEG,
+	EvalTTuneParamRookOpenFileMG, EvalTTuneParamRookOpenFileEG,
+	EvalTTuneParamRookSemiOpenFileMG, EvalTTuneParamRookSemiOpenFileEG,
+	EvalTTuneParamRookOn7thMG, EvalTTuneParamRookOn7thEG,
+	EvalTTuneParamRookTrappedMG, EvalTTuneParamRookTrappedEG,
+	EvalTTuneParamKingShieldCloseMG, EvalTTuneParamKingShieldCloseEG,
+	EvalTTuneParamKingShieldFarMG, EvalTTuneParamKingShieldFarEG,
+	EvalTTuneParamKingNearPasser1MG, EvalTTuneParamKingNearPasser1EG,
+	EvalTTuneParamKingNearPasser2MG, EvalTTuneParamKingNearPasser2EG,
+	EvalTTuneParamKingNearPasser3MG, EvalTTuneParamKingNearPasser3EG,
+	EvalTTuneParamKingNearPasser4MG, EvalTTuneParamKingNearPasser4EG,
+	EvalTTuneParamKingNearPasser5MG, EvalTTuneParamKingNearPasser5EG,
+	EvalTTuneParamKingNearPasser6MG, EvalTTuneParamKingNearPasser6EG,
+	EvalTTuneParamKingNearPasser7MG, EvalTTuneParamKingNearPasser7EG,
+	EvalTTuneParamKingCastlingMobilityMG, EvalTTuneParamKingCastlingMobilityEG,
+	EvalTTuneParamOutpostSqMG, EvalTTuneParamOutpostSqEG,
+	EvalTTuneParamOutpostKnightMG, EvalTTuneParamOutpostKnightEG,
+	EvalTTuneParamOutpostBishopMG, EvalTTuneParamOutpostBishopEG,
+	EvalTTuneParamOutpostRookMG, EvalTTuneParamOutpostRookEG,
+	EvalTTuneParamTempoDefaultMG, EvalTTuneParamTempoDefaultEG,
+	// PSTS use two sets (MG/EG) of 32 parameters from A1 to D8 (first four squares of each rank, sq is mirrored if not on left side)
+	EvalTTuneParamPstPawnMGBase, EvalTTuneParamPstPawnMGEnd=EvalTTuneParamPstPawnMGBase+(EvalTTuneParamPstPawnCount-1),
+	EvalTTuneParamPstPawnEGBase, EvalTTuneParamPstPawnEGEnd=EvalTTuneParamPstPawnEGBase+(EvalTTuneParamPstPawnCount-1),
+	EvalTTuneParamPstKnightMGBase, EvalTTuneParamPstKnightMGEnd=EvalTTuneParamPstKnightMGBase+(EvalTTuneParamPstKnightCount-1),
+	EvalTTuneParamPstKnightEGBase, EvalTTuneParamPstKnightEGEnd=EvalTTuneParamPstKnightEGBase+(EvalTTuneParamPstKnightCount-1),
+	EvalTTuneParamPstBishopMGBase, EvalTTuneParamPstBishopMGEnd=EvalTTuneParamPstBishopMGBase+(EvalTTuneParamPstBishopCount-1),
+	EvalTTuneParamPstBishopEGBase, EvalTTuneParamPstBishopEGEnd=EvalTTuneParamPstBishopEGBase+(EvalTTuneParamPstBishopCount-1),
+	EvalTTuneParamPstRookMGBase, EvalTTuneParamPstRookMGEnd=EvalTTuneParamPstRookMGBase+(EvalTTuneParamPstRookCount-1),
+	EvalTTuneParamPstRookEGBase, EvalTTuneParamPstRookEGEnd=EvalTTuneParamPstRookEGBase+(EvalTTuneParamPstRookCount-1),
+	EvalTTuneParamPstQueenMGBase, EvalTTuneParamPstQueenMGEnd=EvalTTuneParamPstQueenMGBase+(EvalTTuneParamPstQueenCount-1),
+	EvalTTuneParamPstQueenEGBase, EvalTTuneParamPstQueenEGEnd=EvalTTuneParamPstQueenEGBase+(EvalTTuneParamPstQueenCount-1),
+	EvalTTuneParamPstKingMGBase, EvalTTuneParamPstKingMGEnd=EvalTTuneParamPstKingMGBase+(EvalTTuneParamPstKingCount-1),
+	EvalTTuneParamPstKingEGBase, EvalTTuneParamPstKingEGEnd=EvalTTuneParamPstKingEGBase+(EvalTTuneParamPstKingCount-1),
+	EvalTTuneParamNB,
+} EvalTTuneParam;
+
+const unsigned evalTTuneParamMaterialMG[PieceTypeNB]={
+	[PieceTypePawn]=EvalTTuneParamPawnMG,
+	[PieceTypeKnight]=EvalTTuneParamKnightMG,
+	[PieceTypeBishopL]=EvalTTuneParamBishopMG,
+	[PieceTypeBishopD]=EvalTTuneParamBishopMG,
+	[PieceTypeRook]=EvalTTuneParamRookMG,
+	[PieceTypeQueen]=EvalTTuneParamQueenMG,
+};
+
+const unsigned evalTTuneParamMaterialEG[PieceTypeNB]={
+	[PieceTypePawn]=EvalTTuneParamPawnEG,
+	[PieceTypeKnight]=EvalTTuneParamKnightEG,
+	[PieceTypeBishopL]=EvalTTuneParamBishopEG,
+	[PieceTypeBishopD]=EvalTTuneParamBishopEG,
+	[PieceTypeRook]=EvalTTuneParamRookEG,
+	[PieceTypeQueen]=EvalTTuneParamQueenEG,
+};
+
+const unsigned evalTTuneParamPstMGBase[PieceTypeNB]={
+	[PieceTypePawn]=EvalTTuneParamPstPawnMGBase,
+	[PieceTypeKnight]=EvalTTuneParamPstKnightMGBase,
+	[PieceTypeBishopL]=EvalTTuneParamPstBishopMGBase,
+	[PieceTypeBishopD]=EvalTTuneParamPstBishopMGBase,
+	[PieceTypeRook]=EvalTTuneParamPstRookMGBase,
+	[PieceTypeQueen]=EvalTTuneParamPstQueenMGBase,
+	[PieceTypeKing]=EvalTTuneParamPstKingMGBase,
+};
+
+const unsigned evalTTuneParamPstEGBase[PieceTypeNB]={
+	[PieceTypePawn]=EvalTTuneParamPstPawnEGBase,
+	[PieceTypeKnight]=EvalTTuneParamPstKnightEGBase,
+	[PieceTypeBishopL]=EvalTTuneParamPstBishopEGBase,
+	[PieceTypeBishopD]=EvalTTuneParamPstBishopEGBase,
+	[PieceTypeRook]=EvalTTuneParamPstRookEGBase,
+	[PieceTypeQueen]=EvalTTuneParamPstQueenEGBase,
+	[PieceTypeKing]=EvalTTuneParamPstKingEGBase,
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values.
 ////////////////////////////////////////////////////////////////////////////////
 
-TUNECONST VPair evalMaterial[PieceTypeNB]={
-	[PieceTypeNone]={0,0},
-	[PieceTypePawn]={705,967},
-	[PieceTypeKnight]={2807,2370},
-	[PieceTypeBishopL]={3108,2659},
-	[PieceTypeBishopD]={3108,2659},
-	[PieceTypeRook]={5491,4985},
-	[PieceTypeQueen]={8975,10143},
-	[PieceTypeKing]={600,-460} // these values exist soley to make PSTs look nicer (both sides always have exactly one king of course)
-};
-TUNECONST VPair evalPstParams[PieceTypeNB][3]={
-	[PieceTypePawn]={{15,0}, {-23,-15}, {10,25}},
-	[PieceTypeKnight]={{55,26}, {39,49}, {36,0}},
-	[PieceTypeBishopL]={{14,9}, {14,9}, {0,-15}},
-	[PieceTypeBishopD]={{14,9}, {14,9}, {0,-15}},
-	[PieceTypeRook]={{26,0}, {0,0}, {0,16}},
-	[PieceTypeQueen]={{44,24}, {-10,10}, {31,0}},
-	[PieceTypeKing]={{-243,120}, {-141,120}, {-50,59}},
-};
-TUNECONST VPair evalPawnCentre={163,0};
-TUNECONST VPair evalPawnOuterCentre={50,0};
-TUNECONST VPair evalPawnDoubled={-30,-167};
-TUNECONST VPair evalPawnIsolated={-207,-121};
-TUNECONST VPair evalPawnBlocked={-22,-100};
-TUNECONST VPair evalPawnPassedQuadA={46,46}; // Coefficients used in quadratic formula for passed pawn score (with rank as the input).
-TUNECONST VPair evalPawnPassedQuadB={-125,-100};
-TUNECONST VPair evalPawnPassedQuadC={90,150};
-TUNECONST VPair evalKnightMob={30,18};
-TUNECONST VPair evalKnightPawnAffinity={30,32}; // Bonus each knight receives for each friendly pawn on the board.
-TUNECONST VPair evalBishopPair={500,489};
-TUNECONST VPair evalBishopMob={38,32};
+// Values which support Texel Tuning are defined in generated code.
+#include "evaltunable.h"
+
+// The following values can be tuned through UCI options but not the Texel Tuning interface
 TUNECONST VPair evalOppositeBishopFactor={256,192}; // /256.
-TUNECONST VPair evalRookPawnAffinity={-70,-70}; // Bonus each rook receives for each friendly pawn on the board.
-TUNECONST VPair evalRookMobFile={20,30};
-TUNECONST VPair evalRookMobRank={11,20};
-TUNECONST VPair evalRookOpenFile={100,50};
-TUNECONST VPair evalRookSemiOpenFile={50,20};
-TUNECONST VPair evalRookOn7th={50,100};
-TUNECONST VPair evalRookTrapped={-400,0};
-TUNECONST VPair evalKingShieldClose={150,0};
-TUNECONST VPair evalKingShieldFar={73,0};
-TUNECONST VPair evalKingNearPasserFactor={10,200};
-TUNECONST VPair evalKingCastlingMobility={100,0};
-TUNECONST VPair evalOutpostSq={40,40};
-TUNECONST VPair evalOutpostKnight={100,100};
-TUNECONST VPair evalTempoDefault={35,0};
 TUNECONST Value evalHalfMoveFactor=2048;
 TUNECONST Value evalWeightFactor=151;
 
@@ -105,23 +167,8 @@ TUNECONST Value evalWeightFactor=151;
 // Derived values
 ////////////////////////////////////////////////////////////////////////////////
 
-VPair evalPST[PieceNB][SqNB];
-
-typedef enum {
-	PawnTypeStandard=0,
-	PawnTypeShiftDoubled=0,
-	PawnTypeShiftIsolated=1,
-	PawnTypeShiftPassed=2,
-	PawnTypeDoubled=(1u<<PawnTypeShiftDoubled),
-	PawnTypeIsolated=(1u<<PawnTypeShiftIsolated),
-	PawnTypePassed=(1u<<PawnTypeShiftPassed),
-	PawnTypeNB=16,
-} PawnType;
-VPair evalPawnValue[ColourNB][PawnTypeNB][SqNB];
 int evalHalfMoveFactors[128];
 uint8_t evalWeightEGFactors[128];
-
-VPair evalKingNearPasser[8];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes.
@@ -159,11 +206,19 @@ EvalMatType evalComputeMatType(const Pos *pos);
 
 void evalPstDraw(PieceType type);
 
+Sq evalTTunePstIndexToSq(unsigned index);
+unsigned evalTTunePstSqToIndex(Sq sq);
+Sq evalTTunePawnPstIndexToSq(unsigned index);
+unsigned evalTTunePawnPstSqToIndex(Sq sq);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
 ////////////////////////////////////////////////////////////////////////////////
 
 void evalInit(void) {
+	// Init Texel Tuning module
+	ttuneInit(EvalTTuneParamNB);
+
 	// Setup pawn hash table.
 	evalPawnTable=htableNew(sizeof(EvalPawnData), evalPawnTableDefaultSizeMb);
 	if (evalPawnTable==NULL)
@@ -182,20 +237,15 @@ void evalInit(void) {
 	evalRecalc();
 
 	// Setup callbacks for tuning values.
-# ifdef TUNE
+#	ifdef TUNE
 	evalOptionNewVPair("Pawn", &evalMaterial[PieceTypePawn], 0, 2000);
 	evalOptionNewVPair("Knight", &evalMaterial[PieceTypeKnight], 0, 6000);
 	evalOptionNewVPair("Bishop", &evalMaterial[PieceTypeBishopL], 0, 6000);
 	evalOptionNewVPair("Rook", &evalMaterial[PieceTypeRook], 0, 10000);
 	evalOptionNewVPair("Queen", &evalMaterial[PieceTypeQueen], 0, 18000);
-	evalOptionNewVPair("PawnCentre", &evalPawnCentre, 0, 1000);
-	evalOptionNewVPair("PawnOuterCentre", &evalPawnOuterCentre, 0, 500);
 	evalOptionNewVPair("PawnDoubled", &evalPawnDoubled, -1000, 0);
 	evalOptionNewVPair("PawnIsolated", &evalPawnIsolated, -1000, 0);
 	evalOptionNewVPair("PawnBlocked", &evalPawnBlocked, -1000, 0);
-	evalOptionNewVPair("PawnPassedQuadA", &evalPawnPassedQuadA, 0, 100);
-	evalOptionNewVPair("PawnPassedQuadB", &evalPawnPassedQuadB, -400, 400);
-	evalOptionNewVPair("PawnPassedQuadC", &evalPawnPassedQuadC, -1000, 1000);
 	evalOptionNewVPair("KnightMob", &evalKnightMob, 0, 100);
 	evalOptionNewVPair("KnightPawnAffinity", &evalKnightPawnAffinity, -100, 100);
 	evalOptionNewVPair("BishopPair", &evalBishopPair, 0, 1000);
@@ -209,34 +259,88 @@ void evalInit(void) {
 	evalOptionNewVPair("RookSemiOpenFile", &evalRookSemiOpenFile, 0, 150);
 	evalOptionNewVPair("RookOn7th", &evalRookOn7th, -200, 200);
 	evalOptionNewVPair("RookTrapped", &evalRookTrapped, -3000, 0);
+	evalOptionNewVPair("QueenMobility", &evalQueenMob, 0, 100);
 	evalOptionNewVPair("KingShieldClose", &evalKingShieldClose, 0, 500);
 	evalOptionNewVPair("KingShieldFar", &evalKingShieldFar, 0, 300);
-	evalOptionNewVPair("KingNearPasser", &evalKingNearPasserFactor, 0, 500);
 	evalOptionNewVPair("KingCastlingMobility", &evalKingCastlingMobility, 0, 200);
 	evalOptionNewVPair("OutpostSq", &evalOutpostSq, 0, 500);
 	evalOptionNewVPair("OutpostKnight", &evalOutpostKnight, 0, 1000);
+	evalOptionNewVPair("OutpostBishop", &evalOutpostBishop, 0, 1000);
+	evalOptionNewVPair("OutpostRook", &evalOutpostRook, 0, 1000);
 	evalOptionNewVPair("Tempo", &evalTempoDefault, 0, 100);
 	uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 4096, evalHalfMoveFactor);
 	uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 512, evalWeightFactor);
-	for(PieceType type=PieceTypePawn;type<=PieceTypeQueen;++type) {
-		if (type==PieceTypeBishopD)
-			continue;
-		const char *typeStr=pieceTypeToStr(type);
-		evalOptionNewVPairF("Pst%sH", &evalPstParams[type][0], -200, 200, typeStr);
-		evalOptionNewVPairF("Pst%sV", &evalPstParams[type][1], -200, 200, typeStr);
-		evalOptionNewVPairF("Pst%sA", &evalPstParams[type][2], -200, 200, typeStr);
+#	endif
+
+	// Setup Texel Tuning parameters
+	ttuneAddParameterVPair(EvalTTuneParamPawnMG, &evalMaterial[PieceTypePawn], true);
+	ttuneAddParameterVPair(EvalTTuneParamKnightMG, &evalMaterial[PieceTypeKnight], true);
+	ttuneAddParameterVPair(EvalTTuneParamBishopMG, &evalMaterial[PieceTypeBishopL], true);
+	ttuneAddParameterVPair(EvalTTuneParamRookMG, &evalMaterial[PieceTypeRook], true);
+	ttuneAddParameterVPair(EvalTTuneParamQueenMG, &evalMaterial[PieceTypeQueen], true);
+	ttuneAddParameterVPair(EvalTTuneParamKnightMobMG, &evalKnightMob, true);
+	ttuneAddParameterVPair(EvalTTuneParamBishopMobMG, &evalBishopMob, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookMobFileMG, &evalRookMobFile, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookMobRankMG, &evalRookMobRank, true);
+	ttuneAddParameterVPair(EvalTTuneParamQueenMobMG, &evalQueenMob, true);
+
+	for(unsigned i=0; i<24; ++i) {
+		Sq sq=evalTTunePawnPstIndexToSq(i);
+		ttuneAddParameter(EvalTTuneParamPstPawnMGBase+i, evalPST[PieceTypePawn][sq].mg-evalMaterial[PieceTypePawn].mg, true);
+		ttuneAddParameter(EvalTTuneParamPstPawnEGBase+i, evalPST[PieceTypePawn][sq].eg-evalMaterial[PieceTypePawn].eg, true);
 	}
-	evalOptionNewVPairF("PstKingH", &evalPstParams[PieceTypeKing][0], -500, 500);
-	evalOptionNewVPairF("PstKingV", &evalPstParams[PieceTypeKing][1], -500, 500);
-	evalOptionNewVPairF("PstKingA", &evalPstParams[PieceTypeKing][2], -500, 500);
-# endif
+	for(unsigned t=PieceTypeKnight; t<=PieceTypeKing; ++t) {
+		if (t==PieceTypeBishopD)
+			continue;
+		for(unsigned i=0; i<32; ++i) {
+			Sq sq=evalTTunePstIndexToSq(i);
+			ttuneAddParameter(evalTTuneParamPstMGBase[t]+i, evalPST[t][sq].mg-evalMaterial[t].mg, true);
+			ttuneAddParameter(evalTTuneParamPstEGBase[t]+i, evalPST[t][sq].eg-evalMaterial[t].eg, true);
+		}
+	}
+
+	ttuneAddParameterVPair(EvalTTuneParamPawnDoubledMG, &evalPawnDoubled, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnIsolatedMG, &evalPawnIsolated, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnBlockedMG, &evalPawnBlocked, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR2MG, &evalPawnPassed[Rank2], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR3MG, &evalPawnPassed[Rank3], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR4MG, &evalPawnPassed[Rank4], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR5MG, &evalPawnPassed[Rank5], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR6MG, &evalPawnPassed[Rank6], true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR7MG, &evalPawnPassed[Rank7], true);
+	ttuneAddParameterVPair(EvalTTuneParamBishopPairMG, &evalBishopPair, true);
+	ttuneAddParameterVPair(EvalTTuneParamKnightPawnAffinityMG, &evalKnightPawnAffinity, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookPawnAffinityMG, &evalRookPawnAffinity, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookOpenFileMG, &evalRookOpenFile, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookSemiOpenFileMG, &evalRookSemiOpenFile, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookOn7thMG, &evalRookOn7th, true);
+	ttuneAddParameterVPair(EvalTTuneParamRookTrappedMG, &evalRookTrapped, true);
+	ttuneAddParameterVPair(EvalTTuneParamKingShieldCloseMG, &evalKingShieldClose, true);
+	ttuneAddParameterVPair(EvalTTuneParamKingShieldFarMG, &evalKingShieldFar, true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser1MG, &evalKingNearPasser[1], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser2MG, &evalKingNearPasser[2], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser3MG, &evalKingNearPasser[3], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser4MG, &evalKingNearPasser[4], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser5MG, &evalKingNearPasser[5], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser6MG, &evalKingNearPasser[6], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingNearPasser7MG, &evalKingNearPasser[7], true);
+	ttuneAddParameterVPair(EvalTTuneParamKingCastlingMobilityMG, &evalKingCastlingMobility, true);
+	ttuneAddParameterVPair(EvalTTuneParamOutpostSqMG, &evalOutpostSq, true);
+	ttuneAddParameterVPair(EvalTTuneParamOutpostKnightMG, &evalOutpostKnight, true);
+	ttuneAddParameterVPair(EvalTTuneParamOutpostBishopMG, &evalOutpostBishop, true);
+	ttuneAddParameterVPair(EvalTTuneParamOutpostRookMG, &evalOutpostRook, true);
+	ttuneAddParameterVPair(EvalTTuneParamTempoDefaultMG, &evalTempoDefault, true);
 }
 
 void evalQuit(void) {
+	// Free hash tables
 	htableFree(evalPawnTable);
 	evalPawnTable=NULL;
 	htableFree(evalMatTable);
 	evalMatTable=NULL;
+
+	// Quit Texel Tuning module
+	ttuneQuit();
 }
 
 Score evaluate(const Pos *pos) {
@@ -253,6 +357,503 @@ Score evaluate(const Pos *pos) {
 	assert(scoreM==score && scoreFM==score && scoreF==score);
 #	endif
 	return score;
+}
+
+void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
+	// Set all coefficents to 0 initially
+	for(unsigned i=0; i<EvalTTuneParamNB; ++i)
+		coefficients[i]=0.0;
+
+	// Precomputed info
+	BB wp=posGetBBPiece(pos, PieceWPawn);
+	BB bp=posGetBBPiece(pos, PieceBPawn);
+	BB wn=posGetBBPiece(pos, PieceWKnight);
+	BB bn=posGetBBPiece(pos, PieceBKnight);
+	BB wb=posGetBBPiece(pos, PieceWBishopL) | posGetBBPiece(pos, PieceWBishopD);
+	BB bb=posGetBBPiece(pos, PieceBBishopL) | posGetBBPiece(pos, PieceBBishopD);
+	BB wr=posGetBBPiece(pos, PieceWRook);
+	BB br=posGetBBPiece(pos, PieceBRook);
+	BB wq=posGetBBPiece(pos, PieceWQueen);
+	BB bq=posGetBBPiece(pos, PieceBQueen);
+	BB wk=posGetBBPiece(pos, PieceWKing);
+	BB bk=posGetBBPiece(pos, PieceBKing);
+	BB occ=posGetBBAll(pos);
+
+	int wPawnCount=bbPopCount(wp);
+	int bPawnCount=bbPopCount(bp);
+	int wKnightCount=bbPopCount(wn);
+	int bKnightCount=bbPopCount(bn);
+	int wBishopCount=bbPopCount(wb);
+	int bBishopCount=bbPopCount(bb);
+	int wRookCount=bbPopCount(wr);
+	int bRookCount=bbPopCount(br);
+	int wQueenCount=bbPopCount(wq);
+	int bQueenCount=bbPopCount(bq);
+
+	int minorCount=wKnightCount+wBishopCount+bKnightCount+bBishopCount;
+	int rookCount=wRookCount+bRookCount;
+	int queenCount=wQueenCount+bQueenCount;
+
+	int pieceWeight=minorCount+2*rookCount+4*queenCount;
+	assert(pieceWeight>=0 && pieceWeight<128);
+
+	int weightEG=evalWeightEGFactors[pieceWeight];
+	int weightMG=256-weightEG;
+
+	float factorMG=weightMG/256.0;
+	float factorEG=weightEG/256.0;
+
+	// Piece counts (material)
+	coefficients[EvalTTuneParamPawnMG]=factorMG*(wPawnCount-bPawnCount);
+	coefficients[EvalTTuneParamPawnEG]=factorEG*(wPawnCount-bPawnCount);
+	coefficients[EvalTTuneParamKnightMG]=factorMG*(wKnightCount-bKnightCount);
+	coefficients[EvalTTuneParamKnightEG]=factorEG*(wKnightCount-bKnightCount);
+	coefficients[EvalTTuneParamBishopMG]=factorMG*(wBishopCount-bBishopCount);
+	coefficients[EvalTTuneParamBishopEG]=factorEG*(wBishopCount-bBishopCount);
+	coefficients[EvalTTuneParamRookMG]=factorMG*(wRookCount-bRookCount);
+	coefficients[EvalTTuneParamRookEG]=factorEG*(wRookCount-bRookCount);
+	coefficients[EvalTTuneParamQueenMG]=factorMG*(wQueenCount-bQueenCount);
+	coefficients[EvalTTuneParamQueenEG]=factorEG*(wQueenCount-bQueenCount);
+
+	// Mobility
+	BB pieceSet;
+	float count;
+
+	BB wpAttacks=bbForwardOne(bbWingify(wp), ColourWhite);
+	BB bpAttacks=bbForwardOne(bbWingify(bp), ColourBlack);
+
+	BB mobilityAllowed[ColourNB];
+	mobilityAllowed[ColourWhite]=~(wp | wk | bpAttacks);
+	mobilityAllowed[ColourBlack]=~(bp | bk | wpAttacks);
+
+	pieceSet=wn;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksKnight(sq);
+		count=bbPopCount(attacks & mobilityAllowed[ColourWhite]);
+		coefficients[EvalTTuneParamKnightMobMG]+=factorMG*count;
+		coefficients[EvalTTuneParamKnightMobEG]+=factorEG*count;
+	}
+	pieceSet=bn;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksKnight(sq);
+		count=bbPopCount(attacks & mobilityAllowed[ColourBlack]);
+		coefficients[EvalTTuneParamKnightMobMG]-=factorMG*count;
+		coefficients[EvalTTuneParamKnightMobEG]-=factorEG*count;
+	}
+
+	BB bishopMobOcc[ColourNB];
+	bishopMobOcc[ColourWhite]=(occ^(wb|wq));
+	bishopMobOcc[ColourBlack]=(occ^(bb|bq));
+
+	pieceSet=wb;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, bishopMobOcc[ColourWhite]);
+		count=bbPopCount(attacks & mobilityAllowed[ColourWhite]);
+		coefficients[EvalTTuneParamBishopMobMG]+=factorMG*count;
+		coefficients[EvalTTuneParamBishopMobEG]+=factorEG*count;
+	}
+	pieceSet=bb;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksBishop(sq, bishopMobOcc[ColourBlack]);
+		count=bbPopCount(attacks & mobilityAllowed[ColourBlack]);
+		coefficients[EvalTTuneParamBishopMobMG]-=factorMG*count;
+		coefficients[EvalTTuneParamBishopMobEG]-=factorEG*count;
+	}
+
+	BB rookMobOcc[ColourNB];
+	rookMobOcc[ColourWhite]=(occ^(wr|wq));
+	rookMobOcc[ColourBlack]=(occ^(br|bq));
+
+	pieceSet=wr;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksRook(sq, rookMobOcc[ColourWhite]);
+		count=bbPopCount(attacks & mobilityAllowed[ColourWhite] & bbFile(sqFile(sq)));
+		coefficients[EvalTTuneParamRookMobFileMG]+=factorMG*count;
+		coefficients[EvalTTuneParamRookMobFileEG]+=factorEG*count;
+		count=bbPopCount(attacks & mobilityAllowed[ColourWhite] & bbRank(sqRank(sq)));
+		coefficients[EvalTTuneParamRookMobRankMG]+=factorMG*count;
+		coefficients[EvalTTuneParamRookMobRankEG]+=factorEG*count;
+	}
+	pieceSet=br;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacks=attacksRook(sq, rookMobOcc[ColourBlack]);
+		count=bbPopCount(attacks & mobilityAllowed[ColourBlack] & bbFile(sqFile(sq)));
+		coefficients[EvalTTuneParamRookMobFileMG]-=factorMG*count;
+		coefficients[EvalTTuneParamRookMobFileEG]-=factorEG*count;
+		count=bbPopCount(attacks & mobilityAllowed[ColourBlack] & bbRank(sqRank(sq)));
+		coefficients[EvalTTuneParamRookMobRankMG]-=factorMG*count;
+		coefficients[EvalTTuneParamRookMobRankEG]-=factorEG*count;
+	}
+
+	pieceSet=wq;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourWhite]);
+		BB attacksR=attacksRook(sq, rookMobOcc[ColourWhite]);
+		count=bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourWhite]);
+		coefficients[EvalTTuneParamQueenMobMG]+=factorMG*count;
+		coefficients[EvalTTuneParamQueenMobEG]+=factorEG*count;
+	}
+	pieceSet=bq;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourBlack]);
+		BB attacksR=attacksRook(sq, rookMobOcc[ColourBlack]);
+		count=bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourBlack]);
+		coefficients[EvalTTuneParamQueenMobMG]-=factorMG*count;
+		coefficients[EvalTTuneParamQueenMobEG]-=factorEG*count;
+	}
+
+	// PSTs
+	pieceSet=wp;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		unsigned pstIndex=evalTTunePawnPstSqToIndex(sq);
+		coefficients[EvalTTuneParamPstPawnMGBase+pstIndex]+=factorMG;
+		coefficients[EvalTTuneParamPstPawnEGBase+pstIndex]+=factorEG;
+	}
+	pieceSet=bp;
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		unsigned pstIndex=evalTTunePawnPstSqToIndex(sq);
+		coefficients[EvalTTuneParamPstPawnMGBase+pstIndex]-=factorMG;
+		coefficients[EvalTTuneParamPstPawnEGBase+pstIndex]-=factorEG;
+	}
+
+	for(unsigned type=PieceTypeKnight; type<=PieceTypeKing; ++type) {
+		pieceSet=posGetBBPiece(pos, pieceMake(type, ColourWhite));
+		while(pieceSet) {
+			Sq sq=bbScanReset(&pieceSet);
+			unsigned pstIndex=evalTTunePstSqToIndex(sq);
+			coefficients[evalTTuneParamPstMGBase[type]+pstIndex]+=factorMG;
+			coefficients[evalTTuneParamPstEGBase[type]+pstIndex]+=factorEG;
+		}
+		pieceSet=posGetBBPiece(pos, pieceMake(type, ColourBlack));
+		while(pieceSet) {
+			Sq sq=bbScanReset(&pieceSet);
+			unsigned pstIndex=evalTTunePstSqToIndex(sq);
+			coefficients[evalTTuneParamPstMGBase[type]+pstIndex]-=factorMG;
+			coefficients[evalTTuneParamPstEGBase[type]+pstIndex]-=factorEG;
+		}
+	}
+
+	// Pawns
+	BB frontSpan[ColourNB], rearSpan[ColourNB], pawnAttacks[ColourNB];
+	BB doubled[ColourNB], isolated[ColourNB];
+	BB influence[ColourNB], fill[ColourNB];
+	BB blocked[ColourNB], passed[ColourNB];
+	BB semiOpenFiles[ColourNB], outposts[ColourNB];
+	fill[ColourWhite]=bbFileFill(wp);
+	fill[ColourBlack]=bbFileFill(bp);
+	frontSpan[ColourWhite]=bbNorthOne(bbNorthFill(wp)); // All squares infront of pawns of given colour
+	frontSpan[ColourBlack]=bbSouthOne(bbSouthFill(bp));
+	rearSpan[ColourWhite]=bbSouthOne(bbSouthFill(wp)); // All squares behind pawns of given colour
+	rearSpan[ColourBlack]=bbNorthOne(bbNorthFill(bp));
+	pawnAttacks[ColourWhite]=bbNorthOne(bbWingify(wp)); // All squares attacked by pawns of given colour
+	pawnAttacks[ColourBlack]=bbSouthOne(bbWingify(bp));
+	influence[ColourWhite]=(frontSpan[ColourWhite] | bbWingify(frontSpan[ColourWhite])); // Squares which colour in question may attack or move to, now or in the future.
+	influence[ColourBlack]=(frontSpan[ColourBlack] | bbWingify(frontSpan[ColourBlack]));
+
+	doubled[ColourWhite]=(wp & rearSpan[ColourWhite]);
+	doubled[ColourBlack]=(bp & rearSpan[ColourBlack]);
+	isolated[ColourWhite]=(wp & ~bbFileFill(pawnAttacks[ColourWhite]));
+	isolated[ColourBlack]=(bp & ~bbFileFill(pawnAttacks[ColourBlack]));
+	blocked[ColourWhite]=(wp & bbSouthOne(occ));
+	blocked[ColourBlack]=(bp & bbNorthOne(occ));
+	passed[ColourWhite]=(wp & ~(doubled[ColourWhite] | influence[ColourBlack]));
+	passed[ColourBlack]=(bp & ~(doubled[ColourBlack] | influence[ColourWhite]));
+
+	semiOpenFiles[ColourWhite]=(fill[ColourBlack] & ~fill[ColourWhite]);
+	semiOpenFiles[ColourBlack]=(fill[ColourWhite] & ~fill[ColourBlack]);
+	outposts[ColourWhite]=(pawnAttacks[ColourWhite] & (bbRank(Rank4)|bbRank(Rank5)|bbRank(Rank6)|bbRank(Rank7)) & ~bbWingify(frontSpan[ColourBlack]));
+	outposts[ColourBlack]=(pawnAttacks[ColourBlack] & (bbRank(Rank5)|bbRank(Rank4)|bbRank(Rank3)|bbRank(Rank2)) & ~bbWingify(frontSpan[ColourWhite]));
+	BB openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
+
+	int doubledCount=((int)bbPopCount(doubled[ColourWhite]))-((int)bbPopCount(doubled[ColourBlack]));
+	int isolatedCount=((int)bbPopCount(isolated[ColourWhite]))-((int)bbPopCount(isolated[ColourBlack]));
+	int blockedCount=((int)bbPopCount(blocked[ColourWhite]))-((int)bbPopCount(blocked[ColourBlack]));
+
+	coefficients[EvalTTuneParamPawnDoubledMG]=factorMG*doubledCount;
+	coefficients[EvalTTuneParamPawnDoubledEG]=factorEG*doubledCount;
+	coefficients[EvalTTuneParamPawnIsolatedMG]=factorMG*isolatedCount;
+	coefficients[EvalTTuneParamPawnIsolatedEG]=factorEG*isolatedCount;
+	coefficients[EvalTTuneParamPawnBlockedMG]=factorMG*blockedCount;
+	coefficients[EvalTTuneParamPawnBlockedEG]=factorEG*blockedCount;
+
+	int passedCount[RankNB];
+	passedCount[Rank2]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank2)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank7)));
+	passedCount[Rank3]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank3)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank6)));
+	passedCount[Rank4]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank4)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank5)));
+	passedCount[Rank5]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank5)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank4)));
+	passedCount[Rank6]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank6)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank3)));
+	passedCount[Rank7]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank7)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank2)));
+
+	coefficients[EvalTTuneParamPawnPassedR2MG]=factorMG*passedCount[Rank2];
+	coefficients[EvalTTuneParamPawnPassedR2EG]=factorEG*passedCount[Rank2];
+	coefficients[EvalTTuneParamPawnPassedR3MG]=factorMG*passedCount[Rank3];
+	coefficients[EvalTTuneParamPawnPassedR3EG]=factorEG*passedCount[Rank3];
+	coefficients[EvalTTuneParamPawnPassedR4MG]=factorMG*passedCount[Rank4];
+	coefficients[EvalTTuneParamPawnPassedR4EG]=factorEG*passedCount[Rank4];
+	coefficients[EvalTTuneParamPawnPassedR5MG]=factorMG*passedCount[Rank5];
+	coefficients[EvalTTuneParamPawnPassedR5EG]=factorEG*passedCount[Rank5];
+	coefficients[EvalTTuneParamPawnPassedR6MG]=factorMG*passedCount[Rank6];
+	coefficients[EvalTTuneParamPawnPassedR6EG]=factorEG*passedCount[Rank6];
+	coefficients[EvalTTuneParamPawnPassedR7MG]=factorMG*passedCount[Rank7];
+	coefficients[EvalTTuneParamPawnPassedR7EG]=factorEG*passedCount[Rank7];
+
+	// Misc
+	int bishopPairCount=((int)(posGetBBPiece(pos, PieceWBishopL)!=0 && posGetBBPiece(pos, PieceWBishopD)!=0))-
+	                    ((int)(posGetBBPiece(pos, PieceBBishopL)!=0 && posGetBBPiece(pos, PieceBBishopD)!=0));
+	coefficients[EvalTTuneParamBishopPairMG]=factorMG*bishopPairCount;
+	coefficients[EvalTTuneParamBishopPairEG]=factorEG*bishopPairCount;
+
+	int knightAffCount=wKnightCount*wPawnCount-bKnightCount*bPawnCount;
+	coefficients[EvalTTuneParamKnightPawnAffinityMG]=factorMG*knightAffCount;
+	coefficients[EvalTTuneParamKnightPawnAffinityEG]=factorEG*knightAffCount;
+
+	int rookAffCount=wRookCount*wPawnCount-bRookCount*bPawnCount;
+	coefficients[EvalTTuneParamRookPawnAffinityMG]=factorMG*rookAffCount;
+	coefficients[EvalTTuneParamRookPawnAffinityEG]=factorEG*rookAffCount;
+
+	int rookOpenFileCount=((int)bbPopCount(wr & openFiles))-((int)bbPopCount(br & openFiles));
+	coefficients[EvalTTuneParamRookOpenFileMG]=factorMG*rookOpenFileCount;
+	coefficients[EvalTTuneParamRookOpenFileEG]=factorEG*rookOpenFileCount;
+
+	int rookSemiOpenFileCount=((int)bbPopCount(wr & semiOpenFiles[ColourWhite]))-((int)bbPopCount(br & semiOpenFiles[ColourBlack]));
+	coefficients[EvalTTuneParamRookSemiOpenFileMG]=factorMG*rookSemiOpenFileCount;
+	coefficients[EvalTTuneParamRookSemiOpenFileEG]=factorEG*rookSemiOpenFileCount;
+
+	int rookOn7thCount=0;
+	if ((bp&Rank7)!=0 || sqRank(posGetKingSq(pos, ColourBlack))==Rank8)
+		rookOn7thCount+=bbPopCount(wr&Rank7);
+	if ((wp&Rank2)!=0 || sqRank(posGetKingSq(pos, ColourWhite))==Rank1)
+		rookOn7thCount-=bbPopCount(br&Rank2);
+	coefficients[EvalTTuneParamRookOn7thMG]=factorMG*rookOn7thCount;
+	coefficients[EvalTTuneParamRookOn7thEG]=factorEG*rookOn7thCount;
+
+	int rookTrappedCount=0;
+	if (((wr & (bbSq(SqG1) | bbSq(SqH1))) && (wk & (bbSq(SqF1) | bbSq(SqG1)))) ||
+	    ((wr & (bbSq(SqA1) | bbSq(SqB1))) && (wk & (bbSq(SqB1) | bbSq(SqC1)))))
+		++rookTrappedCount;
+	if (((br & (bbSq(SqG8) | bbSq(SqH8))) && (bk & (bbSq(SqF8) | bbSq(SqG8)))) ||
+	    ((br & (bbSq(SqA8) | bbSq(SqB8))) && (bk & (bbSq(SqB8) | bbSq(SqC8)))))
+		--rookTrappedCount;
+	coefficients[EvalTTuneParamRookTrappedMG]=factorMG*rookTrappedCount;
+	coefficients[EvalTTuneParamRookTrappedEG]=factorEG*rookTrappedCount;
+
+	BB wKingSpan=bbForwardOne((bbWestOne(wk) | wk | bbEastOne(wk)), ColourWhite);
+	BB bKingSpan=bbForwardOne((bbWestOne(bk) | bk | bbEastOne(bk)), ColourBlack);
+	BB wKingShieldClose=(wp & wKingSpan);
+	BB bKingShieldClose=(bp & bKingSpan);
+	BB wKingShieldFar=(wp & bbForwardOne(wKingSpan, ColourWhite));
+	BB bKingShieldFar=(bp & bbForwardOne(bKingSpan, ColourBlack));
+	int kingShieldCloseCount=((int)bbPopCount(wKingShieldClose))-((int)bbPopCount(bKingShieldClose));
+	int kingShieldFarCount=((int)bbPopCount(wKingShieldFar))-((int)bbPopCount(bKingShieldFar));
+	coefficients[EvalTTuneParamKingShieldCloseMG]=factorMG*kingShieldCloseCount;
+	coefficients[EvalTTuneParamKingShieldCloseEG]=factorEG*kingShieldCloseCount;
+	coefficients[EvalTTuneParamKingShieldFarMG]=factorMG*kingShieldFarCount;
+	coefficients[EvalTTuneParamKingShieldFarEG]=factorEG*kingShieldFarCount;
+
+	int kingNearPasserCount[8]={0,0,0,0,0,0,0,0};
+	pieceSet=passed[ColourBlack];
+	while(pieceSet) {
+		Sq passerSq=bbScanReset(&pieceSet);
+		unsigned distance=sqDist(posGetKingSq(pos, ColourWhite), passerSq);
+		assert(distance>=1 && distance<=7);
+		++kingNearPasserCount[distance];
+	}
+	pieceSet=passed[ColourWhite];
+	while(pieceSet) {
+		Sq passerSq=bbScanReset(&pieceSet);
+		unsigned distance=sqDist(posGetKingSq(pos, ColourBlack), passerSq);
+		assert(distance>=1 && distance<=7);
+		--kingNearPasserCount[distance];
+	}
+	coefficients[EvalTTuneParamKingNearPasser1MG]=factorMG*kingNearPasserCount[1];
+	coefficients[EvalTTuneParamKingNearPasser1EG]=factorEG*kingNearPasserCount[1];
+	coefficients[EvalTTuneParamKingNearPasser2MG]=factorMG*kingNearPasserCount[2];
+	coefficients[EvalTTuneParamKingNearPasser2EG]=factorEG*kingNearPasserCount[2];
+	coefficients[EvalTTuneParamKingNearPasser3MG]=factorMG*kingNearPasserCount[3];
+	coefficients[EvalTTuneParamKingNearPasser3EG]=factorEG*kingNearPasserCount[3];
+	coefficients[EvalTTuneParamKingNearPasser4MG]=factorMG*kingNearPasserCount[4];
+	coefficients[EvalTTuneParamKingNearPasser4EG]=factorEG*kingNearPasserCount[4];
+	coefficients[EvalTTuneParamKingNearPasser5MG]=factorMG*kingNearPasserCount[5];
+	coefficients[EvalTTuneParamKingNearPasser5EG]=factorEG*kingNearPasserCount[5];
+	coefficients[EvalTTuneParamKingNearPasser6MG]=factorMG*kingNearPasserCount[6];
+	coefficients[EvalTTuneParamKingNearPasser6EG]=factorEG*kingNearPasserCount[6];
+	coefficients[EvalTTuneParamKingNearPasser7MG]=factorMG*kingNearPasserCount[7];
+	coefficients[EvalTTuneParamKingNearPasser7EG]=factorEG*kingNearPasserCount[7];
+
+	CastRights castRights=posGetCastRights(pos);
+	int kingCastlingMobilityCount=(((int)(castRights.rookSq[ColourWhite][CastSideA]!=SqInvalid))+((int)(castRights.rookSq[ColourWhite][CastSideH]!=SqInvalid)))-
+	                              (((int)(castRights.rookSq[ColourBlack][CastSideA]!=SqInvalid))-((int)(castRights.rookSq[ColourBlack][CastSideH]!=SqInvalid)));
+	coefficients[EvalTTuneParamKingCastlingMobilityMG]=factorMG*kingCastlingMobilityCount;
+	coefficients[EvalTTuneParamKingCastlingMobilityEG]=factorEG*kingCastlingMobilityCount;
+
+	int outpostSqCount=((int)bbPopCount(outposts[ColourWhite]))-((int)bbPopCount(outposts[ColourBlack]));
+	coefficients[EvalTTuneParamOutpostSqMG]=factorMG*outpostSqCount;
+	coefficients[EvalTTuneParamOutpostSqEG]=factorEG*outpostSqCount;
+
+	int outpostKnightCount=((int)bbPopCount(outposts[ColourWhite] & wn))-
+	                       ((int)bbPopCount(outposts[ColourBlack] & bn));
+	coefficients[EvalTTuneParamOutpostKnightMG]=factorMG*outpostKnightCount;
+	coefficients[EvalTTuneParamOutpostKnightEG]=factorEG*outpostKnightCount;
+
+	int outpostBishopCount=((int)bbPopCount(outposts[ColourWhite] & wb))-
+	                       ((int)bbPopCount(outposts[ColourBlack] & bb));
+	coefficients[EvalTTuneParamOutpostBishopMG]=factorMG*outpostBishopCount;
+	coefficients[EvalTTuneParamOutpostBishopEG]=factorEG*outpostBishopCount;
+
+	int outpostRookCount=((int)bbPopCount(outposts[ColourWhite] & wr))-
+	                     ((int)bbPopCount(outposts[ColourBlack] & br));
+	coefficients[EvalTTuneParamOutpostRookMG]=factorMG*outpostRookCount;
+	coefficients[EvalTTuneParamOutpostRookEG]=factorEG*outpostRookCount;
+
+	int tempoCount=(posGetSTM(pos)==ColourWhite ? 1 : -1);
+	coefficients[EvalTTuneParamTempoDefaultMG]=factorMG*tempoCount;
+	coefficients[EvalTTuneParamTempoDefaultEG]=factorEG*tempoCount;
+}
+
+void evaluateTTuneOutputCode(const char *path, const float *weights) {
+	// Open file
+	FILE *file=fopen(path, "w");
+	if (file==NULL)
+		return;
+
+	// Generate code for all weights (parameters)
+	fprintf(file, "TUNECONST VPair evalMaterial[PieceTypeNB]={\n");
+	fprintf(file, "	[PieceTypeNone]={0,0},\n");
+	fprintf(file, "	[PieceTypePawn]={%.0f,%.0f},\n", weights[EvalTTuneParamPawnMG], weights[EvalTTuneParamPawnEG]);
+	fprintf(file, "	[PieceTypeKnight]={%.0f,%.0f},\n", weights[EvalTTuneParamKnightMG], weights[EvalTTuneParamKnightEG]);
+	fprintf(file, "	[PieceTypeBishopL]={%.0f,%.0f},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
+	fprintf(file, "	[PieceTypeBishopD]={%.0f,%.0f},\n", weights[EvalTTuneParamBishopMG], weights[EvalTTuneParamBishopEG]);
+	fprintf(file, "	[PieceTypeRook]={%.0f,%.0f},\n", weights[EvalTTuneParamRookMG], weights[EvalTTuneParamRookEG]);
+	fprintf(file, "	[PieceTypeQueen]={%.0f,%.0f},\n", weights[EvalTTuneParamQueenMG], weights[EvalTTuneParamQueenEG]);
+	fprintf(file, "	[PieceTypeKing]={0,0},\n");
+	fprintf(file, "};\n");
+
+	fprintf(file, "TUNECONST VPair evalPawnDoubled={%.0f,%.0f};\n", weights[EvalTTuneParamPawnDoubledMG], weights[EvalTTuneParamPawnDoubledEG]);
+	fprintf(file, "TUNECONST VPair evalPawnIsolated={%.0f,%.0f};\n", weights[EvalTTuneParamPawnIsolatedMG], weights[EvalTTuneParamPawnIsolatedEG]);
+	fprintf(file, "TUNECONST VPair evalPawnBlocked={%.0f,%.0f};\n", weights[EvalTTuneParamPawnBlockedMG], weights[EvalTTuneParamPawnBlockedEG]);
+	fprintf(file, "TUNECONST VPair evalPawnPassed[RankNB]={\n");
+	fprintf(file, "	{%.0f,%.0f},\n", 0.0, 0.0);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR2MG], weights[EvalTTuneParamPawnPassedR2EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR3MG], weights[EvalTTuneParamPawnPassedR3EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR4MG], weights[EvalTTuneParamPawnPassedR4EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR5MG], weights[EvalTTuneParamPawnPassedR5EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR6MG], weights[EvalTTuneParamPawnPassedR6EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR7MG], weights[EvalTTuneParamPawnPassedR7EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", 0.0, 0.0);
+	fprintf(file, "};\n");
+
+	fprintf(file, "TUNECONST VPair evalKnightMob={%.0f,%.0f};\n", weights[EvalTTuneParamKnightMobMG], weights[EvalTTuneParamKnightMobEG]);
+	fprintf(file, "TUNECONST VPair evalBishopPair={%.0f,%.0f};\n", weights[EvalTTuneParamBishopPairMG], weights[EvalTTuneParamBishopPairEG]);
+	fprintf(file, "TUNECONST VPair evalBishopMob={%.0f,%.0f};\n", weights[EvalTTuneParamBishopMobMG], weights[EvalTTuneParamBishopMobEG]);
+	fprintf(file, "TUNECONST VPair evalRookMobFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookMobFileMG], weights[EvalTTuneParamRookMobFileEG]);
+	fprintf(file, "TUNECONST VPair evalRookMobRank={%.0f,%.0f};\n", weights[EvalTTuneParamRookMobRankMG], weights[EvalTTuneParamRookMobRankEG]);
+	fprintf(file, "TUNECONST VPair evalQueenMob={%.0f,%.0f};\n", weights[EvalTTuneParamQueenMobMG], weights[EvalTTuneParamQueenMobEG]);
+
+	fprintf(file, "TUNECONST VPair evalKnightPawnAffinity={%.0f,%.0f};\n", weights[EvalTTuneParamKnightPawnAffinityMG], weights[EvalTTuneParamKnightPawnAffinityEG]);
+	fprintf(file, "TUNECONST VPair evalRookPawnAffinity={%.0f,%.0f};\n", weights[EvalTTuneParamRookPawnAffinityMG], weights[EvalTTuneParamRookPawnAffinityEG]);
+	fprintf(file, "TUNECONST VPair evalRookOpenFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookOpenFileMG], weights[EvalTTuneParamRookOpenFileEG]);
+	fprintf(file, "TUNECONST VPair evalRookSemiOpenFile={%.0f,%.0f};\n", weights[EvalTTuneParamRookSemiOpenFileMG], weights[EvalTTuneParamRookSemiOpenFileEG]);
+	fprintf(file, "TUNECONST VPair evalRookOn7th={%.0f,%.0f};\n", weights[EvalTTuneParamRookOn7thMG], weights[EvalTTuneParamRookOn7thEG]);
+	fprintf(file, "TUNECONST VPair evalRookTrapped={%.0f,%.0f};\n", weights[EvalTTuneParamRookTrappedMG], weights[EvalTTuneParamRookTrappedEG]);
+	fprintf(file, "TUNECONST VPair evalKingShieldClose={%.0f,%.0f};\n", weights[EvalTTuneParamKingShieldCloseMG], weights[EvalTTuneParamKingShieldCloseEG]);
+	fprintf(file, "TUNECONST VPair evalKingShieldFar={%.0f,%.0f};\n", weights[EvalTTuneParamKingShieldFarMG], weights[EvalTTuneParamKingShieldFarEG]);
+	fprintf(file, "TUNECONST VPair evalKingNearPasser[8]={ // indexed by distance in interval [1, 7]\n");
+	fprintf(file, "	{%.0f,%.0f}, // unused\n", 0.0, 0.0);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser1MG], weights[EvalTTuneParamKingNearPasser1EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser2MG], weights[EvalTTuneParamKingNearPasser2EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser3MG], weights[EvalTTuneParamKingNearPasser3EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser4MG], weights[EvalTTuneParamKingNearPasser4EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser5MG], weights[EvalTTuneParamKingNearPasser5EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser6MG], weights[EvalTTuneParamKingNearPasser6EG]);
+	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamKingNearPasser7MG], weights[EvalTTuneParamKingNearPasser7EG]);
+	fprintf(file, "};\n");
+	fprintf(file, "TUNECONST VPair evalKingCastlingMobility={%.0f,%.0f};\n", weights[EvalTTuneParamKingCastlingMobilityMG], weights[EvalTTuneParamKingCastlingMobilityEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostSq={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostSqMG], weights[EvalTTuneParamOutpostSqEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostKnight={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostKnightMG], weights[EvalTTuneParamOutpostKnightEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostBishop={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostBishopMG], weights[EvalTTuneParamOutpostBishopEG]);
+	fprintf(file, "TUNECONST VPair evalOutpostRook={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostRookMG], weights[EvalTTuneParamOutpostRookEG]);
+	fprintf(file, "TUNECONST VPair evalTempoDefault={%.0f,%.0f};\n", weights[EvalTTuneParamTempoDefaultMG], weights[EvalTTuneParamTempoDefaultEG]);
+
+	// PSTs
+	fprintf(file, "VPair evalPST[PieceNB][SqNB]={\n");
+
+	fprintf(file, "	[PieceTypePawn]={\n");
+	for(unsigned y=0; y<8; ++y) {
+		fprintf(file, "		");
+		for(unsigned x=0; x<8; ++x) {
+			if (y==0 || y==7)
+				fprintf(file, "{%5.0f,%5.0f},", 0.0, 0.0);
+			else {
+				unsigned index=evalTTunePawnPstSqToIndex(sqMake(x,y));
+				fprintf(file, "{%5.0f,%5.0f},", weights[EvalTTuneParamPstPawnMGBase+index], weights[EvalTTuneParamPstPawnEGBase+index]);
+			}
+		}
+		fprintf(file, "\n");
+	}
+	fprintf(file, "	},\n");
+
+	for(unsigned type=PieceTypeKnight; type<=PieceTypeKing; ++type) {
+		if (type==PieceTypeBishopD)
+			continue;
+
+		if (type==PieceTypeBishopL)
+			fprintf(file, "	[PieceTypeBishopL]={\n");
+		else
+			fprintf(file, "	[PieceType%s]={\n", pieceTypeToStr(type));
+		for(unsigned y=0; y<8; ++y) {
+			fprintf(file, "		");
+			for(unsigned x=0; x<8; ++x) {
+				unsigned index=evalTTunePstSqToIndex(sqMake(x,y));
+				fprintf(file, "{%5.0f,%5.0f},", weights[evalTTuneParamPstMGBase[type]+index], weights[evalTTuneParamPstEGBase[type]+index]);
+			}
+			fprintf(file, "\n");
+		}
+		fprintf(file, "	},\n");
+	}
+
+	fprintf(file, "};\n");
+
+	// Close file
+	fclose(file);
+}
+
+void evaluateTTuneSimplifyWeights(float *weights) {
+	// Average PSTs to (near) 0 and compensate material table accordingly
+	for(unsigned type=PieceTypePawn; type<=PieceTypeKing; ++type) {
+		unsigned sqCount=(type==PieceTypePawn ? 24 : 32);
+
+		// Find PST total and thus average
+		double totalMG=0.0;
+		double totalEG=0.0;
+		for(unsigned i=0; i<sqCount; ++i) {
+			totalMG+=weights[evalTTuneParamPstMGBase[type]+i];
+			totalEG+=weights[evalTTuneParamPstEGBase[type]+i];
+		}
+		double avgMG=floor(totalMG/sqCount);
+		double avgEG=floor(totalEG/sqCount);
+
+		// Subtract average from each sq in PSTs (to make average zero)
+		for(unsigned i=0; i<sqCount; ++i) {
+			weights[evalTTuneParamPstMGBase[type]+i]-=avgMG;
+			weights[evalTTuneParamPstEGBase[type]+i]-=avgEG;
+		}
+
+		// Add average to material value to compensate
+		if (type!=PieceTypeKing) {
+			weights[evalTTuneParamMaterialMG[type]]+=avgMG;
+			weights[evalTTuneParamMaterialEG[type]]+=avgEG;
+		}
+	}
 }
 
 void evalClear(void) {
@@ -298,9 +899,8 @@ VPair evalComputePstScore(const Pos *pos) {
 
 	Colour colour;
 	for(colour=0; colour<ColourNB; ++colour) {
-		// Pawns are not included
 		PieceType type;
-		for(type=PieceTypeKnight;type<=PieceTypeKing;++type) {
+		for(type=PieceTypePawn;type<=PieceTypeKing;++type) {
 			Piece piece=pieceMake(type, colour);
 			BB pieceSet=posGetBBPiece(pos, piece);
 			while(pieceSet) {
@@ -314,8 +914,7 @@ VPair evalComputePstScore(const Pos *pos) {
 }
 
 void evalPstDebug(void) {
-	// TODO: add pawns (more complicated as implemented differently to pieces)
-	for(PieceType piece=PieceTypeKnight; piece<=PieceTypeKing; ++piece) {
+	for(PieceType piece=PieceTypePawn; piece<=PieceTypeKing; ++piece) {
 		if (piece==PieceTypeBishopD)
 			continue;
 		printf("%s:\n", pieceTypeToStr(piece));
@@ -554,6 +1153,28 @@ VPair evaluateDefault(EvalData *data) {
 	// Extra info
 #ifdef EVALINFO
 	printf("        rook mobility (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
+
+	// Queen mobility
+	pieceSet=posGetBBPiece(pos, PieceWQueen);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourWhite]);
+		BB attacksR=attacksRook(sq, rookMobOcc[ColourWhite]);
+		evalVPairAddMulTo(&score, &evalBishopMob, bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourWhite]));
+	}
+	pieceSet=posGetBBPiece(pos, PieceBQueen);
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourBlack]);
+		BB attacksR=attacksRook(sq, rookMobOcc[ColourBlack]);
+		evalVPairSubMulFrom(&score, &evalBishopMob, bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourBlack]));
+	}
+
+	// Extra info
+#ifdef EVALINFO
+	printf("        queen mobility (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
 	tempScore=score;
 #endif
 
@@ -930,31 +1551,26 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	pawnData->openFiles=~(fill[ColourWhite] | fill[ColourBlack]);
 
 	// Outposts
-	int outpostRelativeCount=bbPopCount(pawnData->outposts[ColourWhite])-bbPopCount(pawnData->outposts[ColourBlack]);
+	int outpostRelativeCount=((int)bbPopCount(pawnData->outposts[ColourWhite]))-((int)bbPopCount(pawnData->outposts[ColourBlack]));
 	evalVPairAddMulTo(&pawnData->score, &evalOutpostSq, outpostRelativeCount);
 
-	// Loop over each pawn.
-#ifdef EVALINFO
-	printf("            pawn types (DIP):\n");
-#endif
-	Colour colour;
-	for(colour=ColourWhite;colour<=ColourBlack;++colour) {
-		Piece piece=pieceMake(PieceTypePawn, colour);
-		BB pieceSet=posGetBBPiece(pos, piece);
-		while(pieceSet) {
-			Sq sq=bbScanReset(&pieceSet);
+	// Doubled and isolated pawns
+	int doubledCount=((int)bbPopCount(doubled[ColourWhite]))-((int)bbPopCount(doubled[ColourBlack]));
+	evalVPairAddMulTo(&pawnData->score, &evalPawnDoubled, doubledCount);
+	int isolatedCount=((int)bbPopCount(isolated[ColourWhite]))-((int)bbPopCount(isolated[ColourBlack]));
+	evalVPairAddMulTo(&pawnData->score, &evalPawnIsolated, isolatedCount);
 
-			PawnType type=((((doubled[colour]>>sq)&1)<<PawnTypeShiftDoubled) |
-			               (((isolated[colour]>>sq)&1)<<PawnTypeShiftIsolated) |
-			               (((pawnData->passed[colour]>>sq)&1)<<PawnTypeShiftPassed));
-			assert(type>=0 && type<PawnTypeNB);
-			evalVPairAddTo(&pawnData->score, &evalPawnValue[colour][type][sq]);
-#ifdef EVALINFO
-			printf("                %c%c %u%u%u (%i,%i)\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)),
-			       (((doubled[colour]>>sq)&1)!=0), (((isolated[colour]>>sq)&1)!=0), (((pawnData->passed[colour]>>sq)&1)!=0),
-			       evalPawnValue[colour][type][sq].mg, evalPawnValue[colour][type][sq].eg);
-#endif
-		}
+	// Passed pawns
+	BB pieceSet;
+	pieceSet=pawnData->passed[ColourWhite];
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		evalVPairAddTo(&pawnData->score, &evalPawnPassed[sqRank(sq)]);
+	}
+	pieceSet=pawnData->passed[ColourBlack];
+	while(pieceSet) {
+		Sq sq=bbScanReset(&pieceSet);
+		evalVPairSubFrom(&pawnData->score, &evalPawnPassed[sqRank(sqFlip(sq))]);
 	}
 }
 
@@ -997,9 +1613,17 @@ VPair evaluateDefaultGlobal(EvalData *data) {
 	int knightOutpostCountB=bbPopCount(data->pawnData.outposts[ColourBlack] & posGetBBPiece(pos, PieceBKnight));
 	evalVPairAddMulTo(&score, &evalOutpostKnight, (knightOutpostCountW-knightOutpostCountB));
 
+	int bishopOutpostCountW=bbPopCount(data->pawnData.outposts[ColourWhite] & (posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceWBishopD)));
+	int bishopOutpostCountB=bbPopCount(data->pawnData.outposts[ColourBlack] & (posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceBBishopD)));
+	evalVPairAddMulTo(&score, &evalOutpostBishop, (bishopOutpostCountW-bishopOutpostCountB));
+
+	int rookOutpostCountW=bbPopCount(data->pawnData.outposts[ColourWhite] & posGetBBPiece(pos, PieceWRook));
+	int rookOutpostCountB=bbPopCount(data->pawnData.outposts[ColourBlack] & posGetBBPiece(pos, PieceBRook));
+	evalVPairAddMulTo(&score, &evalOutpostRook, (rookOutpostCountW-rookOutpostCountB));
+
 	// Extra info
 #ifdef EVALINFO
-	printf("            knight outposts: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	printf("            outposts: (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
 	tempScore=score;
 #endif
 
@@ -1104,18 +1728,6 @@ void evalSetValue(void *varPtr, long long value) {
 		evalMaterial[PieceTypeBishopD].mg=value;
 	else if (var==&evalMaterial[PieceTypeBishopL].eg)
 		evalMaterial[PieceTypeBishopD].eg=value;
-	else if (var==&evalPstParams[PieceTypeBishopD][0].mg)
-		evalPstParams[PieceTypeBishopD][0].mg=value;
-	else if (var==&evalPstParams[PieceTypeBishopD][0].eg)
-		evalPstParams[PieceTypeBishopD][0].eg=value;
-	else if (var==&evalPstParams[PieceTypeBishopD][1].mg)
-		evalPstParams[PieceTypeBishopD][1].mg=value;
-	else if (var==&evalPstParams[PieceTypeBishopD][1].eg)
-		evalPstParams[PieceTypeBishopD][1].eg=value;
-	else if (var==&evalPstParams[PieceTypeBishopD][2].mg)
-		evalPstParams[PieceTypeBishopD][2].mg=value;
-	else if (var==&evalPstParams[PieceTypeBishopD][2].eg)
-		evalPstParams[PieceTypeBishopD][2].eg=value;
 
 	// Recalculate dervied values (such as passed pawn table).
 	evalRecalc();
@@ -1151,88 +1763,17 @@ bool evalOptionNewVPairF(const char *nameFormat, VPair *score, Value min, Value 
 void evalRecalc(void) {
 	PieceType pieceType;
 
-	// White pawn PST.
-	Sq sq;
-	VPair whitePawnPst[SqNB];
-	for(sq=0;sq<SqNB;++sq) {
-		whitePawnPst[sq]=VPairZero;
-		if (sqRank(sq)==Rank1 || sqRank(sq)==Rank8)
-			continue;
-
-		unsigned y=sqRank(sq);
-		unsigned ya=(y<4 ? y : 7-y);
-		VPair rankScore=evalVPairMul(&evalPstParams[PieceTypePawn][1], ya);
-		VPair advScore=evalVPairMul(&evalPstParams[PieceTypePawn][2], y);
-		VPair yScore=evalVPairAdd(&rankScore, &advScore);
-		unsigned x=sqFile(sq);
-		unsigned xa=(x<4 ? x : 7-x);
-		VPair fileScore=evalVPairMul(&evalPstParams[PieceTypePawn][0], xa);
-		whitePawnPst[sq]=evalVPairAdd(&yScore, &fileScore);
-
-		if (xa==3 && ya==3)
-			evalVPairAddTo(&whitePawnPst[sq], &evalPawnCentre);
-		else if (xa>=2 && ya>=2)
-			evalVPairAddTo(&whitePawnPst[sq], &evalPawnOuterCentre);
-
-		evalVPairAddTo(&whitePawnPst[sq], &evalMaterial[PieceTypePawn]);
-	}
-
-	// White piece PSTs
-	for(PieceType type=PieceTypeKnight; type<=PieceTypeKing; ++type) {
-		for(unsigned y=0; y<8; ++y) {
-			unsigned ya=(y<4 ? y : 7-y);
-			VPair rankScore=evalVPairMul(&evalPstParams[type][1], ya);
-			VPair advScore=evalVPairMul(&evalPstParams[type][2], y);
-			VPair yScore=evalVPairAdd(&rankScore, &advScore);
-			for(unsigned x=0; x<8; ++x) {
-				unsigned xa=(x<4 ? x : 7-x);
-				VPair fileScore=evalVPairMul(&evalPstParams[type][0], xa);
-				Sq sq=sqMake(x,y);
-				evalPST[pieceMake(type, ColourWhite)][sq]=evalVPairAdd(&yScore, &fileScore);
-			}
-		}
-	}
-
-	// Manually fix king PST for friendly corner squares
-	evalPST[PieceWKing][SqA1].mg=evalPST[PieceWKing][SqB1].mg;
-	evalPST[PieceWKing][SqH1].mg=evalPST[PieceWKing][SqG1].mg;
-
-	// Pawn table.
-	PawnType type;
-	for(type=0;type<PawnTypeNB;++type) {
-		bool isDoubled=((type & PawnTypeDoubled)!=0);
-		bool isIsolated=((type & PawnTypeIsolated)!=0);
-		bool isPassed=((type & PawnTypePassed)!=0);
-		for(sq=0;sq<SqNB;++sq) {
-			// Calculate score for white.
-			VPair *score=&evalPawnValue[ColourWhite][type][sq];
-			*score=VPairZero;
-			evalVPairAddTo(score, &whitePawnPst[sq]);
-			if (isDoubled)
-				evalVPairAddTo(score, &evalPawnDoubled);
-			if (isIsolated)
-				evalVPairAddTo(score, &evalPawnIsolated);
-			if (isPassed) {
-				// Generate passed pawn score from quadratic coefficients.
-				Rank rank=sqRank(sq);
-				evalVPairAddMulTo(score, &evalPawnPassedQuadA, rank*rank);
-				evalVPairAddMulTo(score, &evalPawnPassedQuadB, rank);
-				evalVPairAddTo(score, &evalPawnPassedQuadC);
-			}
-
-			// Flip square and negate score for black.
-			evalPawnValue[ColourBlack][type][sqFlip(sq)]=VPairZero;
-			evalVPairSubFrom(&evalPawnValue[ColourBlack][type][sqFlip(sq)], score);
-		}
-	}
-
 	// Add material to white PSTs
-	for(pieceType=PieceTypeKnight; pieceType<=PieceTypeKing; ++pieceType) {
+	for(pieceType=PieceTypePawn; pieceType<=PieceTypeKing; ++pieceType) {
 		Piece piece=pieceMake(pieceType, ColourWhite);
 		Sq sq;
 		for(sq=0; sq<SqNB; ++sq)
 			evalVPairAddTo(&evalPST[piece][sq], &evalMaterial[pieceType]);
 	}
+
+	// Copy light bishop PSTs into dark bishop PSTs
+	for(Sq sq=0; sq<SqNB; ++sq)
+		evalPST[PieceTypeBishopD][sq]=evalPST[PieceTypeBishopL][sq];
 
 	// Copy white PSTs into black.
 	for(pieceType=PieceTypePawn; pieceType<=PieceTypeKing; ++pieceType) {
@@ -1243,19 +1784,6 @@ void evalRecalc(void) {
 			evalPST[blackPiece][blackSq]=evalPST[whitePiece][sqFlip(blackSq)];
 			evalVPairNegate(&evalPST[blackPiece][blackSq]);
 		}
-	}
-
-	// King near passer table
-	int dist;
-	for(dist=1; dist<=7; ++dist) {
-		double normDist=(7-dist)/6.0;
-		assert(normDist>=0.0 && normDist<=1.0);
-		double normDist2=pow(normDist, 2.0);
-
-		double scoreMg=normDist2*evalKingNearPasserFactor.mg;
-		double scoreEg=normDist2*evalKingNearPasserFactor.eg;
-		evalKingNearPasser[dist].mg=floor(scoreMg);
-		evalKingNearPasser[dist].eg=floor(scoreEg);
 	}
 
 	// Calculate factor for number of half moves since capture/pawn move.
@@ -1284,25 +1812,11 @@ void evalVerify(void) {
 	// Check light/dark bishop entries match
 	assert(evalMaterial[PieceTypeBishopL].mg==evalMaterial[PieceTypeBishopD].mg);
 	assert(evalMaterial[PieceTypeBishopL].eg==evalMaterial[PieceTypeBishopD].eg);
-	for(unsigned i=0; i<3; ++i) {
-		assert(evalPstParams[PieceTypeBishopL][i].mg==evalPstParams[PieceTypeBishopD][i].mg);
-		assert(evalPstParams[PieceTypeBishopL][i].eg==evalPstParams[PieceTypeBishopD][i].eg);
-	}
 	for(Sq sq=0; sq<SqNB; ++sq) {
 		assert(evalPST[PieceWBishopL][sq].mg==evalPST[PieceWBishopD][sq].mg);
 		assert(evalPST[PieceWBishopL][sq].eg==evalPST[PieceWBishopD][sq].eg);
 		assert(evalPST[PieceBBishopL][sq].mg==evalPST[PieceBBishopD][sq].mg);
 		assert(evalPST[PieceBBishopL][sq].eg==evalPST[PieceBBishopD][sq].eg);
-	}
-
-	// Check pawn table is symmetrical
-	for(Sq sq=0; sq<SqNB; ++sq) {
-		for(unsigned i=0; i<PawnTypeNB; ++i) {
-			assert(evalPawnValue[ColourWhite][i][sq].mg==evalPawnValue[ColourWhite][i][sqMirror(sq)].mg);
-			assert(evalPawnValue[ColourWhite][i][sq].eg==evalPawnValue[ColourWhite][i][sqMirror(sq)].eg);
-			assert(evalPawnValue[ColourBlack][i][sq].mg==evalPawnValue[ColourBlack][i][sqMirror(sq)].mg);
-			assert(evalPawnValue[ColourBlack][i][sq].eg==evalPawnValue[ColourBlack][i][sqMirror(sq)].eg);
-		}
 	}
 
 	// Check PSTs are symmetrical.
@@ -1398,4 +1912,28 @@ void evalPstDraw(PieceType type) {
 		printf("\n");
 	}
 	printf("\n");
+}
+
+Sq evalTTunePstIndexToSq(unsigned index) {
+	assert(index<32);
+
+	return sqMake(index%4, index/4);
+}
+
+unsigned evalTTunePstSqToIndex(Sq sq) {
+	if (sqFile(sq)>=FileE)
+		sq=sqMirror(sq);
+	return 4*sqRank(sq)+sqFile(sq);
+}
+
+Sq evalTTunePawnPstIndexToSq(unsigned index) {
+	assert(index<24);
+
+	return sqMake(index%4, index/4+1);
+}
+
+unsigned evalTTunePawnPstSqToIndex(Sq sq) {
+	if (sqFile(sq)>=FileE)
+		sq=sqMirror(sq);
+	return 4*(sqRank(sq)-1)+sqFile(sq);
 }

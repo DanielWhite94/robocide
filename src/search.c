@@ -59,9 +59,9 @@ TUNECONST int searchLmrReduction=1;
 TUNECONST int searchLmrReductionDepthLimit=3;
 TUNECONST int searchLmrReductionMoveLimit=2;
 TUNECONST int searchReverseFutilityDepthLimit=6;
-TUNECONST int searchReverseFutilityMarginFactor=135;
-TUNECONST int searchRazorPruningDepthLimit=5;
-TUNECONST int searchRazorPruningMarginFactor=220;
+TUNECONST int searchReverseFutilityMarginFactor=111;
+TUNECONST int searchRazorPruningDepthLimit=3;
+TUNECONST int searchRazorPruningMarginFactor=171;
 
 bool searchPonder=true;
 
@@ -631,9 +631,28 @@ void searchNodeInternal(Node *node) {
 			assert(!node->inCheck); // searchIsZugzwang returning false ensures this is the case
 
 			// Compute evaluation score and adjust if TT info allows
-			int refinedEval=evaluate(node->pos);
-			if (ttMove!=MoveInvalid && ((ttScore>refinedEval && (ttBound & BoundLower)!=0) || (ttScore<refinedEval && (ttBound & BoundUpper)!=0)))
-				refinedEval=ttScore;
+			int refinedEval;
+			if (ttMove!=MoveInvalid) {
+				switch(ttBound) {
+					case BoundNone:
+						refinedEval=evaluate(node->pos);
+					break;
+					case BoundLower:
+						refinedEval=evaluate(node->pos);
+						if (ttScore>refinedEval)
+							refinedEval=ttScore;
+					break;
+					case BoundUpper:
+						refinedEval=evaluate(node->pos);
+						if (ttScore<refinedEval)
+							refinedEval=ttScore;
+					break;
+					case BoundExact:
+						refinedEval=ttScore;
+					break;
+				}
+			} else
+				refinedEval=evaluate(node->pos);
 
 			// Reverse futility pruning (another variation on standing pat/null move pruning)
 			if (doRFP && refinedEval>=node->beta+searchReverseFutilityMarginFactor*((int)node->depth)) {

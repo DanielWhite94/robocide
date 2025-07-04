@@ -14,6 +14,7 @@
 #include "see.h"
 #include "syzygy.h"
 #include "time.h"
+#include "ttune.h"
 #include "uci.h"
 
 typedef enum {
@@ -272,6 +273,21 @@ void uciLoop(void) {
 			mainReplay(replayPath, replayDate);
 		} else if (utilStrEqual(part, "pst")) {
 			evalPstDebug();
+		} else if (utilStrEqual(part, "ttune")) {
+			// Grab arguments
+			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
+				printf("Error: missing input EPD file argument\n");
+				continue;
+			}
+			const char *inputPath=part;
+			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
+				printf("Error: missing output code file argument\n");
+				continue;
+			}
+			const char *outputPath=part;
+
+			// Call ttuneRun to do the actual work
+			ttuneRun(inputPath, outputPath);
 		}
 	}
 

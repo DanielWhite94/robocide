@@ -540,38 +540,6 @@ void searchNodeInternal(Node *node) {
 	searchPv[node->ply][0]=MoveInvalid;
 	++searchNodeCount;
 
-	// Probe endgame bitbase (Syzygy)
-	if (node->ply==0) {
-		SyzygyWdl tbWdl=SyzygyWdlError;
-		int tbDtz;
-		Move tbMove=syzygyProbeRoot(node->pos, &tbWdl, &tbDtz, NULL);
-		if (tbMove!=MoveInvalid) {
-			switch(tbWdl) {
-				case SyzygyWdlError:
-				case SyzygyWdlNB:
-					assert(false);
-					node->bound=BoundNone;
-					node->score=ScoreInvalid;
-				break;
-				case SyzygyWdlWin:
-					node->bound=BoundExact;
-					node->score=scoreTbWin(tbDtz);
-				break;
-				case SyzygyWdlLoss:
-					node->bound=BoundExact;
-					node->score=scoreTbLoss(tbDtz);
-				break;
-				case SyzygyWdlDraw:
-					node->bound=BoundExact;
-					node->score=ScoreDraw;
-				break;
-			}
-			searchPv[node->ply][0]=tbMove;
-			searchPv[node->ply][1]=MoveInvalid;
-			return;
-		}
-	}
-
 	// Mate distance pruning.
 	if (node->ply>0) {
 		Score matedIn=scoreMatedIn(node->ply);
@@ -708,6 +676,12 @@ void searchNodeInternal(Node *node) {
 		ttMove=searchPv[child2.ply][0];
 	}
 
+	// If root, probe endgame bitbase (Syzygy) to populate tbMoves array
+	SyzygyWdl tbWdl=SyzygyWdlError;
+	SyzygyMove tbMoves[SyzygyMovesMax];
+	if (node->ply==0)
+		syzygyProbeRoot(node->pos, &tbWdl, NULL, tbMoves);
+
 	// Move loop.
 	Moves moves;
 	movesInit(&moves, node->pos, node->ply, MoveTypeAny);
@@ -720,14 +694,30 @@ void searchNodeInternal(Node *node) {
 	Move move;
 	unsigned moveNumber=0, lmrMoveNumber=0;
 	while((move=movesNext(&moves))!=MoveInvalid) {
-		// If we are the root ensure this move is one that was specified (if any restriction given)
-		if (node->ply==0 && searchLimit.searchMovesNext>searchLimit.searchMoves) {
-			Move *movePtr;
-			for(movePtr=searchLimit.searchMoves; movePtr!=searchLimit.searchMovesNext; ++movePtr)
-				if (move==*movePtr)
-					break;
-			if (movePtr==searchLimit.searchMovesNext)
-				continue;
+		// If we are the root potentially filter out this move
+		if (node->ply==0) {
+			// TODO: fix issue where, if all moves which maintain the WDL value have been excluded by searchmoves, we will not search any moves in the root
+
+			// If have a Syzygy table hit, check if current move should be excluded because it does not maintain the WDL value
+			if (tbWdl!=SyzygyWdlError) {
+				for(unsigned i=0; tbMoves[i].move!=MoveInvalid; ++i) {
+					if (tbMoves[i].move==move) {
+						if (tbMoves[i].wdl!=tbWdl)
+							continue; // exclude this move
+						break;
+					}
+				}
+			}
+
+			// If UCI 'searchmoves' used, check if current move should be excluded
+			if (searchLimit.searchMovesNext>searchLimit.searchMoves) {
+				Move *movePtr;
+				for(movePtr=searchLimit.searchMoves; movePtr!=searchLimit.searchMovesNext; ++movePtr)
+					if (move==*movePtr)
+						break;
+				if (movePtr==searchLimit.searchMovesNext)
+					continue; // exclude this move
+			}
 		}
 
 		// Find move string for UCI output.

@@ -80,7 +80,7 @@ SyzygyWdl syzygyProbeWdl(const Pos *pos) {
 	return SyzygyWdlError;
 }
 
-Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
+Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz, SyzygyMove *moves) {
 	assert(pos!=NULL);
 
 	// Too many pieces for any of the tables we have available?
@@ -91,7 +91,9 @@ Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
 	SyzygyPosData pd;
 	syzygyGetPosData(&pd, pos);
 
-	unsigned result=tb_probe_root(pd.white, pd.black, pd.kings, pd.queens, pd.rooks, pd.bishops, pd.knights, pd.pawns, pd.rule50, pd.castling, pd.ep, pd.turn, NULL);
+	unsigned resultsArray[TB_MAX_MOVES];
+	unsigned *results=resultsArray;
+	unsigned result=tb_probe_root(pd.white, pd.black, pd.kings, pd.queens, pd.rooks, pd.bishops, pd.knights, pd.pawns, pd.rule50, pd.castling, pd.ep, pd.turn, results);
 
 	if (result==TB_RESULT_STALEMATE || result==TB_RESULT_CHECKMATE || result==TB_RESULT_FAILED)
 		return MoveInvalid;
@@ -102,6 +104,20 @@ Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
 
 	if (dtz!=NULL)
 		*dtz=TB_GET_DTZ(result);
+
+	// Fill moves array if needed
+	if (moves!=NULL) {
+		while(*results!=TB_RESULT_FAILED) {
+			moves->move=syzygyResultToMove(*results, pos);
+			moves->wdl=syzygyResultToWdl(*results);
+			moves->dtz=TB_GET_DTZ(*results);
+			++results;
+			++moves;
+		}
+		moves->move=MoveInvalid;
+		moves->wdl=SyzygyWdlError;
+		moves->dtz=256;
+	}
 
 	// Extract best move and return it
 	return syzygyResultToMove(result, pos);

@@ -544,7 +544,7 @@ void searchNodeInternal(Node *node) {
 	if (node->ply==0) {
 		SyzygyWdl tbWdl=SyzygyWdlError;
 		int tbDtz;
-		Move tbMove=syzygyProbeRoot(node->pos, &tbWdl, &tbDtz);
+		Move tbMove=syzygyProbeRoot(node->pos, &tbWdl, &tbDtz, NULL);
 		if (tbMove!=MoveInvalid) {
 			switch(tbWdl) {
 				case SyzygyWdlError:

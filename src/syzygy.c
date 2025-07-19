@@ -27,6 +27,9 @@ void syzygyGetPosData(SyzygyPosData *data, const Pos *pos);
 
 void syzygySetSyzygyPath(void *userData, const char *value);
 
+Move syzygyResultToMove(unsigned result, const Pos *pos);
+SyzygyWdl syzygyResultToWdl(unsigned result);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -77,7 +80,7 @@ SyzygyWdl syzygyProbeWdl(const Pos *pos) {
 	return SyzygyWdlError;
 }
 
-Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
+Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz, SyzygyMove *moves) {
 	assert(pos!=NULL);
 
 	// Too many pieces for any of the tables we have available?
@@ -88,60 +91,36 @@ Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
 	SyzygyPosData pd;
 	syzygyGetPosData(&pd, pos);
 
-	unsigned result=tb_probe_root(pd.white, pd.black, pd.kings, pd.queens, pd.rooks, pd.bishops, pd.knights, pd.pawns, pd.rule50, pd.castling, pd.ep, pd.turn, NULL);
+	unsigned resultsArray[TB_MAX_MOVES];
+	unsigned *results=resultsArray;
+	unsigned result=tb_probe_root(pd.white, pd.black, pd.kings, pd.queens, pd.rooks, pd.bishops, pd.knights, pd.pawns, pd.rule50, pd.castling, pd.ep, pd.turn, results);
 
 	if (result==TB_RESULT_STALEMATE || result==TB_RESULT_CHECKMATE || result==TB_RESULT_FAILED)
 		return MoveInvalid;
 
-	// Grab best move
-	Sq fromSq=TB_GET_FROM(result);
-	Sq toSq=TB_GET_TO(result);
-	Piece toPiece=posGetPieceOnSq(pos, fromSq);
-	switch(TB_GET_PROMOTES(result)) {
-		case TB_PROMOTES_NONE:
-		break;
-		case TB_PROMOTES_QUEEN:
-			toPiece=pieceMake(PieceTypeQueen, pieceGetColour(toPiece));
-		break;
-		case TB_PROMOTES_ROOK:
-			toPiece=pieceMake(PieceTypeRook, pieceGetColour(toPiece));
-		break;
-		case TB_PROMOTES_BISHOP:
-			if (sqIsLight(toSq))
-				toPiece=pieceMake(PieceTypeBishopL, pieceGetColour(toPiece));
-			else
-				toPiece=pieceMake(PieceTypeBishopD, pieceGetColour(toPiece));
-		break;
-		case TB_PROMOTES_KNIGHT:
-			toPiece=pieceMake(PieceTypeKnight, pieceGetColour(toPiece));
-		break;
-	}
-
-	// Set WDL
-	if (wdl!=NULL) {
-		switch(TB_GET_WDL(result)) {
-			case TB_LOSS:
-				*wdl=SyzygyWdlLoss;
-			break;
-			case TB_BLESSED_LOSS:
-			case TB_DRAW:
-			case TB_CURSED_WIN:
-				*wdl=SyzygyWdlDraw;
-			break;
-			case TB_WIN:
-				*wdl=SyzygyWdlWin;
-			break;
-			case TB_RESULT_FAILED:
-				assert(false);
-				*wdl=SyzygyWdlError;
-			break;
-		}
-	}
+	// Set WDL and DTZ if needed
+	if (wdl!=NULL)
+		*wdl=syzygyResultToWdl(result);
 
 	if (dtz!=NULL)
 		*dtz=TB_GET_DTZ(result);
 
-	return moveMake(fromSq, toSq, toPiece);
+	// Fill moves array if needed
+	if (moves!=NULL) {
+		while(*results!=TB_RESULT_FAILED) {
+			moves->move=syzygyResultToMove(*results, pos);
+			moves->wdl=syzygyResultToWdl(*results);
+			moves->dtz=TB_GET_DTZ(*results);
+			++results;
+			++moves;
+		}
+		moves->move=MoveInvalid;
+		moves->wdl=SyzygyWdlError;
+		moves->dtz=256;
+	}
+
+	// Extract best move and return it
+	return syzygyResultToMove(result, pos);
 }
 
 const char *syzygyWdlStr[4]={
@@ -151,6 +130,7 @@ const char *syzygyWdlStr[4]={
 	[SyzygyWdlDraw]="draw",
 };
 const char *syzygyWdlToStr(SyzygyWdl wdl) {
+	assert(wdl<SyzygyWdlNB);
 	return syzygyWdlStr[wdl];
 }
 
@@ -191,4 +171,55 @@ void syzygySetSyzygyPath(void *userData, const char *value) {
 	}	
 
 	uciWrite("info string Loaded Syzygy tables at '%s' up to size %u\n", value, TB_LARGEST);
+}
+
+Move syzygyResultToMove(unsigned result, const Pos *pos) {
+	assert(pos!=NULL);
+
+	Sq fromSq=TB_GET_FROM(result);
+	Sq toSq=TB_GET_TO(result);
+	Piece toPiece=posGetPieceOnSq(pos, fromSq);
+	switch(TB_GET_PROMOTES(result)) {
+		case TB_PROMOTES_NONE:
+		break;
+		case TB_PROMOTES_QUEEN:
+			toPiece=pieceMake(PieceTypeQueen, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_ROOK:
+			toPiece=pieceMake(PieceTypeRook, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_BISHOP:
+			if (sqIsLight(toSq))
+				toPiece=pieceMake(PieceTypeBishopL, pieceGetColour(toPiece));
+			else
+				toPiece=pieceMake(PieceTypeBishopD, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_KNIGHT:
+			toPiece=pieceMake(PieceTypeKnight, pieceGetColour(toPiece));
+		break;
+	}
+
+	return moveMake(fromSq, toSq, toPiece);
+}
+
+SyzygyWdl syzygyResultToWdl(unsigned result) {
+	switch(TB_GET_WDL(result)) {
+		case TB_LOSS:
+			return SyzygyWdlLoss;
+		break;
+		case TB_BLESSED_LOSS:
+		case TB_DRAW:
+		case TB_CURSED_WIN:
+			return SyzygyWdlDraw;
+		break;
+		case TB_WIN:
+			return SyzygyWdlWin;
+		break;
+		case TB_RESULT_FAILED:
+			return SyzygyWdlError;
+		break;
+	}
+
+	assert(false);
+	return SyzygyWdlError;
 }

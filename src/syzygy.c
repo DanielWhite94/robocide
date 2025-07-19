@@ -28,6 +28,7 @@ void syzygyGetPosData(SyzygyPosData *data, const Pos *pos);
 void syzygySetSyzygyPath(void *userData, const char *value);
 
 Move syzygyResultToMove(unsigned result, const Pos *pos);
+SyzygyWdl syzygyResultToWdl(unsigned result);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -95,26 +96,9 @@ Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
 	if (result==TB_RESULT_STALEMATE || result==TB_RESULT_CHECKMATE || result==TB_RESULT_FAILED)
 		return MoveInvalid;
 
-	// Set WDL
-	if (wdl!=NULL) {
-		switch(TB_GET_WDL(result)) {
-			case TB_LOSS:
-				*wdl=SyzygyWdlLoss;
-			break;
-			case TB_BLESSED_LOSS:
-			case TB_DRAW:
-			case TB_CURSED_WIN:
-				*wdl=SyzygyWdlDraw;
-			break;
-			case TB_WIN:
-				*wdl=SyzygyWdlWin;
-			break;
-			case TB_RESULT_FAILED:
-				assert(false);
-				*wdl=SyzygyWdlError;
-			break;
-		}
-	}
+	// Set WDL and DTZ if needed
+	if (wdl!=NULL)
+		*wdl=syzygyResultToWdl(result);
 
 	if (dtz!=NULL)
 		*dtz=TB_GET_DTZ(result);
@@ -200,4 +184,26 @@ Move syzygyResultToMove(unsigned result, const Pos *pos) {
 	}
 
 	return moveMake(fromSq, toSq, toPiece);
+}
+
+SyzygyWdl syzygyResultToWdl(unsigned result) {
+	switch(TB_GET_WDL(result)) {
+		case TB_LOSS:
+			return SyzygyWdlLoss;
+		break;
+		case TB_BLESSED_LOSS:
+		case TB_DRAW:
+		case TB_CURSED_WIN:
+			return SyzygyWdlDraw;
+		break;
+		case TB_WIN:
+			return SyzygyWdlWin;
+		break;
+		case TB_RESULT_FAILED:
+			return SyzygyWdlError;
+		break;
+	}
+
+	assert(false);
+	return SyzygyWdlError;
 }

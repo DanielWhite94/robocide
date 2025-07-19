@@ -222,6 +222,24 @@ void uciLoop(void) {
 				uciWrite("Result: %s\n", (bitbaseProbe(pos)==BitBaseResultWin ? "win" : "draw"));
 			} else
 				uciWrite("Error: Position must be KPvK.\n");
+		} else if (utilStrEqual(part, "syzygy")) {
+			SyzygyMove syzygyMoves[SyzygyMovesMax];
+			SyzygyWdl syzygyWdl=SyzygyWdlError;
+			int syzygyDtz=256;
+			Move syzygyMove=syzygyProbeRoot(pos, &syzygyWdl, &syzygyDtz, syzygyMoves);
+			if (syzygyMove!=MoveInvalid) {
+				uciWrite("Syzygy lookup: %s dtz=%i\n", syzygyWdlToStr(syzygyWdl), syzygyDtz);
+				for(unsigned i=0; syzygyMoves[i].move!=MoveInvalid; ++i) {
+					char str[8];
+					posMoveToStr(pos, syzygyMoves[i].move, str);
+					if (syzygyMoves[i].wdl!=SyzygyWdlDraw)
+						uciWrite("    %5s %s %u\n", str, syzygyWdlToStr(syzygyMoves[i].wdl), syzygyMoves[i].dtz);
+					else
+						uciWrite("    %5s %s\n", str, syzygyWdlToStr(syzygyMoves[i].wdl));
+				}
+			} else {
+				uciWrite("Syzygy lookup: failed\n");
+			}
 		} else if (utilStrEqual(part, "perft")) {
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
 				continue;

@@ -27,6 +27,8 @@ void syzygyGetPosData(SyzygyPosData *data, const Pos *pos);
 
 void syzygySetSyzygyPath(void *userData, const char *value);
 
+Move syzygyResultToMove(unsigned result, const Pos *pos);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -93,30 +95,6 @@ Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
 	if (result==TB_RESULT_STALEMATE || result==TB_RESULT_CHECKMATE || result==TB_RESULT_FAILED)
 		return MoveInvalid;
 
-	// Grab best move
-	Sq fromSq=TB_GET_FROM(result);
-	Sq toSq=TB_GET_TO(result);
-	Piece toPiece=posGetPieceOnSq(pos, fromSq);
-	switch(TB_GET_PROMOTES(result)) {
-		case TB_PROMOTES_NONE:
-		break;
-		case TB_PROMOTES_QUEEN:
-			toPiece=pieceMake(PieceTypeQueen, pieceGetColour(toPiece));
-		break;
-		case TB_PROMOTES_ROOK:
-			toPiece=pieceMake(PieceTypeRook, pieceGetColour(toPiece));
-		break;
-		case TB_PROMOTES_BISHOP:
-			if (sqIsLight(toSq))
-				toPiece=pieceMake(PieceTypeBishopL, pieceGetColour(toPiece));
-			else
-				toPiece=pieceMake(PieceTypeBishopD, pieceGetColour(toPiece));
-		break;
-		case TB_PROMOTES_KNIGHT:
-			toPiece=pieceMake(PieceTypeKnight, pieceGetColour(toPiece));
-		break;
-	}
-
 	// Set WDL
 	if (wdl!=NULL) {
 		switch(TB_GET_WDL(result)) {
@@ -141,7 +119,8 @@ Move syzygyProbeRoot(const Pos *pos, SyzygyWdl *wdl, int *dtz) {
 	if (dtz!=NULL)
 		*dtz=TB_GET_DTZ(result);
 
-	return moveMake(fromSq, toSq, toPiece);
+	// Extract best move and return it
+	return syzygyResultToMove(result, pos);
 }
 
 const char *syzygyWdlStr[4]={
@@ -191,4 +170,33 @@ void syzygySetSyzygyPath(void *userData, const char *value) {
 	}	
 
 	uciWrite("info string Loaded Syzygy tables at '%s' up to size %u\n", value, TB_LARGEST);
+}
+
+Move syzygyResultToMove(unsigned result, const Pos *pos) {
+	assert(pos!=NULL);
+
+	Sq fromSq=TB_GET_FROM(result);
+	Sq toSq=TB_GET_TO(result);
+	Piece toPiece=posGetPieceOnSq(pos, fromSq);
+	switch(TB_GET_PROMOTES(result)) {
+		case TB_PROMOTES_NONE:
+		break;
+		case TB_PROMOTES_QUEEN:
+			toPiece=pieceMake(PieceTypeQueen, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_ROOK:
+			toPiece=pieceMake(PieceTypeRook, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_BISHOP:
+			if (sqIsLight(toSq))
+				toPiece=pieceMake(PieceTypeBishopL, pieceGetColour(toPiece));
+			else
+				toPiece=pieceMake(PieceTypeBishopD, pieceGetColour(toPiece));
+		break;
+		case TB_PROMOTES_KNIGHT:
+			toPiece=pieceMake(PieceTypeKnight, pieceGetColour(toPiece));
+		break;
+	}
+
+	return moveMake(fromSq, toSq, toPiece);
 }

@@ -130,6 +130,7 @@ const char *syzygyWdlStr[4]={
 	[SyzygyWdlDraw]="draw",
 };
 const char *syzygyWdlToStr(SyzygyWdl wdl) {
+	assert(wdl<SyzygyWdlNB);
 	return syzygyWdlStr[wdl];
 }
 

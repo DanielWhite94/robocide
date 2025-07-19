@@ -9,6 +9,7 @@ typedef enum {
 	SyzygyWdlWin,
 	SyzygyWdlLoss,
 	SyzygyWdlDraw,
+	SyzygyWdlNB,
 } SyzygyWdl;
 
 void syzygyInit(void);

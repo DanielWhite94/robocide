@@ -548,6 +548,7 @@ void searchNodeInternal(Node *node) {
 		if (tbMove!=MoveInvalid) {
 			switch(tbWdl) {
 				case SyzygyWdlError:
+				case SyzygyWdlNB:
 					assert(false);
 					node->bound=BoundNone;
 					node->score=ScoreInvalid;
@@ -1257,6 +1258,9 @@ bool searchInteriorRecog(Node *node) {
 			node->bound=BoundExact;
 			node->score=ScoreDraw;
 			return true;
+		break;
+		case SyzygyWdlNB:
+			assert(false);
 		break;
 	}
 

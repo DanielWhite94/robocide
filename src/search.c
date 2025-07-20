@@ -1250,27 +1250,30 @@ bool searchInteriorRecog(Node *node) {
 	}
 
 	// Probe endgame bitbase (Syzygy)
-	switch(syzygyProbeWdl(node->pos)) {
-		case SyzygyWdlError:
-		break;
-		case SyzygyWdlWin:
-			node->bound=BoundLower;
-			node->score=scoreTbWin(256);
-			return true;
-		break;
-		case SyzygyWdlLoss:
-			node->bound=BoundUpper;
-			node->score=scoreTbLoss(256);
-			return true;
-		break;
-		case SyzygyWdlDraw:
-			node->bound=BoundExact;
-			node->score=ScoreDraw;
-			return true;
-		break;
-		case SyzygyWdlNB:
-			assert(false);
-		break;
+	// (skip if infinite search and PV node)
+	if (!searchLimit.infinite || !searchNodeIsPV(node)) {
+		switch(syzygyProbeWdl(node->pos)) {
+			case SyzygyWdlError:
+			break;
+			case SyzygyWdlWin:
+				node->bound=BoundLower;
+				node->score=scoreTbWin(256);
+				return true;
+			break;
+			case SyzygyWdlLoss:
+				node->bound=BoundUpper;
+				node->score=scoreTbLoss(256);
+				return true;
+			break;
+			case SyzygyWdlDraw:
+				node->bound=BoundExact;
+				node->score=ScoreDraw;
+				return true;
+			break;
+			case SyzygyWdlNB:
+				assert(false);
+			break;
+		}
 	}
 
 	// Blocked positions.

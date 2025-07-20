@@ -11,6 +11,7 @@ TUNECONST VPair evalMaterial[PieceTypeNB]={
 TUNECONST VPair evalPawnDoubled={-22,-44};
 TUNECONST VPair evalPawnIsolated={-159,-88};
 TUNECONST VPair evalPawnBlocked={-74,-102};
+TUNECONST VPair evalPawnConnected={0,0};
 TUNECONST VPair evalPawnPassed[RankNB]={
 	{0,0},
 	{405,-332},

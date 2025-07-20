@@ -69,6 +69,7 @@ typedef enum {
 	EvalTTuneParamPawnDoubledMG, EvalTTuneParamPawnDoubledEG,
 	EvalTTuneParamPawnIsolatedMG, EvalTTuneParamPawnIsolatedEG,
 	EvalTTuneParamPawnBlockedMG, EvalTTuneParamPawnBlockedEG,
+	EvalTTuneParamPawnConnectedMG, EvalTTuneParamPawnConnectedEG,
 	EvalTTuneParamPawnPassedR2MG, EvalTTuneParamPawnPassedR2EG,
 	EvalTTuneParamPawnPassedR3MG, EvalTTuneParamPawnPassedR3EG,
 	EvalTTuneParamPawnPassedR4MG, EvalTTuneParamPawnPassedR4EG,
@@ -246,6 +247,7 @@ void evalInit(void) {
 	evalOptionNewVPair("PawnDoubled", &evalPawnDoubled, -1000, 0);
 	evalOptionNewVPair("PawnIsolated", &evalPawnIsolated, -1000, 0);
 	evalOptionNewVPair("PawnBlocked", &evalPawnBlocked, -1000, 0);
+	evalOptionNewVPair("PawnConnected", &evalPawnConnected, 0, 1000);
 	evalOptionNewVPair("KnightMob", &evalKnightMob, 0, 100);
 	evalOptionNewVPair("KnightPawnAffinity", &evalKnightPawnAffinity, -100, 100);
 	evalOptionNewVPair("BishopPair", &evalBishopPair, 0, 1000);
@@ -302,6 +304,7 @@ void evalInit(void) {
 	ttuneAddParameterVPair(EvalTTuneParamPawnDoubledMG, &evalPawnDoubled, true);
 	ttuneAddParameterVPair(EvalTTuneParamPawnIsolatedMG, &evalPawnIsolated, true);
 	ttuneAddParameterVPair(EvalTTuneParamPawnBlockedMG, &evalPawnBlocked, true);
+	ttuneAddParameterVPair(EvalTTuneParamPawnConnectedMG, &evalPawnConnected, true);
 	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR2MG, &evalPawnPassed[Rank2], true);
 	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR3MG, &evalPawnPassed[Rank3], true);
 	ttuneAddParameterVPair(EvalTTuneParamPawnPassedR4MG, &evalPawnPassed[Rank4], true);
@@ -548,6 +551,7 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	BB doubled[ColourNB], isolated[ColourNB];
 	BB influence[ColourNB], fill[ColourNB];
 	BB blocked[ColourNB], passed[ColourNB];
+	BB connected[ColourNB];
 	BB semiOpenFiles[ColourNB], outposts[ColourNB];
 	fill[ColourWhite]=bbFileFill(wp);
 	fill[ColourBlack]=bbFileFill(bp);
@@ -568,6 +572,8 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	blocked[ColourBlack]=(bp & bbNorthOne(occ));
 	passed[ColourWhite]=(wp & ~(doubled[ColourWhite] | influence[ColourBlack]));
 	passed[ColourBlack]=(bp & ~(doubled[ColourBlack] | influence[ColourWhite]));
+	connected[ColourWhite]=(wp&(bbWingify(wp|bbSouthOne(wp)|bbNorthOne(wp))));
+	connected[ColourBlack]=(bp&(bbWingify(bp|bbSouthOne(bp)|bbNorthOne(bp))));
 
 	semiOpenFiles[ColourWhite]=(fill[ColourBlack] & ~fill[ColourWhite]);
 	semiOpenFiles[ColourBlack]=(fill[ColourWhite] & ~fill[ColourBlack]);
@@ -578,6 +584,7 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	int doubledCount=((int)bbPopCount(doubled[ColourWhite]))-((int)bbPopCount(doubled[ColourBlack]));
 	int isolatedCount=((int)bbPopCount(isolated[ColourWhite]))-((int)bbPopCount(isolated[ColourBlack]));
 	int blockedCount=((int)bbPopCount(blocked[ColourWhite]))-((int)bbPopCount(blocked[ColourBlack]));
+	int connectedCount=((int)bbPopCount(connected[ColourWhite]))-((int)bbPopCount(connected[ColourBlack]));
 
 	coefficients[EvalTTuneParamPawnDoubledMG]=factorMG*doubledCount;
 	coefficients[EvalTTuneParamPawnDoubledEG]=factorEG*doubledCount;
@@ -585,6 +592,8 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	coefficients[EvalTTuneParamPawnIsolatedEG]=factorEG*isolatedCount;
 	coefficients[EvalTTuneParamPawnBlockedMG]=factorMG*blockedCount;
 	coefficients[EvalTTuneParamPawnBlockedEG]=factorEG*blockedCount;
+	coefficients[EvalTTuneParamPawnConnectedMG]=factorMG*connectedCount;
+	coefficients[EvalTTuneParamPawnConnectedEG]=factorEG*connectedCount;
 
 	int passedCount[RankNB];
 	passedCount[Rank2]=((int)bbPopCount(passed[ColourWhite] & bbRank(Rank2)))-((int)bbPopCount(passed[ColourBlack] & bbRank(Rank7)));
@@ -741,6 +750,7 @@ void evaluateTTuneOutputCode(const char *path, const float *weights) {
 	fprintf(file, "TUNECONST VPair evalPawnDoubled={%.0f,%.0f};\n", weights[EvalTTuneParamPawnDoubledMG], weights[EvalTTuneParamPawnDoubledEG]);
 	fprintf(file, "TUNECONST VPair evalPawnIsolated={%.0f,%.0f};\n", weights[EvalTTuneParamPawnIsolatedMG], weights[EvalTTuneParamPawnIsolatedEG]);
 	fprintf(file, "TUNECONST VPair evalPawnBlocked={%.0f,%.0f};\n", weights[EvalTTuneParamPawnBlockedMG], weights[EvalTTuneParamPawnBlockedEG]);
+	fprintf(file, "TUNECONST VPair evalPawnConnected={%.0f,%.0f};\n", weights[EvalTTuneParamPawnConnectedMG], weights[EvalTTuneParamPawnConnectedEG]);
 	fprintf(file, "TUNECONST VPair evalPawnPassed[RankNB]={\n");
 	fprintf(file, "	{%.0f,%.0f},\n", 0.0, 0.0);
 	fprintf(file, "	{%.0f,%.0f},\n", weights[EvalTTuneParamPawnPassedR2MG], weights[EvalTTuneParamPawnPassedR2EG]);
@@ -1521,6 +1531,7 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	pawnData->score=VPairZero;
 	BB pawns[ColourNB], frontSpan[ColourNB], rearSpan[ColourNB], attacks[ColourNB];
 	BB doubled[ColourNB], isolated[ColourNB];
+	BB connected[ColourNB];
 	BB influence[ColourNB], fill[ColourNB];
 	pawns[ColourWhite]=posGetBBPiece(pos, PieceWPawn); // All pawns of given colour
 	pawns[ColourBlack]=posGetBBPiece(pos, PieceBPawn);
@@ -1539,6 +1550,8 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	doubled[ColourBlack]=(pawns[ColourBlack] & rearSpan[ColourBlack]);
 	isolated[ColourWhite]=(pawns[ColourWhite] & ~bbFileFill(attacks[ColourWhite]));
 	isolated[ColourBlack]=(pawns[ColourBlack] & ~bbFileFill(attacks[ColourBlack]));
+	connected[ColourWhite]=(pawns[ColourWhite]&(bbWingify(pawns[ColourWhite]|bbSouthOne(pawns[ColourWhite])|bbNorthOne(pawns[ColourWhite]))));
+	connected[ColourBlack]=(pawns[ColourBlack]&(bbWingify(pawns[ColourBlack]|bbSouthOne(pawns[ColourBlack])|bbNorthOne(pawns[ColourBlack]))));
 
 	pawnData->pawns[ColourWhite]=pawns[ColourWhite];
 	pawnData->pawns[ColourBlack]=pawns[ColourBlack];
@@ -1554,11 +1567,13 @@ void evalComputePawnData(const Pos *pos, EvalPawnData *pawnData) {
 	int outpostRelativeCount=((int)bbPopCount(pawnData->outposts[ColourWhite]))-((int)bbPopCount(pawnData->outposts[ColourBlack]));
 	evalVPairAddMulTo(&pawnData->score, &evalOutpostSq, outpostRelativeCount);
 
-	// Doubled and isolated pawns
+	// Doubled, isolated and connected pawns
 	int doubledCount=((int)bbPopCount(doubled[ColourWhite]))-((int)bbPopCount(doubled[ColourBlack]));
 	evalVPairAddMulTo(&pawnData->score, &evalPawnDoubled, doubledCount);
 	int isolatedCount=((int)bbPopCount(isolated[ColourWhite]))-((int)bbPopCount(isolated[ColourBlack]));
 	evalVPairAddMulTo(&pawnData->score, &evalPawnIsolated, isolatedCount);
+	int connectedCount=((int)bbPopCount(connected[ColourWhite]))-((int)bbPopCount(connected[ColourBlack]));
+	evalVPairAddMulTo(&pawnData->score, &evalPawnConnected, connectedCount);
 
 	// Passed pawns
 	BB pieceSet;

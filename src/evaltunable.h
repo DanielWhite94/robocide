@@ -12,6 +12,7 @@ TUNECONST VPair evalPawnDoubled={17,-39};
 TUNECONST VPair evalPawnIsolated={-83,-59};
 TUNECONST VPair evalPawnBlocked={-67,-101};
 TUNECONST VPair evalPawnConnected={102,37};
+TUNECONST VPair evalPawnBackward={0,0};
 TUNECONST VPair evalPawnPassed[RankNB]={
 	{0,0},
 	{427,-330},

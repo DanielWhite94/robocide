@@ -11,6 +11,24 @@
 #include "score.h"
 #include "square.h"
 
+typedef enum {
+	// This differs from the standard Piece definition in a few ways:
+	// * There is no None member
+	// * No differentiation between light/dark square bishops
+	// * Single (non-coloured) king (would be redundant having both as friendly king position is already encoded in the input layer)
+	NetPieceWPawn,
+	NetPieceWKnight,
+	NetPieceWBishop,
+	NetPieceWRook,
+	NetPieceWQueen,
+	NetPieceBPawn,
+	NetPieceBKnight,
+	NetPieceBBishop,
+	NetPieceBRook,
+	NetPieceBQueen,
+	NetPieceKing,
+	NetPieceNB,
+} NetPiece;
 // General functions
 void netInit(void);
 void netQuit(void);

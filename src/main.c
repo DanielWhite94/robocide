@@ -10,6 +10,7 @@
 #include "eval.h"
 #include "history.h"
 #include "main.h"
+#include "net.h"
 #include "pos.h"
 #include "search.h"
 #include "syzygy.h"
@@ -37,11 +38,13 @@ int main(int argc, char **argv) {
 	ttInit();
 	searchInit();
 	syzygyInit();
+	netInit();
 
 	// UCI input loop
 	uciLoop();
 
 	// Quit modules
+	netQuit();
 	syzygyQuit();
 	searchQuit();
 	ttQuit();

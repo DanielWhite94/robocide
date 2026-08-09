@@ -99,6 +99,12 @@ typedef enum {
 	EvalTTuneParamOutpostBishopMG, EvalTTuneParamOutpostBishopEG,
 	EvalTTuneParamOutpostRookMG, EvalTTuneParamOutpostRookEG,
 	EvalTTuneParamTempoDefaultMG, EvalTTuneParamTempoDefaultEG,
+	EvalTTuneParamEnprisePxMMG, EvalTTuneParamEnprisePxMEG,
+	EvalTTuneParamEnprisePxRMG, EvalTTuneParamEnprisePxREG,
+	EvalTTuneParamEnprisePxQMG, EvalTTuneParamEnprisePxQEG,
+	EvalTTuneParamEnpriseMxRMG, EvalTTuneParamEnpriseMxREG,
+	EvalTTuneParamEnpriseMxQMG, EvalTTuneParamEnpriseMxQEG,
+	EvalTTuneParamEnpriseRxQMG, EvalTTuneParamEnpriseRxQEG,
 	// PSTS use two sets (MG/EG) of 32 parameters from A1 to D8 (first four squares of each rank, sq is mirrored if not on left side)
 	EvalTTuneParamPstPawnMGBase, EvalTTuneParamPstPawnMGEnd=EvalTTuneParamPstPawnMGBase+(EvalTTuneParamPstPawnCount-1),
 	EvalTTuneParamPstPawnEGBase, EvalTTuneParamPstPawnEGEnd=EvalTTuneParamPstPawnEGBase+(EvalTTuneParamPstPawnCount-1),
@@ -272,6 +278,12 @@ void evalInit(void) {
 	evalOptionNewVPair("OutpostBishop", &evalOutpostBishop, 0, 1000);
 	evalOptionNewVPair("OutpostRook", &evalOutpostRook, 0, 1000);
 	evalOptionNewVPair("Tempo", &evalTempoDefault, 0, 1000);
+	evalOptionNewVPair("EnprisePxM", &evalEnprisePxM, 0, 10000);
+	evalOptionNewVPair("EnprisePxR", &evalEnprisePxR, 0, 10000);
+	evalOptionNewVPair("EnprisePxQ", &evalEnprisePxQ, 0, 10000);
+	evalOptionNewVPair("EnpriseMxR", &evalEnpriseMxR, 0, 10000);
+	evalOptionNewVPair("EnpriseMxQ", &evalEnpriseMxQ, 0, 10000);
+	evalOptionNewVPair("EnpriseRxQ", &evalEnpriseRxQ, 0, 10000);
 	uciOptionNewSpin("HalfMoveFactor", &evalSetValue, &evalHalfMoveFactor, 1, 4096, evalHalfMoveFactor);
 	uciOptionNewSpin("WeightFactor", &evalSetValue, &evalWeightFactor, 1, 512, evalWeightFactor);
 #	endif
@@ -336,6 +348,12 @@ void evalInit(void) {
 	ttuneAddParameterVPair(EvalTTuneParamOutpostBishopMG, &evalOutpostBishop, true);
 	ttuneAddParameterVPair(EvalTTuneParamOutpostRookMG, &evalOutpostRook, true);
 	ttuneAddParameterVPair(EvalTTuneParamTempoDefaultMG, &evalTempoDefault, true);
+	ttuneAddParameterVPair(EvalTTuneParamEnprisePxMMG, &evalEnprisePxM, true);
+	ttuneAddParameterVPair(EvalTTuneParamEnprisePxRMG, &evalEnprisePxR, true);
+	ttuneAddParameterVPair(EvalTTuneParamEnprisePxQMG, &evalEnprisePxQ, true);
+	ttuneAddParameterVPair(EvalTTuneParamEnpriseMxRMG, &evalEnpriseMxR, true);
+	ttuneAddParameterVPair(EvalTTuneParamEnpriseMxQMG, &evalEnpriseMxQ, true);
+	ttuneAddParameterVPair(EvalTTuneParamEnpriseRxQMG, &evalEnpriseRxQ, true);
 }
 
 void evalQuit(void) {
@@ -432,10 +450,18 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	mobilityAllowed[ColourWhite]=~(wp | wk | bpAttacks);
 	mobilityAllowed[ColourBlack]=~(bp | bk | wpAttacks);
 
+	BB attackArray[PieceNB];
+	memset(attackArray, 0, sizeof(attackArray));
+	attackArray[PieceWPawn]=wpAttacks;
+	attackArray[PieceBPawn]=bpAttacks;
+	attackArray[PieceWKing]=attacksKing(posGetKingSq(pos, ColourWhite));
+	attackArray[PieceBKing]=attacksKing(posGetKingSq(pos, ColourBlack));
+
 	pieceSet=wn;
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksKnight(sq);
+		attackArray[PieceWKnight]|=attacks;
 		count=bbPopCount(attacks & mobilityAllowed[ColourWhite]);
 		coefficients[EvalTTuneParamKnightMobMG]+=factorMG*count;
 		coefficients[EvalTTuneParamKnightMobEG]+=factorEG*count;
@@ -444,6 +470,7 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksKnight(sq);
+		attackArray[PieceBKnight]|=attacks;
 		count=bbPopCount(attacks & mobilityAllowed[ColourBlack]);
 		coefficients[EvalTTuneParamKnightMobMG]-=factorMG*count;
 		coefficients[EvalTTuneParamKnightMobEG]-=factorEG*count;
@@ -457,6 +484,7 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksBishop(sq, bishopMobOcc[ColourWhite]);
+		attackArray[PieceWBishopL]|=attacks;
 		count=bbPopCount(attacks & mobilityAllowed[ColourWhite]);
 		coefficients[EvalTTuneParamBishopMobMG]+=factorMG*count;
 		coefficients[EvalTTuneParamBishopMobEG]+=factorEG*count;
@@ -465,6 +493,7 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksBishop(sq, bishopMobOcc[ColourBlack]);
+		attackArray[PieceBBishopL]|=attacks;
 		count=bbPopCount(attacks & mobilityAllowed[ColourBlack]);
 		coefficients[EvalTTuneParamBishopMobMG]-=factorMG*count;
 		coefficients[EvalTTuneParamBishopMobEG]-=factorEG*count;
@@ -478,6 +507,7 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksRook(sq, rookMobOcc[ColourWhite]);
+		attackArray[PieceWRook]|=attacks;
 		count=bbPopCount(attacks & mobilityAllowed[ColourWhite] & bbFile(sqFile(sq)));
 		coefficients[EvalTTuneParamRookMobFileMG]+=factorMG*count;
 		coefficients[EvalTTuneParamRookMobFileEG]+=factorEG*count;
@@ -489,6 +519,7 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 	while(pieceSet) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacks=attacksRook(sq, rookMobOcc[ColourBlack]);
+		attackArray[PieceBRook]|=attacks;
 		count=bbPopCount(attacks & mobilityAllowed[ColourBlack] & bbFile(sqFile(sq)));
 		coefficients[EvalTTuneParamRookMobFileMG]-=factorMG*count;
 		coefficients[EvalTTuneParamRookMobFileEG]-=factorEG*count;
@@ -502,6 +533,7 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourWhite]);
 		BB attacksR=attacksRook(sq, rookMobOcc[ColourWhite]);
+		attackArray[PieceWQueen]|=(attacksB|attacksR);
 		count=bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourWhite]);
 		coefficients[EvalTTuneParamQueenMobMG]+=factorMG*count;
 		coefficients[EvalTTuneParamQueenMobEG]+=factorEG*count;
@@ -511,10 +543,32 @@ void evaluateTTuneCoefficients(const Pos *pos, float *coefficients) {
 		Sq sq=bbScanReset(&pieceSet);
 		BB attacksB=attacksBishop(sq, bishopMobOcc[ColourBlack]);
 		BB attacksR=attacksRook(sq, rookMobOcc[ColourBlack]);
+		attackArray[PieceBQueen]|=(attacksB|attacksR);
 		count=bbPopCount((attacksB|attacksR) & mobilityAllowed[ColourBlack]);
 		coefficients[EvalTTuneParamQueenMobMG]-=factorMG*count;
 		coefficients[EvalTTuneParamQueenMobEG]-=factorEG*count;
 	}
+
+	// 'Hanging' pieces
+	int enprisePxMCount=((int)bbPopCount(attackArray[PieceWPawn]&(bn|bb)))-((int)bbPopCount(attackArray[PieceBPawn]&(wn|wb)));
+	int enprisePxRCount=((int)bbPopCount(attackArray[PieceWPawn]&br))-((int)bbPopCount(attackArray[PieceBPawn]&wr));
+	int enprisePxQCount=((int)bbPopCount(attackArray[PieceWPawn]&bq))-((int)bbPopCount(attackArray[PieceBPawn]&wq));
+	int enpriseMxRCount=((int)bbPopCount((attackArray[PieceWKnight]|attackArray[PieceWBishopL])&br))-((int)bbPopCount((attackArray[PieceBKnight]|attackArray[PieceBBishopL])&wr));
+	int enpriseMxQCount=((int)bbPopCount((attackArray[PieceWKnight]|attackArray[PieceWBishopL])&bq))-((int)bbPopCount((attackArray[PieceBKnight]|attackArray[PieceBBishopL])&wq));
+	int enpriseRxQCount=((int)bbPopCount(attackArray[PieceWRook]&bq))-((int)bbPopCount(attackArray[PieceBRook]&wq));
+
+	coefficients[EvalTTuneParamEnprisePxMMG]+=factorMG*enprisePxMCount;
+	coefficients[EvalTTuneParamEnprisePxMEG]+=factorEG*enprisePxMCount;
+	coefficients[EvalTTuneParamEnprisePxRMG]+=factorMG*enprisePxRCount;
+	coefficients[EvalTTuneParamEnprisePxREG]+=factorEG*enprisePxRCount;
+	coefficients[EvalTTuneParamEnprisePxQMG]+=factorMG*enprisePxQCount;
+	coefficients[EvalTTuneParamEnprisePxQEG]+=factorEG*enprisePxQCount;
+	coefficients[EvalTTuneParamEnpriseMxRMG]+=factorMG*enpriseMxRCount;
+	coefficients[EvalTTuneParamEnpriseMxREG]+=factorEG*enpriseMxRCount;
+	coefficients[EvalTTuneParamEnpriseMxQMG]+=factorMG*enpriseMxQCount;
+	coefficients[EvalTTuneParamEnpriseMxQEG]+=factorEG*enpriseMxQCount;
+	coefficients[EvalTTuneParamEnpriseRxQMG]+=factorMG*enpriseRxQCount;
+	coefficients[EvalTTuneParamEnpriseRxQEG]+=factorEG*enpriseRxQCount;
 
 	// PSTs
 	pieceSet=wp;
@@ -802,6 +856,12 @@ void evaluateTTuneOutputCode(const char *path, const float *weights) {
 	fprintf(file, "TUNECONST VPair evalOutpostBishop={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostBishopMG], weights[EvalTTuneParamOutpostBishopEG]);
 	fprintf(file, "TUNECONST VPair evalOutpostRook={%.0f,%.0f};\n", weights[EvalTTuneParamOutpostRookMG], weights[EvalTTuneParamOutpostRookEG]);
 	fprintf(file, "TUNECONST VPair evalTempoDefault={%.0f,%.0f};\n", weights[EvalTTuneParamTempoDefaultMG], weights[EvalTTuneParamTempoDefaultEG]);
+	fprintf(file, "TUNECONST VPair evalEnprisePxM={%0.f,%0.f};\n", weights[EvalTTuneParamEnprisePxMMG], weights[EvalTTuneParamEnprisePxMEG]);
+	fprintf(file, "TUNECONST VPair evalEnprisePxR={%0.f,%0.f};\n", weights[EvalTTuneParamEnprisePxRMG], weights[EvalTTuneParamEnprisePxREG]);
+	fprintf(file, "TUNECONST VPair evalEnprisePxQ={%0.f,%0.f};\n", weights[EvalTTuneParamEnprisePxQMG], weights[EvalTTuneParamEnprisePxQEG]);
+	fprintf(file, "TUNECONST VPair evalEnpriseMxR={%0.f,%0.f};\n", weights[EvalTTuneParamEnpriseMxRMG], weights[EvalTTuneParamEnpriseMxREG]);
+	fprintf(file, "TUNECONST VPair evalEnpriseMxQ={%0.f,%0.f};\n", weights[EvalTTuneParamEnpriseMxQMG], weights[EvalTTuneParamEnpriseMxQEG]);
+	fprintf(file, "TUNECONST VPair evalEnpriseRxQ={%0.f,%0.f};\n", weights[EvalTTuneParamEnpriseRxQMG], weights[EvalTTuneParamEnpriseRxQEG]);
 
 	// PSTs
 	fprintf(file, "VPair evalPST[PieceNB][SqNB]={\n");
@@ -1100,12 +1160,18 @@ VPair evaluateDefault(EvalData *data) {
 	BB bq=posGetBBPiece(pos, PieceBQueen);
 	BB wk=posGetBBPiece(pos, PieceWKing);
 	BB bk=posGetBBPiece(pos, PieceBKing);
-	BB wpAttacks=bbForwardOne(bbWingify(wp), ColourWhite);
-	BB bpAttacks=bbForwardOne(bbWingify(bp), ColourBlack);
+
+	BB attackArray[PieceNB];
+	assert(BBNone==0);
+	memset(attackArray, 0, sizeof(attackArray));
+	attackArray[PieceWPawn]=bbForwardOne(bbWingify(wp), ColourWhite);
+	attackArray[PieceBPawn]=bbForwardOne(bbWingify(bp), ColourBlack);
+	attackArray[PieceWKing]=attacksKing(posGetKingSq(pos, ColourWhite));
+	attackArray[PieceBKing]=attacksKing(posGetKingSq(pos, ColourBlack));
 
 	BB mobilityAllowed[ColourNB];
-	mobilityAllowed[ColourWhite]=~(wp | wk | bpAttacks);
-	mobilityAllowed[ColourBlack]=~(bp | bk | wpAttacks);
+	mobilityAllowed[ColourWhite]=~(wp | wk | attackArray[PieceBPawn]);
+	mobilityAllowed[ColourBlack]=~(bp | bk | attackArray[PieceWPawn]);
 
 	// 'Global' calculations (includes pawns)
 	VPair score=evaluateDefaultGlobal(data);
@@ -1211,6 +1277,27 @@ VPair evaluateDefault(EvalData *data) {
 	// Extra info
 #ifdef EVALINFO
 	printf("        queen mobility (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
+	tempScore=score;
+#endif
+
+	// Enprise pieces (by pawns)
+	int enprisePxMCount=((int)bbPopCount(attackArray[PieceWPawn]&(bn|bb)))-((int)bbPopCount(attackArray[PieceBPawn]&(wn|wb)));
+	int enprisePxRCount=((int)bbPopCount(attackArray[PieceWPawn]&br))-((int)bbPopCount(attackArray[PieceBPawn]&wr));
+	int enprisePxQCount=((int)bbPopCount(attackArray[PieceWPawn]&bq))-((int)bbPopCount(attackArray[PieceBPawn]&wq));
+	int enpriseMxRCount=((int)bbPopCount((attackArray[PieceWKnight]|attackArray[PieceWBishopL])&br))-((int)bbPopCount((attackArray[PieceBKnight]|attackArray[PieceBBishopL])&wr));
+	int enpriseMxQCount=((int)bbPopCount((attackArray[PieceWKnight]|attackArray[PieceWBishopL])&bq))-((int)bbPopCount((attackArray[PieceBKnight]|attackArray[PieceBBishopL])&wq));
+	int enpriseRxQCount=((int)bbPopCount(attackArray[PieceWRook]&bq))-((int)bbPopCount(attackArray[PieceBRook]&wq));
+
+	evalVPairAddMulTo(&score, &evalEnprisePxM, enprisePxMCount);
+	evalVPairAddMulTo(&score, &evalEnprisePxR, enprisePxRCount);
+	evalVPairAddMulTo(&score, &evalEnprisePxQ, enprisePxQCount);
+	evalVPairAddMulTo(&score, &evalEnpriseMxR, enpriseMxRCount);
+	evalVPairAddMulTo(&score, &evalEnpriseMxQ, enpriseMxQCount);
+	evalVPairAddMulTo(&score, &evalEnpriseRxQ, enpriseRxQCount);
+
+	// Extra info
+#ifdef EVALINFO
+	printf("        enprise (%i,%i)\n", score.mg-tempScore.mg, score.eg-tempScore.eg);
 	tempScore=score;
 #endif
 

@@ -53,6 +53,12 @@ TUNECONST VPair evalOutpostKnight={352,99};
 TUNECONST VPair evalOutpostBishop={416,14};
 TUNECONST VPair evalOutpostRook={188,130};
 TUNECONST VPair evalTempoDefault={194,180};
+TUNECONST VPair evalEnprisePxM={727,306};
+TUNECONST VPair evalEnprisePxR={1004,26};
+TUNECONST VPair evalEnprisePxQ={782,0};
+TUNECONST VPair evalEnpriseMxR={485,210};
+TUNECONST VPair evalEnpriseMxQ={615,0};
+TUNECONST VPair evalEnpriseRxQ={834,0};
 VPair evalPST[PieceNB][SqNB]={
 	[PieceTypePawn]={
 		{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},{    0,    0},

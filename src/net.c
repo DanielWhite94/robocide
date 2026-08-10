@@ -235,6 +235,19 @@ void netAccumulatorCalc(const Net *net, const Pos *pos, NetAccumulator *accum) {
 	}
 }
 
+bool netAccumulatorIsEqual(const NetAccumulator *a, const NetAccumulator *b) {
+	assert(a!=NULL);
+	assert(b!=NULL);
+
+	return (memcmp(a->values, b->values, sizeof(a->values))==0);
+}
+
+void netAccumulatorCopy(NetAccumulator *dest, const NetAccumulator *src) {
+	assert(dest!=NULL);
+	assert(src!=NULL);
+
+	memcpy(dest->values, src->values, sizeof(dest->values));
+}
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////

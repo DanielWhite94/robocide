@@ -54,4 +54,7 @@ Score netEvaluateNetAccum(const Pos *pos, const Net *net, const NetAccumulator *
 // Accumulator functions
 void netAccumulatorCalc(const Net *net, const Pos *pos, NetAccumulator *accum); // calculates the accumulator values from scratch rather than using any cached values in the Pos struct
 
+bool netAccumulatorIsEqual(const NetAccumulator *a, const NetAccumulator *b);
+void netAccumulatorCopy(NetAccumulator *dest, const NetAccumulator *src);
+
 #endif

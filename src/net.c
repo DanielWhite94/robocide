@@ -248,6 +248,59 @@ void netAccumulatorCopy(NetAccumulator *dest, const NetAccumulator *src) {
 
 	memcpy(dest->values, src->values, sizeof(dest->values));
 }
+
+void netAccumulatorAdd(NetAccumulator *accum, const Net *net, const Pos *pos, Sq sq, Piece piece) {
+	assert(accum!=NULL);
+	assert(net!=NULL);
+	assert(pos!=NULL);
+	assert(piece!=PieceNone);
+
+
+	Sq kingSqW=posGetKingSq(pos, ColourWhite);
+	Sq kingSqB=posGetKingSq(pos, ColourBlack);
+
+	Piece netP=netPieceFromPiece(piece);
+
+	if (sq!=kingSqW)
+		for(unsigned i=0; i<256; ++i)
+			accum->values[ColourWhite][i]+=net->weightsAccum[kingSqW][netP][sq][i];
+
+	if (sq!=kingSqB)
+		for(unsigned i=0; i<256; ++i)
+			accum->values[ColourBlack][i]+=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
+}
+
+void netAccumulatorRemove(NetAccumulator *accum, const Net *net, const Pos *pos, Sq sq, Piece piece) {
+	assert(accum!=NULL);
+	assert(net!=NULL);
+	assert(pos!=NULL);
+	assert(piece!=PieceNone);
+
+	Sq kingSqW=posGetKingSq(pos, ColourWhite);
+	Sq kingSqB=posGetKingSq(pos, ColourBlack);
+
+	Piece netP=netPieceFromPiece(piece);
+
+	if (sq!=kingSqW)
+		for(unsigned i=0; i<256; ++i)
+			accum->values[ColourWhite][i]-=net->weightsAccum[kingSqW][netP][sq][i];
+
+	if (sq!=kingSqB)
+		for(unsigned i=0; i<256; ++i)
+			accum->values[ColourBlack][i]-=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
+}
+
+void netAccumulatorMove(NetAccumulator *accum, const Net *net, const Pos *pos, Sq fromSq, Piece fromPiece, Sq toSq, Piece toPiece) {
+	assert(accum!=NULL);
+	assert(net!=NULL);
+	assert(pos!=NULL);
+	assert(fromPiece!=PieceNone);
+	assert(toPiece!=PieceNone);
+
+	netAccumulatorRemove(accum, net, pos, fromSq, fromPiece);
+	netAccumulatorAdd(accum, net, pos, toSq, toPiece);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////

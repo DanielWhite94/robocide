@@ -41,6 +41,6 @@ Net *netNew(void);
 void netFree(Net *net);
 
 // Evaluation functions
-Score netEvaluateRaw(const Pos *pos);
+Score netEvaluateRaw(const Pos *pos, const Net *net);
 
 #endif

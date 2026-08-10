@@ -24,6 +24,8 @@ struct Net {
 NetPiece netPieceFromPiece(Piece p); // expects an actual piece (not PieceNone)
 NetPiece netPieceSwapColour(NetPiece p); // leaves NetPieceKing unchanged
 
+int32_t netMul(int8_t a, int8_t b); // exists to avoid bugs where variables are not cast to a larger type before a multiplication
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -55,9 +57,98 @@ void netFree(Net *net) {
 	free(net);
 }
 
-Score netEvaluateRaw(const Pos *pos) {
-	// TODO: this
-	return 0;
+Score netEvaluateRaw(const Pos *pos, const Net *net) {
+	assert(pos!=NULL);
+	assert(net!=NULL);
+
+	// Input layer (accumulators)
+	int16_t accumulators[ColourNB][256];
+	memcpy(accumulators[ColourWhite], net->biasAccum, 256*sizeof(uint16_t));
+	memcpy(accumulators[ColourBlack], net->biasAccum, 256*sizeof(uint16_t));
+
+	Sq kingSqW=posGetKingSq(pos, ColourWhite);
+	Sq kingSqB=posGetKingSq(pos, ColourBlack);
+
+	for(Sq sq=0; sq<SqNB; ++sq) {
+		Piece p=posGetPieceOnSq(pos, sq);
+		if (p==PieceNone)
+			continue;
+		Piece netP=netPieceFromPiece(p);
+
+		if (sq!=kingSqW) {
+			for(unsigned i=0; i<256; ++i)
+				accumulators[ColourWhite][i]+=net->weightsAccum[kingSqW][netP][sq][i];
+		}
+
+		if (sq!=kingSqB) {
+			for(unsigned i=0; i<256; ++i)
+				accumulators[ColourBlack][i]+=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
+		}
+	}
+
+
+	for(unsigned i=0; i<256; ++i) {
+		if (accumulators[ColourWhite][i]<0)
+			accumulators[ColourWhite][i]=0;
+		if (accumulators[ColourBlack][i]<0)
+			accumulators[ColourBlack][i]=0;
+	}
+
+	// Transform step (encode stm, make 8 bit, clamping to 127)
+	Colour stm=posGetSTM(pos);
+	Colour xtm=colourSwap(stm);
+
+	int8_t inputLayer[512];
+	for(unsigned i=0; i<256; ++i) {
+		inputLayer[i]=(accumulators[stm][i]<=127 ? accumulators[stm][i] : 127);
+		inputLayer[i+256]=(accumulators[xtm][i]<=127 ? accumulators[xtm][i] : 127);
+	}
+
+	// First hidden layer
+	int32_t hiddenLayer1[32];
+	memcpy(hiddenLayer1, net->biasHidden1, sizeof(hiddenLayer1));
+
+	for(unsigned i=0; i<32; ++i) {
+		for(unsigned j=0; j<512; ++j) {
+			hiddenLayer1[i]+=netMul(inputLayer[j], net->weightsHidden1[i][j]);
+		}
+	}
+
+	for(unsigned i=0; i<32; ++i) {
+		hiddenLayer1[i]/=64;
+		hiddenLayer1[i]=(hiddenLayer1[i]<127 ? hiddenLayer1[i] : 127);
+	}
+
+	// Second hidden layer
+	int32_t hiddenLayer2[32];
+	memcpy(hiddenLayer2, net->biasHidden2, sizeof(hiddenLayer2));
+
+	for(unsigned i=0; i<32; ++i) {
+		for(unsigned j=0; j<32; ++j) {
+			hiddenLayer2[i]+=netMul(hiddenLayer1[j], net->weightsHidden1[i][j]);
+		}
+	}
+
+	for(unsigned i=0; i<32; ++i) {
+		hiddenLayer2[i]/=64;
+		hiddenLayer2[i]=(hiddenLayer2[i]<127 ? hiddenLayer2[i] : 127);
+	}
+
+	for(unsigned i=0; i<32; ++i) {
+		hiddenLayer2[i]/=64;
+		hiddenLayer2[i]=(hiddenLayer2[i]<127 ? hiddenLayer2[i] : 127);
+	}
+
+	// Output layer
+	int32_t outputLayer=net->biasOutput;
+
+	for(unsigned i=0; i<32; ++i) {
+		outputLayer+=netMul(hiddenLayer1[i], net->weightsOutput[i]);
+	}
+
+	outputLayer/=16;
+
+	return outputLayer;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -125,4 +216,8 @@ NetPiece netPieceSwapColour(NetPiece p) {
 		return NetPieceKing;
 
 	return (p<NetPieceBPawn) ? (p-NetPieceWPawn+NetPieceBPawn) : (p-NetPieceBPawn+NetPieceWPawn);
+}
+
+int32_t netMul(int8_t a, int8_t b) {
+	return ((int32_t)a)*((int32_t)b);
 }

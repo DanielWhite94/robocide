@@ -125,42 +125,23 @@ bool netSave(const Net *net, const char *path) {
 	return true;
 }
 
-Score netEvaluateRaw(const Pos *pos, const Net *net) {
+Score netEvaluateNet(const Pos *pos, const Net *net) {
 	assert(pos!=NULL);
 	assert(net!=NULL);
 
 	// Input layer (accumulators)
-	int16_t accumulators[ColourNB][256];
-	memcpy(accumulators[ColourWhite], net->biasAccum, 256*sizeof(uint16_t));
-	memcpy(accumulators[ColourBlack], net->biasAccum, 256*sizeof(uint16_t));
+	NetAccumulator accum;
+	netAccumulatorCalc(net, pos, &accum);
 
-	Sq kingSqW=posGetKingSq(pos, ColourWhite);
-	Sq kingSqB=posGetKingSq(pos, ColourBlack);
-
-	for(Sq sq=0; sq<SqNB; ++sq) {
-		Piece p=posGetPieceOnSq(pos, sq);
-		if (p==PieceNone)
-			continue;
-		Piece netP=netPieceFromPiece(p);
-
-		if (sq!=kingSqW) {
-			for(unsigned i=0; i<256; ++i)
-				accumulators[ColourWhite][i]+=net->weightsAccum[kingSqW][netP][sq][i];
-		}
-
-		if (sq!=kingSqB) {
-			for(unsigned i=0; i<256; ++i)
-				accumulators[ColourBlack][i]+=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
-		}
-	}
+	// Rest of the network
+	return netEvaluateNetAccum(pos, net, &accum);
+}
 
 
-	for(unsigned i=0; i<256; ++i) {
-		if (accumulators[ColourWhite][i]<0)
-			accumulators[ColourWhite][i]=0;
-		if (accumulators[ColourBlack][i]<0)
-			accumulators[ColourBlack][i]=0;
-	}
+Score netEvaluateNetAccum(const Pos *pos, const Net *net, const NetAccumulator *accum) {
+	assert(pos!=NULL);
+	assert(net!=NULL);
+	assert(accum!=NULL);
 
 	// Transform step (encode stm, make 8 bit, clamping to 127)
 	Colour stm=posGetSTM(pos);
@@ -168,8 +149,8 @@ Score netEvaluateRaw(const Pos *pos, const Net *net) {
 
 	int8_t inputLayer[512];
 	for(unsigned i=0; i<256; ++i) {
-		inputLayer[i]=(accumulators[stm][i]<=127 ? accumulators[stm][i] : 127);
-		inputLayer[i+256]=(accumulators[xtm][i]<=127 ? accumulators[xtm][i] : 127);
+		inputLayer[i]=(accum->values[stm][i]<=127 ? accum->values[stm][i] : 127);
+		inputLayer[i+256]=(accum->values[xtm][i]<=127 ? accum->values[xtm][i] : 127);
 	}
 
 	// First hidden layer
@@ -209,14 +190,49 @@ Score netEvaluateRaw(const Pos *pos, const Net *net) {
 
 	// Output layer
 	int32_t outputLayer=net->biasOutput;
-
-	for(unsigned i=0; i<32; ++i) {
+	for(unsigned i=0; i<32; ++i)
 		outputLayer+=netMul(hiddenLayer1[i], net->weightsOutput[i]);
-	}
 
 	outputLayer/=16;
 
 	return outputLayer;
+}
+
+void netAccumulatorCalc(const Net *net, const Pos *pos, NetAccumulator *accum) {
+	assert(net!=NULL);
+	assert(pos!=NULL);
+	assert(accum!=NULL);
+
+	// Input layer (accumulators)
+	memcpy(accum->values[ColourWhite], net->biasAccum, 256*sizeof(int16_t));
+	memcpy(accum->values[ColourBlack], net->biasAccum, 256*sizeof(int16_t));
+
+	Sq kingSqW=posGetKingSq(pos, ColourWhite);
+	Sq kingSqB=posGetKingSq(pos, ColourBlack);
+
+	for(Sq sq=0; sq<SqNB; ++sq) {
+		Piece p=posGetPieceOnSq(pos, sq);
+		if (p==PieceNone)
+			continue;
+		Piece netP=netPieceFromPiece(p);
+
+		if (sq!=kingSqW) {
+			for(unsigned i=0; i<256; ++i)
+				accum->values[ColourWhite][i]+=net->weightsAccum[kingSqW][netP][sq][i];
+		}
+
+		if (sq!=kingSqB) {
+			for(unsigned i=0; i<256; ++i)
+				accum->values[ColourBlack][i]+=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
+		}
+	}
+
+	for(unsigned i=0; i<256; ++i) {
+		if (accum->values[ColourWhite][i]<0)
+			accum->values[ColourWhite][i]=0;
+		if (accum->values[ColourBlack][i]<0)
+			accum->values[ColourBlack][i]=0;
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

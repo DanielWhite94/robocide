@@ -32,6 +32,10 @@ typedef enum {
 
 typedef struct Net Net; // a set of weights
 
+typedef struct {
+	int16_t values[ColourNB][256];
+} NetAccumulator;
+
 // General functions
 void netInit(void);
 void netQuit(void);
@@ -44,6 +48,10 @@ Net *netLoad(const char *path);
 bool netSave(const Net *net, const char *path);
 
 // Evaluation functions
-Score netEvaluateRaw(const Pos *pos, const Net *net);
+Score netEvaluateNet(const Pos *pos, const Net *net);
+Score netEvaluateNetAccum(const Pos *pos, const Net *net, const NetAccumulator *accum);
+
+// Accumulator functions
+void netAccumulatorCalc(const Net *net, const Pos *pos, NetAccumulator *accum); // calculates the accumulator values from scratch rather than using any cached values in the Pos struct
 
 #endif

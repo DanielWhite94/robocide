@@ -29,9 +29,16 @@ typedef enum {
 	NetPieceKing,
 	NetPieceNB,
 } NetPiece;
+
+typedef struct Net Net; // a set of weights
+
 // General functions
 void netInit(void);
 void netQuit(void);
+
+// Net functions
+Net *netNew(void);
+void netFree(Net *net);
 
 // Evaluation functions
 Score netEvaluateRaw(const Pos *pos);

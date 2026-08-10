@@ -3,6 +3,20 @@
 
 #include "net.h"
 
+struct Net {
+	int16_t weightsAccum[SqNB][NetPieceNB][SqNB][256]; // [KingSq][Piece][PieceSq][index]
+	int16_t biasAccum[256];
+
+	int8_t weightsHidden1[32][512];
+	int32_t biasHidden1[32];
+
+	int8_t weightsHidden2[32][32];
+	int32_t biasHidden2[32];
+
+	int8_t weightsOutput[32];
+	int32_t biasOutput;
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -18,6 +32,27 @@ void netInit(void) {
 }
 
 void netQuit(void) {
+}
+
+Net *netNew(void) {
+	// Allocate memory
+	Net *net=malloc(sizeof(Net));
+	if (net==NULL)
+		return NULL;
+
+	// Initialise all values to zero
+	memset(net, 0, sizeof(Net));
+
+	return net;
+}
+
+void netFree(Net *net) {
+	// NULL check
+	if (net==NULL)
+		return;
+
+	// Free memory
+	free(net);
 }
 
 Score netEvaluateRaw(const Pos *pos) {

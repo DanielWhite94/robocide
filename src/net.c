@@ -57,6 +57,74 @@ void netFree(Net *net) {
 	free(net);
 }
 
+Net *netLoad(const char *path) {
+	assert(path!=NULL);
+
+	// Init
+	Net *net=NULL;
+	FILE *file=NULL;
+
+	// Allocate network
+	net=netNew();
+	if (net==NULL)
+		goto error;
+
+	// Open file
+	file=fopen(path, "w");
+	if (file==NULL)
+		goto error;
+
+	// Write data
+	if (fread(net->weightsAccum, sizeof(net->weightsAccum), 1, file)!=1 ||
+	    fread(net->biasAccum, sizeof(net->biasAccum), 1, file)!=1 ||
+	    fread(net->weightsHidden1, sizeof(net->weightsHidden1), 1, file)!=1 ||
+	    fread(net->biasHidden1, sizeof(net->biasHidden1), 1, file)!=1 ||
+	    fread(net->weightsHidden2, sizeof(net->weightsHidden2), 1, file)!=1 ||
+	    fread(net->biasHidden2, sizeof(net->biasHidden2), 1, file)!=1 ||
+	    fread(net->weightsOutput, sizeof(net->weightsOutput), 1, file)!=1 ||
+	    fread(&net->biasOutput, sizeof(net->biasOutput), 1, file)!=1)
+		goto error;
+
+	// Close file
+	fclose(file);
+
+	return net;
+
+	// Error handling
+	error:
+	fclose(file);
+	free(net);
+	return NULL;
+}
+
+bool netSave(const Net *net, const char *path) {
+	assert(net!=NULL);
+	assert(path!=NULL);
+
+	// Open file
+	FILE *file=fopen(path, "w");
+	if (file==NULL)
+		return false;
+
+	// Write data
+	if (fwrite(net->weightsAccum, sizeof(net->weightsAccum), 1, file)!=1 ||
+	    fwrite(net->biasAccum, sizeof(net->biasAccum), 1, file)!=1 ||
+	    fwrite(net->weightsHidden1, sizeof(net->weightsHidden1), 1, file)!=1 ||
+	    fwrite(net->biasHidden1, sizeof(net->biasHidden1), 1, file)!=1 ||
+	    fwrite(net->weightsHidden2, sizeof(net->weightsHidden2), 1, file)!=1 ||
+	    fwrite(net->biasHidden2, sizeof(net->biasHidden2), 1, file)!=1 ||
+	    fwrite(net->weightsOutput, sizeof(net->weightsOutput), 1, file)!=1 ||
+	    fwrite(&net->biasOutput, sizeof(net->biasOutput), 1, file)!=1) {
+		fclose(file);
+		return false;
+	}
+
+	// Close file
+	fclose(file);
+
+	return true;
+}
+
 Score netEvaluateRaw(const Pos *pos, const Net *net) {
 	assert(pos!=NULL);
 	assert(net!=NULL);

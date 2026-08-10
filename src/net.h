@@ -40,6 +40,9 @@ void netQuit(void);
 Net *netNew(void);
 void netFree(Net *net);
 
+Net *netLoad(const char *path);
+bool netSave(const Net *net, const char *path);
+
 // Evaluation functions
 Score netEvaluateRaw(const Pos *pos, const Net *net);
 

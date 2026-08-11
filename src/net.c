@@ -207,24 +207,10 @@ void netAccumulatorCalc(const Net *net, const Pos *pos, NetAccumulator *accum) {
 	memcpy(accum->values[ColourWhite], net->biasAccum, 256*sizeof(int16_t));
 	memcpy(accum->values[ColourBlack], net->biasAccum, 256*sizeof(int16_t));
 
-	Sq kingSqW=posGetKingSq(pos, ColourWhite);
-	Sq kingSqB=posGetKingSq(pos, ColourBlack);
-
 	for(Sq sq=0; sq<SqNB; ++sq) {
 		Piece p=posGetPieceOnSq(pos, sq);
-		if (p==PieceNone)
-			continue;
-		Piece netP=netPieceFromPiece(p);
-
-		if (sq!=kingSqW) {
-			for(unsigned i=0; i<256; ++i)
-				accum->values[ColourWhite][i]+=net->weightsAccum[kingSqW][netP][sq][i];
-		}
-
-		if (sq!=kingSqB) {
-			for(unsigned i=0; i<256; ++i)
-				accum->values[ColourBlack][i]+=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
-		}
+		if (p!=PieceNone)
+			netAccumulatorAdd(accum, net, pos, sq, p);
 	}
 }
 
@@ -247,7 +233,6 @@ void netAccumulatorAdd(NetAccumulator *accum, const Net *net, const Pos *pos, Sq
 	assert(net!=NULL);
 	assert(pos!=NULL);
 	assert(piece!=PieceNone);
-
 
 	Sq kingSqW=posGetKingSq(pos, ColourWhite);
 	Sq kingSqB=posGetKingSq(pos, ColourBlack);

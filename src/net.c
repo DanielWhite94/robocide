@@ -226,13 +226,6 @@ void netAccumulatorCalc(const Net *net, const Pos *pos, NetAccumulator *accum) {
 				accum->values[ColourBlack][i]+=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
 		}
 	}
-
-	for(unsigned i=0; i<256; ++i) {
-		if (accum->values[ColourWhite][i]<0)
-			accum->values[ColourWhite][i]=0;
-		if (accum->values[ColourBlack][i]<0)
-			accum->values[ColourBlack][i]=0;
-	}
 }
 
 bool netAccumulatorIsEqual(const NetAccumulator *a, const NetAccumulator *b) {

@@ -25,6 +25,7 @@ NetPiece netPieceFromPiece(Piece p); // expects an actual piece (not PieceNone)
 NetPiece netPieceSwapColour(NetPiece p); // leaves NetPieceKing unchanged
 
 int32_t netMul(int8_t a, int8_t b); // exists to avoid bugs where variables are not cast to a larger type before a multiplication
+int32_t netCReLU(int32_t x);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -143,50 +144,40 @@ Score netEvaluateNetAccum(const Pos *pos, const Net *net, const NetAccumulator *
 	assert(net!=NULL);
 	assert(accum!=NULL);
 
-	// Transform step (encode stm, make 8 bit, clamping to 127)
+	// Transform step (encode stm, reduce, make 8 bit, clamping to [0, 127])
 	Colour stm=posGetSTM(pos);
 	Colour xtm=colourSwap(stm);
 
 	int8_t inputLayer[512];
 	for(unsigned i=0; i<256; ++i) {
-		inputLayer[i]=(accum->values[stm][i]<=127 ? accum->values[stm][i] : 127);
-		inputLayer[i+256]=(accum->values[xtm][i]<=127 ? accum->values[xtm][i] : 127);
+		inputLayer[i]=netCReLU(accum->values[stm][i]);
+		inputLayer[i+256]=netCReLU(accum->values[xtm][i]);
 	}
 
 	// First hidden layer
 	int32_t hiddenLayer1[32];
 	memcpy(hiddenLayer1, net->biasHidden1, sizeof(hiddenLayer1));
 
-	for(unsigned i=0; i<32; ++i) {
-		for(unsigned j=0; j<512; ++j) {
+	for(unsigned i=0; i<32; ++i)
+		for(unsigned j=0; j<512; ++j)
 			hiddenLayer1[i]+=netMul(inputLayer[j], net->weightsHidden1[i][j]);
-		}
-	}
 
-	for(unsigned i=0; i<32; ++i) {
-		hiddenLayer1[i]/=64;
-		hiddenLayer1[i]=(hiddenLayer1[i]<127 ? hiddenLayer1[i] : 127);
-	}
+	for(unsigned i=0; i<32; ++i)
+		hiddenLayer1[i]=netCReLU(hiddenLayer1[i]);
 
 	// Second hidden layer
 	int32_t hiddenLayer2[32];
 	memcpy(hiddenLayer2, net->biasHidden2, sizeof(hiddenLayer2));
 
-	for(unsigned i=0; i<32; ++i) {
-		for(unsigned j=0; j<32; ++j) {
+	for(unsigned i=0; i<32; ++i)
+		for(unsigned j=0; j<32; ++j)
 			hiddenLayer2[i]+=netMul(hiddenLayer1[j], net->weightsHidden1[i][j]);
-		}
-	}
 
-	for(unsigned i=0; i<32; ++i) {
-		hiddenLayer2[i]/=64;
-		hiddenLayer2[i]=(hiddenLayer2[i]<127 ? hiddenLayer2[i] : 127);
-	}
+	for(unsigned i=0; i<32; ++i)
+		hiddenLayer2[i]=netCReLU(hiddenLayer2[i]);
 
-	for(unsigned i=0; i<32; ++i) {
-		hiddenLayer2[i]/=64;
-		hiddenLayer2[i]=(hiddenLayer2[i]<127 ? hiddenLayer2[i] : 127);
-	}
+	for(unsigned i=0; i<32; ++i)
+		hiddenLayer2[i]=netCReLU(hiddenLayer2[i]);
 
 	// Output layer
 	int32_t outputLayer=net->biasOutput;
@@ -348,4 +339,9 @@ NetPiece netPieceSwapColour(NetPiece p) {
 
 int32_t netMul(int8_t a, int8_t b) {
 	return ((int32_t)a)*((int32_t)b);
+}
+
+int32_t netCReLU(int32_t x) {
+	x/=64;
+	return (x<=0 ? 0 : (x<=127 ? x : 127));
 }

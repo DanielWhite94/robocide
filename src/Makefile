@@ -3,14 +3,13 @@ CC = gcc
 CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs -march=native
 LFLAGS = -lm
 CFLAGSNOBUILTIN = -DBUILTINS
-CFLAGSDEBUG = -DNDEBUG -g #-DEVALINFO
 
 .PHONY: default all nobuiltin debug tune clean
 
 default: $(TARGET)
 all: default
 nobuiltin: CFLAGSNOBUILTIN :=
-debug: CFLAGSDEBUG :=
+debug: CFLAGS += -DNDEBUG -g #-DEVALINFO
 tune: CFLAGS += -DTUNE
 nobuiltin: default
 debug: default

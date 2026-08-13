@@ -272,14 +272,9 @@ Score netEvaluateNet(const Pos *pos, const Net *net) {
 	assert(pos!=NULL);
 	assert(net!=NULL);
 
-	// Input layer (accumulators)
-	NetAccumulator accum;
-	netAccumulatorCalc(net, pos, &accum);
-
-	// Rest of the network
-	return netEvaluateNetAccum(posGetSTM(pos), net, &accum, false);
+	// Pass cached accumulator values into netEvaluateNetAccum to do the heavy lifting
+	return netEvaluateNetAccum(posGetSTM(pos), net, posGetNetAccum(pos), false);
 }
-
 
 Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accum, bool verbose) {
 	assert(net!=NULL);

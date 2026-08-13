@@ -42,6 +42,7 @@ struct Pos {
 	unsigned int fullMoveNumber;
 	Key pawnKey, matKey;
 	VPair pstScore; // From white's POV
+	NetAccumulator netAccum; // for incremental updates
 };
 
 const char *posStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -56,10 +57,10 @@ Key posMatKey[PieceNB];
 
 void posClean(Pos *pos);
 
-void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate);
-void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate);
-void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate);
-void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate);
+void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate, bool skipNetAccumUpdate);
+void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate, bool skipNetAccumUpdate);
+void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate, bool skipNetAccumUpdate);
+void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate, bool skipNetAccumUpdate);
 
 void posGenPseudoNormal(Moves *moves, BB allowed);
 void posGenPseudoPawnMoves(Moves *moves, MoveType type);
@@ -227,7 +228,7 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	Sq sq;
 	for(sq=0;sq<SqNB;++sq)
 		if (fen.array[sq]!=PieceNone)
-			posPieceAdd(pos, fen.array[sq], sq, true);
+			posPieceAdd(pos, fen.array[sq], sq, true, true);
 	pos->stm=fen.stm;
 	pos->fullMoveNumber=fen.fullMoveNumber;
 	pos->data->halfMoveNumber=fen.halfMoveNumber;
@@ -235,6 +236,9 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	if (fen.epSq!=SqInvalid && posIsEPCap(pos, fen.epSq))
 		pos->data->epSq=fen.epSq;
 	pos->data->key=posComputeKey(pos);
+
+	// Net accumulator needs recalculating as there will be times when we called posPieceAdd where the kings have not yet been added
+	netAccumulatorCalc(netGet(), pos, &pos->netAccum);
 
 	assert(posIsConsistent(pos));
 
@@ -361,6 +365,10 @@ VPair posGetPstScore(const Pos *pos) {
 	return pos->pstScore;
 }
 
+const NetAccumulator *posGetNetAccum(const Pos *pos) {
+	return &pos->netAccum;
+}
+
 bool posMakeMove(Pos *pos, Move move) {
 	assert(moveIsValid(move));
 
@@ -420,7 +428,7 @@ bool posMakeMove(Pos *pos, Move move) {
 		assert(moveGetToPiece(move)==pieceMake(PieceTypeKing, movingSide));
 
 		// Remove king (do it this way in case of strange Chess960 castling)
-		posPieceRemove(pos, fromSq, false);
+		posPieceRemove(pos, fromSq, false, true);
 
 		// Move rook
 		Sq rookFromSq=toSqRaw;
@@ -428,11 +436,14 @@ bool posMakeMove(Pos *pos, Move move) {
 		assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
 
 		if (rookFromSq!=rookToSq)
-			posPieceMove(pos, rookFromSq, rookToSq, false);
+			posPieceMove(pos, rookFromSq, rookToSq, false, true);
 
 		// Replace king in new position.
 		assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
-		posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false);
+		posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false, true);
+
+		// Given the way we remove and replace the king, we have to manually trigger a recalc of the net accum
+		netAccumulatorCalc(netGet(), pos, &pos->netAccum);
 	} else if (pieceGetType(fromPiece)==PieceTypePawn) {
 		// Pawns are complicated so deserve a special case.
 
@@ -447,15 +458,15 @@ bool posMakeMove(Pos *pos, Move move) {
 		// Capture?
 		if (pos->data->capPiece!=PieceNone)
 			// Remove piece.
-			posPieceRemove(pos, pos->data->capSq, false);
+			posPieceRemove(pos, pos->data->capSq, false, false);
 
 		// Move the pawn, potentially promoting.
 		Piece toPiece=moveGetToPiece(move);
 		if (toPiece!=fromPiece) {
 			pos->data->lastMoveWasPromo=true;
-			posPieceMoveChange(pos, fromSq, toSqRaw, toPiece, false);
+			posPieceMoveChange(pos, fromSq, toSqRaw, toPiece, false, false);
 		} else
-			posPieceMove(pos, fromSq, toSqRaw, false);
+			posPieceMove(pos, fromSq, toSqRaw, false, false);
 
 		// Pawn moves reset 50 move counter.
 		pos->data->halfMoveNumber=0;
@@ -474,7 +485,7 @@ bool posMakeMove(Pos *pos, Move move) {
 		// Capture?
 		if (pos->data->capPiece!=PieceNone) {
 			// Remove piece.
-			posPieceRemove(pos, toSqTrue, false);
+			posPieceRemove(pos, toSqTrue, false, false);
 
 			// Captures reset 50 move counter.
 			pos->data->halfMoveNumber=0;
@@ -482,7 +493,7 @@ bool posMakeMove(Pos *pos, Move move) {
 
 		// Move non-pawn piece (i.e. no promotion to worry about).
 		assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
-		posPieceMove(pos, fromSq, toSqTrue, false);
+		posPieceMove(pos, fromSq, toSqTrue, false, false);
 	}
 
 	// Update castling rights
@@ -594,27 +605,27 @@ void posUndoMove(Pos *pos) {
 	// If castling, remove rook here (to be safe in case of strange Chess960 castling)
 	if (pos->data->castRights.rookSq[movingSide][CastSideA]==toSqRaw) {
 		Sq rookToSq=sqMake(FileD, (movingSide==ColourWhite ? Rank1 : Rank8));
-		posPieceRemove(pos, rookToSq, true);
+		posPieceRemove(pos, rookToSq, true, true);
 	}
 	if (pos->data->castRights.rookSq[movingSide][CastSideH]==toSqRaw) {
 		Sq rookToSq=sqMake(FileF, (movingSide==ColourWhite ? Rank1 : Rank8));
-		posPieceRemove(pos, rookToSq, true);
+		posPieceRemove(pos, rookToSq, true, true);
 	}
 
 	// Move piece back (potentially un-promoting).
 	if ((pos->data+1)->lastMoveWasPromo)
-		posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide), true);
+		posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide), true, false);
 	else if (toSqTrue!=fromSq) // king doesn't always move when castling
-		posPieceMove(pos, toSqTrue, fromSq, true);
+		posPieceMove(pos, toSqTrue, fromSq, true, false);
 
 	// Replace any captured piece.
 	if ((pos->data+1)->capPiece!=PieceNone)
-		posPieceAdd(pos, (pos->data+1)->capPiece, (pos->data+1)->capSq, true);
+		posPieceAdd(pos, (pos->data+1)->capPiece, (pos->data+1)->capSq, true, false);
 
 	// If castling replace the rook.
 	if (posMoveIsCastling(pos, move)) {
 		Sq rookFromSq=toSqRaw;
-		posPieceAdd(pos, pieceMake(PieceTypeRook, movingSide), rookFromSq, true);
+		posPieceAdd(pos, pieceMake(PieceTypeRook, movingSide), rookFromSq, true, false);
 	}
 
 	assert(posIsConsistent(pos));
@@ -1082,13 +1093,13 @@ void posMirror(Pos *pos) {
 	for(sq=0;sq<SqNB;++sq) {
 		board[sq]=posGetPieceOnSq(pos, sqMirror(sq));
 		if (board[sq]!=PieceNone)
-			posPieceRemove(pos, sqMirror(sq), true);
+			posPieceRemove(pos, sqMirror(sq), true, true);
 	}
 
 	// Add pieces from mirrored board.
 	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
-			posPieceAdd(pos, board[sq], sq, true);
+			posPieceAdd(pos, board[sq], sq, true, true);
 
 	// Mirror other fields.
 	if (pos->data->epSq!=SqInvalid)
@@ -1106,6 +1117,9 @@ void posMirror(Pos *pos) {
 	pos->data->key=posComputeKey(pos);
 	pos->pawnKey=posComputePawnKey(pos);
 	pos->matKey=posComputeMatKey(pos);
+
+	// Recalc net accumulator
+	netAccumulatorCalc(netGet(), pos, &pos->netAccum);
 }
 
 void posFlip(Pos *pos) {
@@ -1118,14 +1132,14 @@ void posFlip(Pos *pos) {
 			PieceType pieceType=pieceGetType(board[sq]);
 			Colour pieceColour=pieceGetColour(board[sq]);
 			board[sq]=pieceMake(pieceType, colourSwap(pieceColour));
-			posPieceRemove(pos, sqFlip(sq), true);
+			posPieceRemove(pos, sqFlip(sq), true, true);
 		}
 	}
 
 	// Add pieces from flipped board.
 	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
-			posPieceAdd(pos, board[sq], sq, true);
+			posPieceAdd(pos, board[sq], sq, true, true);
 
 	// Flip other fields.
 	pos->stm=colourSwap(pos->stm);
@@ -1144,6 +1158,9 @@ void posFlip(Pos *pos) {
 	pos->data->key=posComputeKey(pos);
 	pos->pawnKey=posComputePawnKey(pos);
 	pos->matKey=posComputeMatKey(pos);
+
+	// Recalc net accumulator
+	netAccumulatorCalc(netGet(), pos, &pos->netAccum);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1171,9 +1188,12 @@ void posClean(Pos *pos) {
 	pos->data->capPiece=PieceNone;
 	pos->data->capSq=SqInvalid;
 	pos->data->key=0;
+
+	// Net accumulator
+	netAccumulatorCalc(netGet(), pos, &pos->netAccum);
 }
 
-void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate) {
+void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate, bool skipNetAccumUpdate) {
 	// Sanity checks.
 	assert(pieceIsValid(piece));
 	assert(sqIsValid(sq));
@@ -1193,9 +1213,13 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate) {
 
 	// Update PST score.
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
+
+	// Net accumulator
+	if (!skipNetAccumUpdate)
+		netAccumulatorAdd(&pos->netAccum, netGet(), pos, sq, piece);
 }
 
-void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
+void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate, bool skipNetAccumUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(sq));
 	assert(posGetPieceOnSq(pos, sq)!=PieceNone);
@@ -1215,9 +1239,13 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate) {
 
 	// Update PST score.
 	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
+
+	// Net accumulator
+	if (!skipNetAccumUpdate)
+		netAccumulatorRemove(&pos->netAccum, netGet(), pos, sq, piece);
 }
 
-void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
+void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate, bool skipNetAccumUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
 	assert(toSq!=fromSq);
@@ -1240,9 +1268,17 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate) {
 	// Update PST score.
 	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][fromSq]);
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][toSq]);
+
+	// Net accumulator
+	if (!skipNetAccumUpdate) {
+		if (pieceGetType(piece)==PieceTypeKing)
+			netAccumulatorCalc(netGet(), pos, &pos->netAccum); // have to recalc
+		else
+			netAccumulatorMove(&pos->netAccum, netGet(), pos, fromSq, piece, toSq, piece);
+	}
 }
 
-void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate) {
+void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate, bool skipNetAccumUpdate) {
 	// Sanity checks.
 	assert(sqIsValid(fromSq) && sqIsValid(toSq));
 	assert(toSq!=fromSq);
@@ -1252,8 +1288,8 @@ void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMa
 	assert(pieceGetColour(toPiece)==pieceGetColour(posGetPieceOnSq(pos, fromSq)));
 
 	// Update position.
-	posPieceRemove(pos, fromSq, skipMainKeyUpdate);
-	posPieceAdd(pos, toPiece, toSq, skipMainKeyUpdate);
+	posPieceRemove(pos, fromSq, skipMainKeyUpdate, skipNetAccumUpdate);
+	posPieceAdd(pos, toPiece, toSq, skipMainKeyUpdate, skipNetAccumUpdate);
 }
 
 void posGenPseudoNormal(Moves *moves, BB allowed) {
@@ -1614,6 +1650,25 @@ bool posIsConsistent(const Pos *pos) {
 		sprintf(error, "Current pst score is (%i,%i) while true is (%i,%i).\n",
 						pos->pstScore.mg, pos->pstScore.eg, truePstScore.mg, truePstScore.eg);
 		goto Error;
+	}
+
+	// Test net accumulator is correct
+	NetAccumulator trueAccum;
+	netAccumulatorCalc(netGet(), pos, &trueAccum);
+	if (!netAccumulatorIsEqual(posGetNetAccum(pos), &trueAccum)) {
+#		ifndef NDEBUG
+		uciWrite("---------------------------------\n");
+		uciWrite("posIsConsistent() failed:\n");
+		uciWrite("Net accumulator not correct.\n");
+		posDraw(pos);
+		uciWrite("Current:\n");
+		netAccumulatorDebug(posGetNetAccum(pos));
+		uciWrite("True:\n");
+		netAccumulatorDebug(&trueAccum);
+		uciWrite("---------------------------------\n");
+#		endif
+
+		return false;
 	}
 
 	return true;

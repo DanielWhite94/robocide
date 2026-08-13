@@ -125,11 +125,11 @@ Net *netLoad(const char *path) {
 		goto error;
 
 	// Open file
-	file=fopen(path, "w");
+	file=fopen(path, "r");
 	if (file==NULL)
 		goto error;
 
-	// Write data
+	// Read data
 	if (fread(net->weightsAccum, sizeof(net->weightsAccum), 1, file)!=1 ||
 	    fread(net->biasAccum, sizeof(net->biasAccum), 1, file)!=1 ||
 	    fread(net->weightsHidden1, sizeof(net->weightsHidden1), 1, file)!=1 ||

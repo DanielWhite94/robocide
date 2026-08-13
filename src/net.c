@@ -40,6 +40,8 @@ typedef struct {
 	uint8_t padding:5;
 } NetTunePosition;
 
+Net *net=NULL; // holds the currently loaded network
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -69,9 +71,14 @@ void netTuneLayerDebug32(const int32_t *values, size_t count);
 ////////////////////////////////////////////////////////////////////////////////
 
 void netInit(void) {
+	assert(net==NULL);
+
+	// Load network
+	net=netNewMaterial();
 }
 
 void netQuit(void) {
+	netFree(net);
 }
 
 Net *netNew(void) {

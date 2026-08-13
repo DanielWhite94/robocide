@@ -172,13 +172,20 @@ Score netEvaluateNet(const Pos *pos, const Net *net) {
 	netAccumulatorCalc(net, pos, &accum);
 
 	// Rest of the network
-	return netEvaluateNetAccum(posGetSTM(pos), net, &accum);
+	return netEvaluateNetAccum(posGetSTM(pos), net, &accum, false);
 }
 
 
-Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accum) {
+Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accum, bool verbose) {
 	assert(net!=NULL);
 	assert(accum!=NULL);
+
+	// Debugging
+	if (verbose) {
+		printf("Accumulator:\n");
+		netTuneLayerDebug16(accum->values[ColourWhite], 256);
+		netTuneLayerDebug16(accum->values[ColourBlack], 256);
+	}
 
 	// Transform step (encode stm, reduce, make 8 bit, clamping to [0, 127])
 	Colour xtm=colourSwap(stm);
@@ -187,6 +194,12 @@ Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accu
 	for(unsigned i=0; i<256; ++i) {
 		inputLayer[i]=netCReLU(accum->values[stm][i]);
 		inputLayer[i+256]=netCReLU(accum->values[xtm][i]);
+	}
+
+	// Debugging
+	if (verbose) {
+		printf("Input layer:\n");
+		netTuneLayerDebug8(inputLayer, 512);
 	}
 
 	// First hidden layer
@@ -200,6 +213,12 @@ Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accu
 	for(unsigned i=0; i<32; ++i)
 		hiddenLayer1[i]=netCReLU(hiddenLayer1[i]);
 
+	// Debugging
+	if (verbose) {
+		printf("Hidden layer 1:\n");
+		netTuneLayerDebug32(hiddenLayer1, 32);
+	}
+
 	// Second hidden layer
 	int32_t hiddenLayer2[32];
 	memcpy(hiddenLayer2, net->biasHidden2, sizeof(hiddenLayer2));
@@ -211,13 +230,22 @@ Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accu
 	for(unsigned i=0; i<32; ++i)
 		hiddenLayer2[i]=netCReLU(hiddenLayer2[i]);
 
+	// Debugging
+	if (verbose) {
+		printf("Hidden layer 2:\n");
+		netTuneLayerDebug32(hiddenLayer2, 32);
+	}
 
 	// Output layer
 	int32_t outputLayer=net->biasOutput;
 	for(unsigned i=0; i<32; ++i)
 		outputLayer+=netMul(hiddenLayer2[i], net->weightsOutput[i]);
 
-	outputLayer/=16;
+	outputLayer*=5;
+
+	// Debugging
+	if (verbose)
+		printf("Output layer: %lli\n", (long long int)outputLayer);
 
 	return outputLayer;
 }

@@ -383,6 +383,13 @@ void netAccumulatorCopy(NetAccumulator *dest, const NetAccumulator *src) {
 	memcpy(dest->values, src->values, sizeof(dest->values));
 }
 
+void netAccumulatorDebug(const NetAccumulator *accum) {
+	assert(accum!=NULL);
+
+	netTuneLayerDebug16(accum->values[ColourWhite], 256);
+	netTuneLayerDebug16(accum->values[ColourBlack], 256);
+}
+
 void netAccumulatorAdd(NetAccumulator *accum, const Net *net, const Pos *pos, Sq sq, Piece piece) {
 	assert(accum!=NULL);
 	assert(net!=NULL);

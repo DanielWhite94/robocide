@@ -63,6 +63,8 @@ void netAccumulatorCalc(const Net *net, const Pos *pos, NetAccumulator *accum); 
 bool netAccumulatorIsEqual(const NetAccumulator *a, const NetAccumulator *b);
 void netAccumulatorCopy(NetAccumulator *dest, const NetAccumulator *src);
 
+void netAccumulatorDebug(const NetAccumulator *accum);
+
 // for the following functions piece, fromPiece and toPiece should never be PieceNone - i.e. they must have a NetPiece counterpart
 void netAccumulatorAdd(NetAccumulator *accum, const Net *net, const Pos *pos, Sq sq, Piece piece);
 void netAccumulatorRemove(NetAccumulator *accum, const Net *net, const Pos *pos, Sq sq, Piece piece);

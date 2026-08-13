@@ -29,6 +29,10 @@ NetPiece netPieceSwapColour(NetPiece p); // leaves NetPieceKing unchanged
 int32_t netMul(int8_t a, int8_t b); // exists to avoid bugs where variables are not cast to a larger type before a multiplication
 int32_t netCReLU(int32_t x);
 
+void netTuneLayerDebug8(const int8_t *values, size_t count);
+void netTuneLayerDebug16(const int16_t *values, size_t count);
+void netTuneLayerDebug32(const int32_t *values, size_t count);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -351,4 +355,40 @@ int32_t netMul(int8_t a, int8_t b) {
 int32_t netCReLU(int32_t x) {
 	x/=64;
 	return (x<=0 ? 0 : (x<=127 ? x : 127));
+}
+
+void netTuneLayerDebug8(const int8_t *values, size_t count) {
+	assert(values!=NULL);
+
+	for(unsigned i=0; i<count; ++i) {
+		if (i%16==0)
+			printf("    ");
+		printf("%4i ", values[i]);
+		if (i%16==15)
+			printf("\n");
+	}
+}
+
+void netTuneLayerDebug16(const int16_t *values, size_t count) {
+	assert(values!=NULL);
+
+	for(unsigned i=0; i<count; ++i) {
+		if (i%16==0)
+			printf("    ");
+		printf("%6i ", values[i]);
+		if (i%16==15)
+			printf("\n");
+	}
+}
+
+void netTuneLayerDebug32(const int32_t *values, size_t count) {
+	assert(values!=NULL);
+
+	for(unsigned i=0; i<count; ++i) {
+		if (i%16==0)
+			printf("    ");
+		printf("%8i ", values[i]);
+		if (i%16==15)
+			printf("\n");
+	}
 }

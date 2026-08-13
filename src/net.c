@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "eval.h"
 #include "net.h"
 
 struct Net {
@@ -74,7 +75,7 @@ void netInit(void) {
 	assert(net==NULL);
 
 	// Load network
-	net=netNewMaterial();
+	net=netNewPST();
 }
 
 void netQuit(void) {
@@ -202,6 +203,56 @@ Net *netNewMaterial(void) {
 	// Output layer
 	net->weightsOutput[0]=20;
 	net->weightsOutput[1]=-20;
+
+	return net;
+}
+
+Net *netNewPST(void) {
+	// Create 'empty' net
+	Net *net=netNew();
+
+	// Input layer (accumulator)
+	for(Sq kingSq=0; kingSq<64; ++kingSq) {
+		for(Sq pieceSq=0; pieceSq<64; ++pieceSq) {
+			unsigned i=pieceSq;
+			int d=2;
+
+			// White
+			net->weightsAccum[kingSq][NetPieceWPawn][pieceSq][i]=evalPST[PieceWPawn][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NetPieceWKnight][pieceSq][i]=evalPST[PieceWKnight][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NetPieceWBishop][pieceSq][i]=evalPST[PieceWBishopL][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NetPieceWRook][pieceSq][i]=evalPST[PieceWRook][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NetPieceWQueen][pieceSq][i]=evalPST[PieceWQueen][pieceSq].mg/d;
+
+			// Black
+			net->weightsAccum[kingSq][NetPieceBPawn][pieceSq][i]=evalPST[PieceBPawn][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NetPieceBKnight][pieceSq][i]=evalPST[PieceBKnight][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NetPieceBBishop][pieceSq][i]=evalPST[PieceBBishopL][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NetPieceBRook][pieceSq][i]=evalPST[PieceBRook][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NetPieceBQueen][pieceSq][i]=evalPST[PieceBQueen][pieceSq].mg/d;
+
+			// NetPiece has single colour-agnostic king as we transform the opponents king to always be black (the friendly king is encoded in kingSq)
+			net->weightsAccum[kingSq][NetPieceKing][pieceSq][i]=evalPST[PieceBKing][pieceSq].mg/d;
+		}
+	}
+
+	// Hidden layer 1
+	for(unsigned i=0; i<64; ++i) {
+		net->weightsHidden1[i/4][i]=32;
+		net->weightsHidden1[i/4+16][i+256]=32;
+	}
+
+	// Hidden layer 2
+	for(unsigned i=0; i<16; ++i) {
+		net->weightsHidden2[i][i]=64;
+		net->weightsHidden2[i+16][i+16]=64;
+	}
+
+	// Output layer
+	for(unsigned i=0; i<16; ++i) {
+		net->weightsOutput[i]=20;
+		net->weightsOutput[i+16]=-20;
+	}
 
 	return net;
 }

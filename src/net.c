@@ -31,6 +31,15 @@ const char NetTuneScoreStr[][8]={
 	[NetTuneScoreDraw]="1/2-1/2",
 };
 
+STATICASSERT(PieceNB<=16);
+typedef struct {
+	BB occ;
+	uint8_t pieces[16]; // a pair per byte in order from a1-h8
+	uint8_t stm:1;
+	uint8_t score:2;
+	uint8_t padding:5;
+} NetTunePosition;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -44,6 +53,10 @@ int32_t netMul(int8_t a, int8_t b); // exists to avoid bugs where variables are 
 int32_t netCReLU(int32_t x);
 
 const char *netTuneScoreToStr(NetTuneScore score);
+
+void netTunePositionSetFromPos(NetTunePosition *position, const Pos *pos);
+Piece netTunePositionGetPiece(const NetTunePosition *pos, unsigned n);
+void netTunePositionDebug(const NetTunePosition *pos);
 
 void netTuneLayerDebug8(const int8_t *values, size_t count);
 void netTuneLayerDebug16(const int16_t *values, size_t count);
@@ -376,6 +389,71 @@ int32_t netCReLU(int32_t x) {
 const char *netTuneScoreToStr(NetTuneScore score) {
 	assert(score<4);
 	return NetTuneScoreStr[score];
+}
+
+void netTunePositionSetFromPos(NetTunePosition *position, const Pos *pos) {
+	assert(position!=NULL);
+	assert(pos!=NULL);
+
+	// Occ is a direct copy
+	BB occ=position->occ=posGetBBAll(pos);
+
+	// Create piece list
+	memset(position->pieces, 0, sizeof(position->pieces));
+	unsigned i=0;
+	while(occ!=BBNone) {
+		Sq sq=bbScanReset(&occ);
+		Piece p=posGetPieceOnSq(pos, sq);
+		assert(p!=PieceNone && p<PieceNB && PieceNB<=16);
+		position->pieces[i/2]|=(i%2==0 ? p : (p<<4));
+		++i;
+	}
+
+	// Misc fields
+	position->stm=posGetSTM(pos);
+	position->score=NetTuneScoreInvalid; // this will be set after by the caller
+}
+
+Piece netTunePositionGetPiece(const NetTunePosition *pos, unsigned n) {
+	assert(pos!=NULL);
+	assert(n<32);
+
+	return ((pos->pieces[n/2]>>(n%2==0 ? 0 : 4)) & 0xF);
+}
+
+void netTunePositionDebug(const NetTunePosition *pos) {
+	// Bitscan loop to find pieces
+	Piece array[SqNB];
+	assert(PieceNone==0);
+	memset(array, 0, sizeof(array));
+
+	unsigned i=0;
+	BB occ=pos->occ;
+	while(occ!=BBNone) {
+		Sq sq=bbScanReset(&occ);
+		Piece p=netTunePositionGetPiece(pos, i);
+		assert(p!=PieceNone && p<PieceNB);
+
+		array[sq]=p;
+
+		++i;
+	}
+
+	// Print board and other fields
+	int file, rank;
+	for(rank=Rank8;rank>=Rank1;--rank) {
+		printf("%c|", rankToChar(rank));
+		for(file=FileA;file<=FileH;++file)
+			printf(" %c", pieceToChar(array[sqMake(file,rank)]));
+		printf("\n");
+	}
+	printf("   ----------------\n");
+	printf("  ");
+	for(file=FileA;file<=FileH;++file)
+		printf(" %c", fileToChar(file));
+	printf("\n");
+	printf("STM = %s\n", colourToStr(pos->stm));
+	printf("Result = %s\n", netTuneScoreToStr(pos->score));
 }
 
 void netTuneLayerDebug8(const int8_t *values, size_t count) {

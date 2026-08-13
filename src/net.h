@@ -50,6 +50,7 @@ bool netSave(const Net *net, const char *path);
 Net *netNewMaterial(void); // uses 1:3:3:5:9 material values to make a basic test net
 
 // Evaluation functions
+Score netEvaluate(const Pos *pos);
 Score netEvaluateNet(const Pos *pos, const Net *net);
 Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accum, bool verbose);
 

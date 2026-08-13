@@ -206,6 +206,13 @@ Net *netNewMaterial(void) {
 	return net;
 }
 
+Score netEvaluate(const Pos *pos) {
+	assert(net!=NULL);
+	assert(pos!=NULL);
+
+	return netEvaluateNet(pos, net);
+}
+
 Score netEvaluateNet(const Pos *pos, const Net *net) {
 	assert(pos!=NULL);
 	assert(net!=NULL);

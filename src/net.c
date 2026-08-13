@@ -458,6 +458,80 @@ void netTunePositionsFree(NetTunePositions *positions) {
 	free(positions);
 }
 
+NetTunePositions *netTunePositionsLoadEpd(const char *path) {
+	// Init variables
+	NetTunePositions *positions=NULL;
+	FILE *file=NULL;
+	Pos *pos=NULL;
+
+	// Open EPD file for reading
+	file=fopen(path, "r");
+	if (file==NULL)
+		goto error;
+
+	// Allocate NetTunePositions object
+	unsigned lineCount=utilFileCountLines(file); // do an initial pass over the file to count the number of lines so we can allocate our positions object all at once
+	positions=netTunePositionsNew(lineCount);
+	if (positions==NULL)
+		goto error;
+
+	// Create scratch position and coefficients to use to find evaluation coefficients
+	pos=posNew(NULL);
+
+	// Read file one line at a time
+	char line[1024];
+	while(fgets(line, 1024, file)!=NULL) {
+		// Try to parse FEN string and game result
+		char *c9pos=strstr(line, " c9 \"");
+		if (c9pos==NULL)
+			continue;
+		*c9pos='\0';
+
+		char *fenStr=line;
+		char *resultStr=c9pos+5;
+		char *resultStrEndPos=strstr(resultStr, "\"");
+		if (resultStrEndPos==NULL)
+			continue;
+		*resultStrEndPos='\0';
+
+		NetTuneScore result=NetTuneScoreInvalid;
+		if (strcmp(resultStr, "1-0")==0)
+			result=NetTuneScoreWhiteWin;
+		else if (strcmp(resultStr, "1/2-1/2")==0)
+			result=NetTuneScoreDraw;
+		else if (strcmp(resultStr, "0-1")==0)
+			result=NetTuneScoreBlackWin;
+		else
+			continue;
+
+		// Setup position
+		if (!posSetToFEN(pos, fenStr))
+			continue;
+
+		// Add position to array
+		assert(positions->next<positions->size);
+
+		netTunePositionSetFromPos(&positions->array[positions->next], pos);
+		positions->array[positions->next].score=result;
+
+		++positions->next;
+	}
+
+	// Tidy up
+	posFree(pos);
+	fclose(file);
+
+	return positions;
+
+	// Error handling
+	error:
+	posFree(pos);
+	if (file!=NULL)
+		fclose(file);
+	netTunePositionsFree(positions);
+	return NULL;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////

@@ -76,4 +76,6 @@ void netAccumulatorMove(NetAccumulator *accum, const Net *net, const Pos *pos, S
 NetTunePositions *netTunePositionsNew(size_t count); // count can be 0 if not known in advance
 void netTunePositionsFree(NetTunePositions *positions);
 
+NetTunePositions *netTunePositionsLoadEpd(const char *path);
+
 #endif

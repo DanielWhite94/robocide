@@ -35,19 +35,19 @@ int main(int argc, char **argv) {
 	bitbaseInit();
 	posInit();
 	evalInit();
+	netInit();
 	ttInit();
 	searchInit();
 	syzygyInit();
-	netInit();
 
 	// UCI input loop
 	uciLoop();
 
 	// Quit modules
-	netQuit();
 	syzygyQuit();
 	searchQuit();
 	ttQuit();
+	netQuit();
 	evalQuit();
 	bitbaseQuit();
 

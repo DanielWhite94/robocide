@@ -200,8 +200,8 @@ Net *netNewMaterial(void) {
 	net->weightsHidden2[1][1]=64;
 
 	// Output layer
-	net->weightsOutput[0]=4;
-	net->weightsOutput[1]=-4;
+	net->weightsOutput[0]=20;
+	net->weightsOutput[1]=-20;
 
 	return net;
 }
@@ -290,8 +290,6 @@ Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accu
 	int32_t outputLayer=net->biasOutput;
 	for(unsigned i=0; i<32; ++i)
 		outputLayer+=netMul(hiddenLayer2[i], net->weightsOutput[i]);
-
-	outputLayer*=5;
 
 	// Debugging
 	if (verbose)

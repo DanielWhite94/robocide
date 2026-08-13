@@ -17,6 +17,20 @@ struct Net {
 	int32_t biasOutput;
 };
 
+typedef enum {
+	NetTuneScoreInvalid,
+	NetTuneScoreWhiteWin,
+	NetTuneScoreBlackWin,
+	NetTuneScoreDraw,
+} NetTuneScore;
+
+const char NetTuneScoreStr[][8]={
+	[NetTuneScoreInvalid]="???",
+	[NetTuneScoreWhiteWin]="1-0",
+	[NetTuneScoreBlackWin]="0-1",
+	[NetTuneScoreDraw]="1/2-1/2",
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,6 +42,8 @@ NetPiece netPieceSwapColour(NetPiece p); // leaves NetPieceKing unchanged
 
 int32_t netMul(int8_t a, int8_t b); // exists to avoid bugs where variables are not cast to a larger type before a multiplication
 int32_t netCReLU(int32_t x);
+
+const char *netTuneScoreToStr(NetTuneScore score);
 
 void netTuneLayerDebug8(const int8_t *values, size_t count);
 void netTuneLayerDebug16(const int16_t *values, size_t count);
@@ -355,6 +371,11 @@ int32_t netMul(int8_t a, int8_t b) {
 int32_t netCReLU(int32_t x) {
 	x/=64;
 	return (x<=0 ? 0 : (x<=127 ? x : 127));
+}
+
+const char *netTuneScoreToStr(NetTuneScore score) {
+	assert(score<4);
+	return NetTuneScoreStr[score];
 }
 
 void netTuneLayerDebug8(const int8_t *values, size_t count) {

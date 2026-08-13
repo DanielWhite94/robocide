@@ -278,6 +278,7 @@ void posDraw(const Pos *pos) {
 		uciWrite("EP-sq: -\n");
 	uciWrite("Half move number: %u\n", pos->data->halfMoveNumber);
 	uciWrite("Full move number: %u\n", pos->fullMoveNumber);
+	uciWrite("Last move: %c%c%c%c\n", fileToChar(sqFile(moveGetFromSq(pos->data->lastMove))), rankToChar(sqRank(moveGetFromSq(pos->data->lastMove))), fileToChar(sqFile(moveGetToSqRaw(pos->data->lastMove))), rankToChar(sqRank(moveGetToSqRaw(pos->data->lastMove))));
 	uciWrite("Base hash key: %016"PRIxKey"\n", posGetKey(pos));
 	uciWrite("Pawn hash key: %016"PRIxKey"\n", posGetPawnKey(pos));
 	uciWrite("Material hash key: %016"PRIxKey"\n", posGetMatKey(pos));

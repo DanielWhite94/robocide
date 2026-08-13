@@ -177,7 +177,7 @@ Net *netNewMaterial(void) {
 	// Input layer (accumulator)
 	for(Sq kingSq=0; kingSq<64; ++kingSq) {
 		for(Sq pieceSq=0; pieceSq<64; ++pieceSq) {
-			const int f=64*10;
+			const int f=3*100;
 			net->weightsAccum[kingSq][NetPieceWPawn][pieceSq][0]=1*f;
 			net->weightsAccum[kingSq][NetPieceBPawn][pieceSq][0]=-1*f;
 			net->weightsAccum[kingSq][NetPieceWKnight][pieceSq][0]=3*f;
@@ -200,8 +200,8 @@ Net *netNewMaterial(void) {
 	net->weightsHidden2[1][1]=64;
 
 	// Output layer
-	net->weightsOutput[0]=2;
-	net->weightsOutput[1]=-2;
+	net->weightsOutput[0]=4;
+	net->weightsOutput[1]=-4;
 
 	return net;
 }

@@ -206,18 +206,16 @@ Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accu
 
 	for(unsigned i=0; i<32; ++i)
 		for(unsigned j=0; j<32; ++j)
-			hiddenLayer2[i]+=netMul(hiddenLayer1[j], net->weightsHidden1[i][j]);
+			hiddenLayer2[i]+=netMul(hiddenLayer1[j], net->weightsHidden2[i][j]);
 
 	for(unsigned i=0; i<32; ++i)
 		hiddenLayer2[i]=netCReLU(hiddenLayer2[i]);
 
-	for(unsigned i=0; i<32; ++i)
-		hiddenLayer2[i]=netCReLU(hiddenLayer2[i]);
 
 	// Output layer
 	int32_t outputLayer=net->biasOutput;
 	for(unsigned i=0; i<32; ++i)
-		outputLayer+=netMul(hiddenLayer1[i], net->weightsOutput[i]);
+		outputLayer+=netMul(hiddenLayer2[i], net->weightsOutput[i]);
 
 	outputLayer/=16;
 

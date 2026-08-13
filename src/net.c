@@ -21,6 +21,8 @@ struct Net {
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
+void netAccumulatorAddRaw(NetAccumulator *accum, const Net *net, Sq kingSqW, Sq kingSqB, Sq sq, Piece piece);
+
 NetPiece netPieceFromPiece(Piece p); // expects an actual piece (not PieceNone)
 NetPiece netPieceSwapColour(NetPiece p); // leaves NetPieceKing unchanged
 
@@ -135,17 +137,15 @@ Score netEvaluateNet(const Pos *pos, const Net *net) {
 	netAccumulatorCalc(net, pos, &accum);
 
 	// Rest of the network
-	return netEvaluateNetAccum(pos, net, &accum);
+	return netEvaluateNetAccum(posGetSTM(pos), net, &accum);
 }
 
 
-Score netEvaluateNetAccum(const Pos *pos, const Net *net, const NetAccumulator *accum) {
-	assert(pos!=NULL);
+Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accum) {
 	assert(net!=NULL);
 	assert(accum!=NULL);
 
 	// Transform step (encode stm, reduce, make 8 bit, clamping to [0, 127])
-	Colour stm=posGetSTM(pos);
 	Colour xtm=colourSwap(stm);
 
 	int8_t inputLayer[512];
@@ -228,15 +228,7 @@ void netAccumulatorAdd(NetAccumulator *accum, const Net *net, const Pos *pos, Sq
 	Sq kingSqW=posGetKingSq(pos, ColourWhite);
 	Sq kingSqB=posGetKingSq(pos, ColourBlack);
 
-	Piece netP=netPieceFromPiece(piece);
-
-	if (sq!=kingSqW)
-		for(unsigned i=0; i<256; ++i)
-			accum->values[ColourWhite][i]+=net->weightsAccum[kingSqW][netP][sq][i];
-
-	if (sq!=kingSqB)
-		for(unsigned i=0; i<256; ++i)
-			accum->values[ColourBlack][i]+=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
+	netAccumulatorAddRaw(accum, net, kingSqW, kingSqB, sq, piece);
 }
 
 void netAccumulatorRemove(NetAccumulator *accum, const Net *net, const Pos *pos, Sq sq, Piece piece) {
@@ -273,6 +265,21 @@ void netAccumulatorMove(NetAccumulator *accum, const Net *net, const Pos *pos, S
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
+
+void netAccumulatorAddRaw(NetAccumulator *accum, const Net *net, Sq kingSqW, Sq kingSqB, Sq sq, Piece piece) {
+	assert(accum!=NULL);
+	assert(net!=NULL);
+
+	Piece netP=netPieceFromPiece(piece);
+
+	if (sq!=kingSqW)
+		for(unsigned i=0; i<256; ++i)
+			accum->values[ColourWhite][i]+=net->weightsAccum[kingSqW][netP][sq][i];
+
+	if (sq!=kingSqB)
+		for(unsigned i=0; i<256; ++i)
+			accum->values[ColourBlack][i]+=net->weightsAccum[sqFlip(kingSqB)][netPieceSwapColour(netP)][sqFlip(sq)][i];
+}
 
 NetPiece netPieceFromPiece(Piece p) {
 	switch(p) {

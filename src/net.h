@@ -49,7 +49,7 @@ bool netSave(const Net *net, const char *path);
 
 // Evaluation functions
 Score netEvaluateNet(const Pos *pos, const Net *net);
-Score netEvaluateNetAccum(const Pos *pos, const Net *net, const NetAccumulator *accum);
+Score netEvaluateNetAccum(Colour stm, const Net *net, const NetAccumulator *accum);
 
 // Accumulator functions
 void netAccumulatorCalc(const Net *net, const Pos *pos, NetAccumulator *accum); // calculates the accumulator values from scratch rather than using any cached values in the Pos struct

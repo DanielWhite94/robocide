@@ -256,7 +256,7 @@ void posDraw(const Pos *pos) {
 	// Board with pieces.
 	int file, rank;
 	for(rank=Rank8;rank>=Rank1;--rank) {
-		uciWrite("%i|", (rank+8)-Rank8);
+		uciWrite("%c|", rankToChar(rank));
 		for(file=FileA;file<=FileH;++file)
 			uciWrite(" %c", pieceToChar(posGetPieceOnSq(pos, sqMake(file,rank))));
 		uciWrite("\n");
@@ -264,7 +264,7 @@ void posDraw(const Pos *pos) {
 	uciWrite("   ----------------\n");
 	uciWrite("  ");
 	for(file=FileA;file<=FileH;++file)
-		uciWrite(" %c", (file+'a')-FileA);
+		uciWrite(" %c", fileToChar(file));
 	uciWrite("\n");
 
 	// Other information.

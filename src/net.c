@@ -82,6 +82,10 @@ void netQuit(void) {
 	netFree(net);
 }
 
+const Net *netGet(void) {
+	return net;
+}
+
 Net *netNew(void) {
 	// Allocate memory
 	Net *net=malloc(sizeof(Net));

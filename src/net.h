@@ -40,6 +40,8 @@ typedef struct {
 void netInit(void);
 void netQuit(void);
 
+const Net *netGet(void); // gets the currently loaded net
+
 // Net functions
 Net *netNew(void);
 void netFree(Net *net);

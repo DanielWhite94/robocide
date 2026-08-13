@@ -58,6 +58,8 @@ void netTunePositionSetFromPos(NetTunePosition *position, const Pos *pos);
 Piece netTunePositionGetPiece(const NetTunePosition *pos, unsigned n);
 void netTunePositionDebug(const NetTunePosition *pos);
 
+void netTunePositionAccumulatorCalc(const Net *net, const NetTunePosition *pos, NetAccumulator *accum);
+
 void netTuneLayerDebug8(const int8_t *values, size_t count);
 void netTuneLayerDebug16(const int16_t *values, size_t count);
 void netTuneLayerDebug32(const int32_t *values, size_t count);
@@ -454,6 +456,47 @@ void netTunePositionDebug(const NetTunePosition *pos) {
 	printf("\n");
 	printf("STM = %s\n", colourToStr(pos->stm));
 	printf("Result = %s\n", netTuneScoreToStr(pos->score));
+}
+
+void netTunePositionAccumulatorCalc(const Net *net, const NetTunePosition *pos, NetAccumulator *accum) {
+	assert(net!=NULL);
+	assert(pos!=NULL);
+	assert(accum!=NULL);
+
+	// Find kingSqW and kingSqB
+	Sq kingSqW=SqInvalid;
+	Sq kingSqB=SqInvalid;
+
+	unsigned i=0;
+	BB occ=pos->occ;
+	while(occ!=BBNone) {
+		Sq sq=bbScanReset(&occ);
+		Piece p=netTunePositionGetPiece(pos, i);
+		assert(p!=PieceNone && p<PieceNB);
+
+		if (p==PieceWKing)
+			kingSqW=sq;
+		if (p==PieceBKing)
+			kingSqB=sq;
+
+		++i;
+	}
+
+	// Input layer (accumulators)
+	memcpy(accum->values[ColourWhite], net->biasAccum, 256*sizeof(int16_t));
+	memcpy(accum->values[ColourBlack], net->biasAccum, 256*sizeof(int16_t));
+
+	i=0;
+	occ=pos->occ;
+	while(occ!=BBNone) {
+		Sq sq=bbScanReset(&occ);
+		Piece p=netTunePositionGetPiece(pos, i);
+		assert(p!=PieceNone && p<PieceNB);
+
+		netAccumulatorAddRaw(accum, net, kingSqW, kingSqB, sq, p);
+
+		++i;
+	}
 }
 
 void netTuneLayerDebug8(const int8_t *values, size_t count) {

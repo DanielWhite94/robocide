@@ -1151,6 +1151,7 @@ void posFlip(Pos *pos) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void posClean(Pos *pos) {
+	// Pos fields
 	memset(pos->bbPiece, 0, PieceNB*sizeof(BB));
 	memset(pos->array64, PieceNone, SqNB*sizeof(uint8_t));
 	pos->bbColour[ColourWhite]=pos->bbColour[ColourBlack]=pos->bbAll=BBNone;
@@ -1159,6 +1160,8 @@ void posClean(Pos *pos) {
 	pos->pawnKey=0;
 	pos->matKey=0;
 	pos->pstScore=VPairZero;
+
+	// Pos->data fields
 	pos->data=pos->dataStart;
 	pos->data->lastMove=MoveInvalid;
 	pos->data->lastMoveWasPromo=false;

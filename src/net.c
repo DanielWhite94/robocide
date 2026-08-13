@@ -163,6 +163,42 @@ bool netSave(const Net *net, const char *path) {
 	return true;
 }
 
+Net *netNewMaterial(void) {
+	// Create 'empty' net
+	Net *net=netNew();
+
+	// Input layer (accumulator)
+	for(Sq kingSq=0; kingSq<64; ++kingSq) {
+		for(Sq pieceSq=0; pieceSq<64; ++pieceSq) {
+			const int f=64*10;
+			net->weightsAccum[kingSq][NetPieceWPawn][pieceSq][0]=1*f;
+			net->weightsAccum[kingSq][NetPieceBPawn][pieceSq][0]=-1*f;
+			net->weightsAccum[kingSq][NetPieceWKnight][pieceSq][0]=3*f;
+			net->weightsAccum[kingSq][NetPieceBKnight][pieceSq][0]=-3*f;
+			net->weightsAccum[kingSq][NetPieceWBishop][pieceSq][0]=3*f;
+			net->weightsAccum[kingSq][NetPieceBBishop][pieceSq][0]=-3*f;
+			net->weightsAccum[kingSq][NetPieceWRook][pieceSq][0]=5*f;
+			net->weightsAccum[kingSq][NetPieceBRook][pieceSq][0]=-5*f;
+			net->weightsAccum[kingSq][NetPieceWQueen][pieceSq][0]=9*f;
+			net->weightsAccum[kingSq][NetPieceBQueen][pieceSq][0]=-9*f;
+		}
+	}
+
+	// Hidden layer 1
+	net->weightsHidden1[0][0]=64;
+	net->weightsHidden1[1][256]=64;
+
+	// Hidden layer 2
+	net->weightsHidden2[0][0]=64;
+	net->weightsHidden2[1][1]=64;
+
+	// Output layer
+	net->weightsOutput[0]=2;
+	net->weightsOutput[1]=-2;
+
+	return net;
+}
+
 Score netEvaluateNet(const Pos *pos, const Net *net) {
 	assert(pos!=NULL);
 	assert(net!=NULL);

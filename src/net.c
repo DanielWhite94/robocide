@@ -41,6 +41,11 @@ typedef struct {
 	uint8_t padding:5;
 } NetTunePosition;
 
+struct NetTunePositions {
+	NetTunePosition *array;
+	size_t next, size;
+};
+
 Net *net=NULL; // holds the currently loaded network
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -426,6 +431,31 @@ void netAccumulatorMove(NetAccumulator *accum, const Net *net, const Pos *pos, S
 
 	netAccumulatorRemove(accum, net, pos, fromSq, fromPiece);
 	netAccumulatorAdd(accum, net, pos, toSq, toPiece);
+}
+
+NetTunePositions *netTunePositionsNew(size_t count) {
+	// Allocate memory
+	NetTunePositions *positions=malloc(sizeof(NetTunePositions));
+	NetTunePosition *array=(count>0 ? malloc(sizeof(NetTunePosition)*count) : NULL);
+	if (positions==NULL || (count>0 && array==NULL))
+		return NULL;
+
+	// Set fields
+	positions->array=array;
+	positions->next=0;
+	positions->size=count;
+
+	return positions;
+}
+
+void netTunePositionsFree(NetTunePositions *positions) {
+	// NULL check
+	if (positions==NULL)
+		return;
+
+	// Free memory
+	free(positions->array);
+	free(positions);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

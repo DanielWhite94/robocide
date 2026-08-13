@@ -36,6 +36,8 @@ typedef struct {
 	int16_t values[ColourNB][256];
 } NetAccumulator;
 
+typedef struct NetTunePositions NetTunePositions; // a collection of positions each with the final game result
+
 // General functions
 void netInit(void);
 void netQuit(void);
@@ -69,5 +71,9 @@ void netAccumulatorDebug(const NetAccumulator *accum);
 void netAccumulatorAdd(NetAccumulator *accum, const Net *net, const Pos *pos, Sq sq, Piece piece);
 void netAccumulatorRemove(NetAccumulator *accum, const Net *net, const Pos *pos, Sq sq, Piece piece);
 void netAccumulatorMove(NetAccumulator *accum, const Net *net, const Pos *pos, Sq fromSq, Piece fromPiece, Sq toSq, Piece toPiece);
+
+// Tuning functions
+NetTunePositions *netTunePositionsNew(size_t count); // count can be 0 if not known in advance
+void netTunePositionsFree(NetTunePositions *positions);
 
 #endif

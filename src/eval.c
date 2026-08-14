@@ -11,6 +11,7 @@
 #include "eval.h"
 #include "htable.h"
 #include "main.h"
+#include "nnue.h"
 #include "ttune.h"
 #include "tune.h"
 #include "uci.h"
@@ -175,6 +176,8 @@ uint8_t evalWeightEGFactors[128];
 ////////////////////////////////////////////////////////////////////////////////
 
 Score evaluateInternal(const Pos *pos);
+Score evaluateInternalNnue(const Pos *pos);
+Score evaluateInternalHCE(const Pos *pos);
 
 VPair evaluateDefault(EvalData *data);
 VPair evaluateKPvK(EvalData *data);
@@ -975,6 +978,26 @@ VPair evalVPairNegation(const VPair *a) {
 ////////////////////////////////////////////////////////////////////////////////
 
 Score evaluateInternal(const Pos *pos) {
+	assert(pos!=NULL);
+
+	return evaluateInternalNnue(pos);
+}
+
+Score evaluateInternalNnue(const Pos *pos) {
+	assert(pos!=NULL);
+
+	// Evaluate network to compute score
+	Score score=nnueEvaluate(pos);
+
+	// Drag score towards 0 as we approach 50-move rule
+	unsigned int halfMoves=posGetHalfMoveNumber(pos);
+	assert(halfMoves<128);
+	score=(((int)score)*evalHalfMoveFactors[halfMoves])/256;
+
+	return score;
+}
+
+Score evaluateInternalHCE(const Pos *pos) {
 	// Init data struct.
 	EvalData data={.pos=pos};
 

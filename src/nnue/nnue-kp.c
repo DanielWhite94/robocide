@@ -53,14 +53,17 @@ NnuePiece nnuePieceSwapColour(NnuePiece p);
 // Public functions
 ////////////////////////////////////////////////////////////////////////////////
 
-NnueNet *nnueNetNew(void) {
+NnueNet *nnueNetNew(const NnueNet *src) {
 	// Allocate memory
 	NnueNet *net=malloc(sizeof(NnueNet));
 	if (net==NULL)
 		return NULL;
 
-	// Initialise all values to zero
-	memset(net, 0, sizeof(NnueNet));
+	// If given a source net copy it, otherwise initialise all values to zero
+	if (src!=NULL)
+		memcpy(net, src, sizeof(NnueNet));
+	else
+		memset(net, 0, sizeof(NnueNet));
 
 	return net;
 }
@@ -82,7 +85,7 @@ NnueNet *nnueNetLoad(const char *path) {
 	FILE *file=NULL;
 
 	// Allocate network
-	net=nnueNetNew();
+	net=nnueNetNew(NULL);
 	if (net==NULL)
 		goto error;
 
@@ -144,7 +147,7 @@ bool nnueNetSave(const NnueNet *net, const char *path) {
 
 NnueNet *nnueNetNewMaterial(void) {
 	// Create 'empty' net
-	NnueNet *net=nnueNetNew();
+	NnueNet *net=nnueNetNew(NULL);
 
 	// Input layer (accumulator)
 	for(Sq kingSq=0; kingSq<SqNB; ++kingSq) {
@@ -180,7 +183,7 @@ NnueNet *nnueNetNewMaterial(void) {
 
 NnueNet *nnueNetNewPST(void) {
 	// Create 'empty' net
-	NnueNet *net=nnueNetNew();
+	NnueNet *net=nnueNetNew(NULL);
 
 	// Input layer (accumulator)
 	for(Sq kingSq=0; kingSq<SqNB; ++kingSq) {

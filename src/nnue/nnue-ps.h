@@ -19,7 +19,7 @@ struct NnueAccumulator {
 };
 
 // Network functions
-NnueNet *nnueNetNew(void);
+NnueNet *nnueNetNew(const NnueNet *src); // src can be NULL
 void nnueNetFree(NnueNet *net);
 
 NnueNet *nnueNetLoad(const char *path);

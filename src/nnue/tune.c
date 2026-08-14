@@ -39,7 +39,7 @@ struct NnueTunePositions {
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
-void nnueTunePositionSetFromPos(NnueTunePosition *position, const Pos *pos);
+void nnueTunePositionFromPos(NnueTunePosition *position, const Pos *pos);
 Piece nnueTunePositionGetPiece(const NnueTunePosition *pos, unsigned n);
 void nnueTunePositionDebug(const NnueTunePosition *pos);
 
@@ -127,7 +127,7 @@ NnueTunePositions *nnueTunePositionsLoadEpd(const char *path) {
 		// Add position to array
 		assert(positions->next<positions->size);
 
-		nnueTunePositionSetFromPos(&positions->array[positions->next], pos);
+		nnueTunePositionFromPos(&positions->array[positions->next], pos);
 		positions->array[positions->next].score=result;
 
 		++positions->next;
@@ -152,7 +152,7 @@ NnueTunePositions *nnueTunePositionsLoadEpd(const char *path) {
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void nnueTunePositionSetFromPos(NnueTunePosition *position, const Pos *pos) {
+void nnueTunePositionFromPos(NnueTunePosition *position, const Pos *pos) {
 	assert(position!=NULL);
 	assert(pos!=NULL);
 

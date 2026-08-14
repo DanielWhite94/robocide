@@ -228,7 +228,7 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	Sq sq;
 	for(sq=0;sq<SqNB;++sq)
 		if (fen.array[sq]!=PieceNone)
-			posPieceAdd(pos, fen.array[sq], sq, true, true);
+			posPieceAdd(pos, fen.array[sq], sq, true, !nnueNetFeatureSetIsSimple());
 	pos->stm=fen.stm;
 	pos->fullMoveNumber=fen.fullMoveNumber;
 	pos->data->halfMoveNumber=fen.halfMoveNumber;
@@ -238,7 +238,8 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	pos->data->key=posComputeKey(pos);
 
 	// NNUE accumulator needs recalculating as there will be times when we called posPieceAdd where the kings have not yet been added
-	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
+	if (!nnueNetFeatureSetIsSimple())
+		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 
 	assert(posIsConsistent(pos));
 
@@ -428,7 +429,7 @@ bool posMakeMove(Pos *pos, Move move) {
 		assert(moveGetToPiece(move)==pieceMake(PieceTypeKing, movingSide));
 
 		// Remove king (do it this way in case of strange Chess960 castling)
-		posPieceRemove(pos, fromSq, false, true);
+		posPieceRemove(pos, fromSq, false, !nnueNetFeatureSetIsSimple());
 
 		// Move rook
 		Sq rookFromSq=toSqRaw;
@@ -436,14 +437,15 @@ bool posMakeMove(Pos *pos, Move move) {
 		assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
 
 		if (rookFromSq!=rookToSq)
-			posPieceMove(pos, rookFromSq, rookToSq, false, true);
+			posPieceMove(pos, rookFromSq, rookToSq, false, !nnueNetFeatureSetIsSimple());
 
 		// Replace king in new position.
 		assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
-		posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false, true);
+		posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false, !nnueNetFeatureSetIsSimple());
 
 		// Given the way we remove and replace the king, we have to manually trigger a recalc of the net accum
-		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
+		if (!nnueNetFeatureSetIsSimple())
+			nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 	} else if (pieceGetType(fromPiece)==PieceTypePawn) {
 		// Pawns are complicated so deserve a special case.
 
@@ -605,11 +607,11 @@ void posUndoMove(Pos *pos) {
 	// If castling, remove rook here (to be safe in case of strange Chess960 castling)
 	if (pos->data->castRights.rookSq[movingSide][CastSideA]==toSqRaw) {
 		Sq rookToSq=sqMake(FileD, (movingSide==ColourWhite ? Rank1 : Rank8));
-		posPieceRemove(pos, rookToSq, true, true);
+		posPieceRemove(pos, rookToSq, true, !nnueNetFeatureSetIsSimple());
 	}
 	if (pos->data->castRights.rookSq[movingSide][CastSideH]==toSqRaw) {
 		Sq rookToSq=sqMake(FileF, (movingSide==ColourWhite ? Rank1 : Rank8));
-		posPieceRemove(pos, rookToSq, true, true);
+		posPieceRemove(pos, rookToSq, true, !nnueNetFeatureSetIsSimple());
 	}
 
 	// Move piece back (potentially un-promoting).
@@ -1093,13 +1095,13 @@ void posMirror(Pos *pos) {
 	for(sq=0;sq<SqNB;++sq) {
 		board[sq]=posGetPieceOnSq(pos, sqMirror(sq));
 		if (board[sq]!=PieceNone)
-			posPieceRemove(pos, sqMirror(sq), true, true);
+			posPieceRemove(pos, sqMirror(sq), true, !nnueNetFeatureSetIsSimple());
 	}
 
 	// Add pieces from mirrored board.
 	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
-			posPieceAdd(pos, board[sq], sq, true, true);
+			posPieceAdd(pos, board[sq], sq, true, !nnueNetFeatureSetIsSimple());
 
 	// Mirror other fields.
 	if (pos->data->epSq!=SqInvalid)
@@ -1119,7 +1121,8 @@ void posMirror(Pos *pos) {
 	pos->matKey=posComputeMatKey(pos);
 
 	// Recalc net accumulator
-	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
+	if (!nnueNetFeatureSetIsSimple())
+		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 }
 
 void posFlip(Pos *pos) {
@@ -1132,14 +1135,14 @@ void posFlip(Pos *pos) {
 			PieceType pieceType=pieceGetType(board[sq]);
 			Colour pieceColour=pieceGetColour(board[sq]);
 			board[sq]=pieceMake(pieceType, colourSwap(pieceColour));
-			posPieceRemove(pos, sqFlip(sq), true, true);
+			posPieceRemove(pos, sqFlip(sq), true, !nnueNetFeatureSetIsSimple());
 		}
 	}
 
 	// Add pieces from flipped board.
 	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
-			posPieceAdd(pos, board[sq], sq, true, true);
+			posPieceAdd(pos, board[sq], sq, true, !nnueNetFeatureSetIsSimple());
 
 	// Flip other fields.
 	pos->stm=colourSwap(pos->stm);
@@ -1160,7 +1163,8 @@ void posFlip(Pos *pos) {
 	pos->matKey=posComputeMatKey(pos);
 
 	// Recalc net accumulator
-	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
+	if (!nnueNetFeatureSetIsSimple())
+		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1271,8 +1275,8 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate, bool ski
 
 	// NNUE accumulator
 	if (!skipNetAccumUpdate) {
-		if (pieceGetType(piece)==PieceTypeKing)
-			nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum); // have to recalc
+		if (pieceGetType(piece)==PieceTypeKing && !nnueNetFeatureSetIsSimple())
+			nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 		else
 			nnueAccumulatorMove(&pos->nnueAccum, nnueNetGet(), pos, fromSq, piece, toSq, piece);
 	}

@@ -225,6 +225,10 @@ NnueNet *nnueNetNewPST(void) {
 	return net;
 }
 
+bool nnueNetFeatureSetIsSimple(void) {
+	return true;
+}
+
 void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *accum) {
 	assert(net!=NULL);
 	assert(pos!=NULL);

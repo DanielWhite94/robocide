@@ -42,7 +42,7 @@ struct Pos {
 	unsigned int fullMoveNumber;
 	Key pawnKey, matKey;
 	VPair pstScore; // From white's POV
-	NetAccumulator netAccum; // for incremental updates
+	NnueAccumulator nnueAccum; // for incremental updates
 };
 
 const char *posStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -237,8 +237,8 @@ bool posSetToFEN(Pos *pos, const char *string) {
 		pos->data->epSq=fen.epSq;
 	pos->data->key=posComputeKey(pos);
 
-	// Net accumulator needs recalculating as there will be times when we called posPieceAdd where the kings have not yet been added
-	netAccumulatorCalc(netGet(), pos, &pos->netAccum);
+	// NNUE accumulator needs recalculating as there will be times when we called posPieceAdd where the kings have not yet been added
+	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 
 	assert(posIsConsistent(pos));
 
@@ -365,8 +365,8 @@ VPair posGetPstScore(const Pos *pos) {
 	return pos->pstScore;
 }
 
-const NetAccumulator *posGetNetAccum(const Pos *pos) {
-	return &pos->netAccum;
+const NnueAccumulator *posGetNnueAccum(const Pos *pos) {
+	return &pos->nnueAccum;
 }
 
 bool posMakeMove(Pos *pos, Move move) {
@@ -443,7 +443,7 @@ bool posMakeMove(Pos *pos, Move move) {
 		posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false, true);
 
 		// Given the way we remove and replace the king, we have to manually trigger a recalc of the net accum
-		netAccumulatorCalc(netGet(), pos, &pos->netAccum);
+		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 	} else if (pieceGetType(fromPiece)==PieceTypePawn) {
 		// Pawns are complicated so deserve a special case.
 
@@ -1119,7 +1119,7 @@ void posMirror(Pos *pos) {
 	pos->matKey=posComputeMatKey(pos);
 
 	// Recalc net accumulator
-	netAccumulatorCalc(netGet(), pos, &pos->netAccum);
+	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 }
 
 void posFlip(Pos *pos) {
@@ -1160,7 +1160,7 @@ void posFlip(Pos *pos) {
 	pos->matKey=posComputeMatKey(pos);
 
 	// Recalc net accumulator
-	netAccumulatorCalc(netGet(), pos, &pos->netAccum);
+	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1189,8 +1189,8 @@ void posClean(Pos *pos) {
 	pos->data->capSq=SqInvalid;
 	pos->data->key=0;
 
-	// Net accumulator
-	netAccumulatorCalc(netGet(), pos, &pos->netAccum);
+	// NNUE accumulator
+	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 }
 
 void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate, bool skipNetAccumUpdate) {
@@ -1214,9 +1214,9 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate, bool skip
 	// Update PST score.
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
 
-	// Net accumulator
+	// NNUE accumulator
 	if (!skipNetAccumUpdate)
-		netAccumulatorAdd(&pos->netAccum, netGet(), pos, sq, piece);
+		nnueAccumulatorAdd(&pos->nnueAccum, nnueNetGet(), pos, sq, piece);
 }
 
 void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate, bool skipNetAccumUpdate) {
@@ -1240,9 +1240,9 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate, bool skipNetAccumUp
 	// Update PST score.
 	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
 
-	// Net accumulator
+	// NNUE accumulator
 	if (!skipNetAccumUpdate)
-		netAccumulatorRemove(&pos->netAccum, netGet(), pos, sq, piece);
+		nnueAccumulatorRemove(&pos->nnueAccum, nnueNetGet(), pos, sq, piece);
 }
 
 void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate, bool skipNetAccumUpdate) {
@@ -1269,12 +1269,12 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate, bool ski
 	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][fromSq]);
 	evalVPairAddTo(&pos->pstScore, &evalPST[piece][toSq]);
 
-	// Net accumulator
+	// NNUE accumulator
 	if (!skipNetAccumUpdate) {
 		if (pieceGetType(piece)==PieceTypeKing)
-			netAccumulatorCalc(netGet(), pos, &pos->netAccum); // have to recalc
+			nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum); // have to recalc
 		else
-			netAccumulatorMove(&pos->netAccum, netGet(), pos, fromSq, piece, toSq, piece);
+			nnueAccumulatorMove(&pos->nnueAccum, nnueNetGet(), pos, fromSq, piece, toSq, piece);
 	}
 }
 
@@ -1653,18 +1653,18 @@ bool posIsConsistent(const Pos *pos) {
 	}
 
 	// Test net accumulator is correct
-	NetAccumulator trueAccum;
-	netAccumulatorCalc(netGet(), pos, &trueAccum);
-	if (!netAccumulatorIsEqual(posGetNetAccum(pos), &trueAccum)) {
+	NnueAccumulator trueAccum;
+	nnueAccumulatorCalc(nnueNetGet(), pos, &trueAccum);
+	if (!nnueAccumulatorIsEqual(posGetNnueAccum(pos), &trueAccum)) {
 #		ifndef NDEBUG
 		uciWrite("---------------------------------\n");
 		uciWrite("posIsConsistent() failed:\n");
-		uciWrite("Net accumulator not correct.\n");
+		uciWrite("NNUE accumulator not correct.\n");
 		posDraw(pos);
 		uciWrite("Current:\n");
-		netAccumulatorDebug(posGetNetAccum(pos));
+		nnueAccumulatorDebug(posGetNnueAccum(pos));
 		uciWrite("True:\n");
-		netAccumulatorDebug(&trueAccum);
+		nnueAccumulatorDebug(&trueAccum);
 		uciWrite("---------------------------------\n");
 #		endif
 

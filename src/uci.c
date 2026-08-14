@@ -10,7 +10,7 @@
 #include "pos.h"
 #include "main.h"
 #include "moves.h"
-#include "net.h"
+#include "nnue.h"
 #include "search.h"
 #include "see.h"
 #include "syzygy.h"
@@ -208,8 +208,8 @@ void uciLoop(void) {
 
 			uciWrite("Syzygy lookup: %s\n", syzygyWdlToStr(syzygyProbeWdl(pos)));
 
-			Score netEval=netEvaluate(pos);
-			uciWrite("Net eval: %i\n", netEval);
+			Score nnueEval=nnueEvaluate(pos);
+			uciWrite("NNUE eval: %i\n", nnueEval);
 		} else if (utilStrEqual(part, "bitbase")) {
 			if (evalGetMatType(pos)==EvalMatTypeKPvK) {
 				uciWrite("BitBase:\n");

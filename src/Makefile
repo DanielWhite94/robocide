@@ -16,8 +16,8 @@ nobuiltin: default
 debug: default
 tune: default
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) nnue/nnue-ps.o nnue/util.o syzygy/tbprobe.o syzygy/wrapper.o
-HEADERS = $(wildcard *.h) $(wildcard syzygy/*.h) nnue/nnue-ps.h nnue/util.h
+OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) nnue/nnue-ps.o nnue/tune.o nnue/util.o syzygy/tbprobe.o syzygy/wrapper.o
+HEADERS = $(wildcard *.h) $(wildcard syzygy/*.h) nnue/nnue-ps.h nnue/tune.h nnue/util.h
 
 %.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) $(CFLAGSDEBUG) $(CFLAGSNOBUILTIN) -c $< -o $@

@@ -1,5 +1,6 @@
 #include <assert.h>
 
+#include "main.h"
 #include "nnue.h"
 
 NnueNet *nnueNet=NULL; // holds the currently loaded network
@@ -17,6 +18,8 @@ void nnueInit(void) {
 
 	// Load network
 	nnueNet=nnueNetNewPST();
+	if (nnueNet==NULL)
+		mainFatalError("Error: Could not load NNUE network.\n");
 }
 
 void nnueQuit(void) {

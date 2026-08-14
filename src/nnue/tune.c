@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,9 @@ Piece nnueTunePositionGetPiece(const NnueTunePosition *pos, unsigned n);
 void nnueTunePositionDebug(const NnueTunePosition *pos);
 
 const char *nnueTuneScoreToStr(NnueTuneScore score);
+double nnueTuneScoreToWinProb(NnueTuneScore score);
+
+double nnueTuneComputeSigmoid(double s);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -238,4 +242,31 @@ void nnueTunePositionDebug(const NnueTunePosition *pos) {
 const char *nnueTuneScoreToStr(NnueTuneScore score) {
 	assert(score<4);
 	return NnueTuneScoreStr[score];
+}
+
+double nnueTuneScoreToWinProb(NnueTuneScore score) {
+	switch(score) {
+		case NnueTuneScoreInvalid:
+			assert(false);
+			return 0.5;
+		break;
+		case NnueTuneScoreWhiteWin:
+			return 1.0;
+		break;
+		case NnueTuneScoreBlackWin:
+			return 0.0;
+		break;
+		case NnueTuneScoreDraw:
+			return 0.5;
+		break;
+	}
+
+	assert(false);
+	return 0.5;
+}
+
+double nnueTuneComputeSigmoid(double s) {
+	// Convert evaluation/search score s into a logistic win/draw/loss value in the range [0,1]
+	const double k=0.01222392421;
+	return 1.0/(1.0+pow(2.0, -k*s));
 }

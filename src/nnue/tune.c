@@ -40,6 +40,8 @@ struct NnueTunePositions {
 ////////////////////////////////////////////////////////////////////////////////
 
 void nnueTunePositionFromPos(NnueTunePosition *position, const Pos *pos);
+void nnueTunePositionToPos(const NnueTunePosition *position, Pos *pos); // note: this only sets the bare minimum for our tuning purposes (a call to posIsConsistent would fail)
+void nnueTunePositionToArray(const NnueTunePosition *position, Piece array[SqNB]);
 Piece nnueTunePositionGetPiece(const NnueTunePosition *pos, unsigned n);
 void nnueTunePositionDebug(const NnueTunePosition *pos);
 
@@ -175,6 +177,35 @@ void nnueTunePositionFromPos(NnueTunePosition *position, const Pos *pos) {
 	position->score=NnueTuneScoreInvalid; // this will be set after by the caller
 }
 
+void nnueTunePositionToPos(const NnueTunePosition *position, Pos *pos) {
+	assert(position!=NULL);
+	assert(pos!=NULL);
+
+	// Convert NnueTunePosition into a piece array and then to a Pos
+	Piece array[SqNB];
+	nnueTunePositionToArray(position, array);
+	posSetToArray(pos, position->stm, array, true);
+}
+
+void nnueTunePositionToArray(const NnueTunePosition *position, Piece array[SqNB]) {
+	assert(position!=NULL);
+
+	assert(PieceNone==0);
+	memset(array, 0, sizeof(Piece)*SqNB);
+
+	unsigned i=0;
+	BB occ=position->occ;
+	while(occ!=BBNone) {
+		Sq sq=bbScanReset(&occ);
+		Piece p=nnueTunePositionGetPiece(position, i);
+		assert(p!=PieceNone && p<PieceNB);
+
+		array[sq]=p;
+
+		++i;
+	}
+}
+
 Piece nnueTunePositionGetPiece(const NnueTunePosition *pos, unsigned n) {
 	assert(pos!=NULL);
 	assert(n<32);
@@ -183,22 +214,9 @@ Piece nnueTunePositionGetPiece(const NnueTunePosition *pos, unsigned n) {
 }
 
 void nnueTunePositionDebug(const NnueTunePosition *pos) {
-	// Bitscan loop to find pieces
+	// Find pieces
 	Piece array[SqNB];
-	assert(PieceNone==0);
-	memset(array, 0, sizeof(array));
-
-	unsigned i=0;
-	BB occ=pos->occ;
-	while(occ!=BBNone) {
-		Sq sq=bbScanReset(&occ);
-		Piece p=nnueTunePositionGetPiece(pos, i);
-		assert(p!=PieceNone && p<PieceNB);
-
-		array[sq]=p;
-
-		++i;
-	}
+	nnueTunePositionToArray(pos, array);
 
 	// Print board and other fields
 	int file, rank;

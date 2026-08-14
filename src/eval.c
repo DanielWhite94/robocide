@@ -980,7 +980,10 @@ VPair evalVPairNegation(const VPair *a) {
 Score evaluateInternal(const Pos *pos) {
 	assert(pos!=NULL);
 
-	return evaluateInternalNnue(pos);
+	if (nnueUseNnue)
+		return evaluateInternalNnue(pos);
+	else
+		return evaluateInternalHCE(pos);
 }
 
 Score evaluateInternalNnue(const Pos *pos) {

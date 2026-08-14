@@ -1,8 +1,12 @@
 #ifndef NNUE_H
 #define NNUE_H
 
+#include <stdbool.h>
+
 #include "nnue/nnue-ps.h"
 #include "pos.h"
+
+extern bool nnueUseNnue;
 
 void nnueInit(void);
 void nnueQuit(void);

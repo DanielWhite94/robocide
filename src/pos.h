@@ -54,6 +54,7 @@ void posFree(Pos *pos);
 
 bool posCopy(Pos *dest, const Pos *src);
 
+void posSetToArray(Pos *pos, Colour stm, Piece array[SqNB], bool skipNetAccumUpdate); // note: resulting Pos struct will almost certainly not pass a posIsConsistent check
 bool posSetToFEN(Pos *pos, const char *string); // If fails pos is unchanged.
 void posGetFEN(const Pos *pos, char string[static FenMaxLen]);
 

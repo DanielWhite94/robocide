@@ -212,6 +212,22 @@ bool posCopy(Pos *dest, const Pos *src) {
 	return true;
 }
 
+void posSetToArray(Pos *pos, Colour stm, Piece array[SqNB], bool skipNetAccumUpdate) {
+	assert(pos!=NULL);
+
+	// Set position to clean state.
+	posClean(pos);
+
+	// Set stm
+	pos->stm=stm;
+
+	// Add pieces based on given array
+	Sq sq;
+	for(sq=0;sq<SqNB;++sq)
+		if (array[sq]!=PieceNone)
+			posPieceAdd(pos, array[sq], sq, true, (skipNetAccumUpdate || !nnueNetFeatureSetIsSimple()));
+}
+
 bool posSetToFEN(Pos *pos, const char *string) {
 	// Parse FEN.
 	Fen fen;
@@ -221,15 +237,10 @@ bool posSetToFEN(Pos *pos, const char *string) {
 	} else if (!fenRead(&fen, string))
 		return false;
 
-	// Set position to clean state.
-	posClean(pos);
+	// Call posSetToArray to set the stm and add all of the pieces
+	posSetToArray(pos, fen.stm, fen.array, false);
 
-	// Set position to given FEN.
-	Sq sq;
-	for(sq=0;sq<SqNB;++sq)
-		if (fen.array[sq]!=PieceNone)
-			posPieceAdd(pos, fen.array[sq], sq, true, !nnueNetFeatureSetIsSimple());
-	pos->stm=fen.stm;
+	// Set other fields
 	pos->fullMoveNumber=fen.fullMoveNumber;
 	pos->data->halfMoveNumber=fen.halfMoveNumber;
 	pos->data->castRights=fen.castRights;
@@ -237,7 +248,7 @@ bool posSetToFEN(Pos *pos, const char *string) {
 		pos->data->epSq=fen.epSq;
 	pos->data->key=posComputeKey(pos);
 
-	// NNUE accumulator needs recalculating as there will be times when we called posPieceAdd where the kings have not yet been added
+	// NNUE accumulator recalc as needed
 	if (!nnueNetFeatureSetIsSimple())
 		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 

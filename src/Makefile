@@ -2,6 +2,7 @@ TARGET = robocide
 CC = gcc
 CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs -march=native
 LFLAGS = -lm
+CFLAGSDEBUG = -DNDEBUG -g #-DEVALINFO
 CFLAGSNOBUILTIN = -DBUILTINS
 
 .PHONY: default all nobuiltin debug tune clean
@@ -9,7 +10,7 @@ CFLAGSNOBUILTIN = -DBUILTINS
 default: $(TARGET)
 all: default
 nobuiltin: CFLAGSNOBUILTIN :=
-debug: CFLAGS += -DNDEBUG -g #-DEVALINFO
+debug: CFLAGSDEBUG :=
 tune: CFLAGS += -DTUNE
 nobuiltin: default
 debug: default

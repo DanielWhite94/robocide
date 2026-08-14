@@ -26,6 +26,7 @@ NnueNet *nnueNetLoad(const char *path);
 bool nnueNetSave(const NnueNet *net, const char *path);
 
 NnueNet *nnueNetNewMaterial(void); // uses 1:3:3:5:9 material values to make a basic test net
+NnueNet *nnueNetNewPST(void); // uses evalPST (exposed by eval.h) to make a basic test net
 
 // Accumulator functions
 void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *accum); // calculates the accumulator values from scratch rather than using any cached values in the Pos struct

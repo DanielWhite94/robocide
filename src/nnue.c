@@ -16,7 +16,7 @@ void nnueInit(void) {
 	assert(nnueNet==NULL);
 
 	// Load network
-	nnueNet=nnueNetNewMaterial();
+	nnueNet=nnueNetNewPST();
 }
 
 void nnueQuit(void) {

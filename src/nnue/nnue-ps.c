@@ -176,6 +176,55 @@ NnueNet *nnueNetNewMaterial(void) {
 	return net;
 }
 
+NnueNet *nnueNetNewPST(void) {
+	// Create 'empty' net
+	NnueNet *net=nnueNetNew();
+
+	// Input layer (accumulator)
+	for(Sq pieceSq=0; pieceSq<SqNB; ++pieceSq) {
+		unsigned i=pieceSq;
+		int d=2;
+
+		// White
+		net->weightsAccum[NnuePieceWPawn][pieceSq][i]=evalPST[PieceWPawn][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceWKnight][pieceSq][i]=evalPST[PieceWKnight][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceWBishop][pieceSq][i]=evalPST[PieceWBishopL][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceWRook][pieceSq][i]=evalPST[PieceWRook][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceWQueen][pieceSq][i]=evalPST[PieceWQueen][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceWKing][pieceSq][i]=evalPST[PieceWKing][pieceSq].mg/d;
+
+		// Black
+		net->weightsAccum[NnuePieceBPawn][pieceSq][i]=evalPST[PieceBPawn][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceBKnight][pieceSq][i]=evalPST[PieceBKnight][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceBBishop][pieceSq][i]=evalPST[PieceBBishopL][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceBRook][pieceSq][i]=evalPST[PieceBRook][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceBQueen][pieceSq][i]=evalPST[PieceBQueen][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceBKing][pieceSq][i]=evalPST[PieceBKing][pieceSq].mg/d;
+	}
+
+	// Hidden layer 1
+	assert(SqNB<=NnueAccumulatorSize);
+	for(unsigned i=0; i<SqNB; ++i) {
+		net->weightsHidden1[i/(2*SqNB/NnueLayerHidden1Size)][i]=32;
+		net->weightsHidden1[i/(2*SqNB/NnueLayerHidden1Size)+NnueLayerHidden1Size/2][i+NnueAccumulatorSize]=32;
+	}
+
+	// Hidden layer 2
+	assert(NnueLayerHidden1Size==NnueLayerHidden2Size);
+	for(unsigned i=0; i<NnueLayerHidden2Size/2; ++i) {
+		net->weightsHidden2[i][i]=64;
+		net->weightsHidden2[i+NnueLayerHidden2Size/2][i+NnueLayerHidden2Size/2]=64;
+	}
+
+	// Output layer
+	for(unsigned i=0; i<NnueLayerHidden2Size/2; ++i) {
+		net->weightsOutput[i]=20;
+		net->weightsOutput[i+NnueLayerHidden2Size/2]=-20;
+	}
+
+	return net;
+}
+
 void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *accum) {
 	assert(net!=NULL);
 	assert(pos!=NULL);

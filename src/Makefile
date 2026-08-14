@@ -29,3 +29,4 @@ $(TARGET): $(OBJECTS)
 
 clean:
 	@rm -f *.o
+	@rm -f syzygy/*.o

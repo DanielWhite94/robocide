@@ -112,7 +112,8 @@ NnueNet *nnueNetLoad(const char *path) {
 
 	// Error handling
 	error:
-	fclose(file);
+	if (file!=NULL)
+		fclose(file);
 	free(net);
 	return NULL;
 }

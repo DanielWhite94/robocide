@@ -6,6 +6,9 @@
 #include "nnue-kp.h"
 #include "util.h"
 
+const uint32_t nnueFileHeaderVersion=0xF4B8E1D9; // randomly generated - hopefully it doesn't clash with anything out in the wild
+const uint32_t nnueFileHeaderHash=0xF4B8E1D9; // use this as extra version bits instead of a hash for now
+
 #define NnueLayerHidden1Size 32
 #define NnueLayerHidden2Size 32
 
@@ -94,6 +97,28 @@ NnueNet *nnueNetLoad(const char *path) {
 	if (file==NULL)
 		goto error;
 
+	// Read header
+	uint32_t fileHeaderVersion;
+	uint32_t fileHeaderHash;
+	uint32_t descLen;
+	if (fread(&fileHeaderVersion, sizeof(fileHeaderVersion), 1, file)!=1 ||
+	    fread(&fileHeaderHash, sizeof(fileHeaderHash), 1, file)!=1 ||
+	    fread(&descLen, sizeof(descLen), 1, file)!=1)
+		goto error;
+
+	// Verify header version and hash
+	if (fileHeaderVersion!=nnueFileHeaderVersion || fileHeaderHash!=nnueFileHeaderHash)
+		goto error;
+
+	// Skip past description string
+	char temp[64];
+	while(descLen>0) {
+		size_t readCount=fread(temp, 1, (descLen<64 ? descLen : 64), file);
+		if (readCount==0)
+			goto error;
+		descLen-=readCount;
+	}
+
 	// Read data
 	if (fread(net->weightsAccum, sizeof(net->weightsAccum), 1, file)!=1 ||
 	    fread(net->biasAccum, sizeof(net->biasAccum), 1, file)!=1 ||
@@ -127,6 +152,15 @@ bool nnueNetSave(const NnueNet *net, const char *path) {
 	if (file==NULL)
 		return false;
 
+	// Write header
+	const char *desc="Stockfish HalfKP style feature set: 45056->256*2->32->32->1.";
+	uint32_t descLen=strlen(desc);
+	if (fwrite(&nnueFileHeaderVersion, sizeof(nnueFileHeaderVersion), 1, file)!=1 ||
+	    fwrite(&nnueFileHeaderHash, sizeof(nnueFileHeaderHash), 1, file)!=1 ||
+	    fwrite(&descLen, sizeof(descLen), 1, file)!=1 ||
+	    fwrite(desc, descLen, 1, file)!=1)
+		goto error;
+
 	// Write data
 	if (fwrite(net->weightsAccum, sizeof(net->weightsAccum), 1, file)!=1 ||
 	    fwrite(net->biasAccum, sizeof(net->biasAccum), 1, file)!=1 ||
@@ -135,15 +169,16 @@ bool nnueNetSave(const NnueNet *net, const char *path) {
 	    fwrite(net->weightsHidden2, sizeof(net->weightsHidden2), 1, file)!=1 ||
 	    fwrite(net->biasHidden2, sizeof(net->biasHidden2), 1, file)!=1 ||
 	    fwrite(net->weightsOutput, sizeof(net->weightsOutput), 1, file)!=1 ||
-	    fwrite(&net->biasOutput, sizeof(net->biasOutput), 1, file)!=1) {
-		fclose(file);
-		return false;
-	}
+	    fwrite(&net->biasOutput, sizeof(net->biasOutput), 1, file)!=1)
+		goto error;
 
 	// Close file
 	fclose(file);
 
 	return true;
+	error:
+	fclose(file);
+	return false;
 }
 
 NnueNet *nnueNetNewMaterial(void) {

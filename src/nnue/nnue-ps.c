@@ -6,8 +6,7 @@
 #include "nnue-ps.h"
 #include "util.h"
 
-#define NnueLayerHidden1Size 16
-#define NnueLayerHidden2Size 16
+#define NnueLayerHiddenSize 16
 
 typedef enum {
 	// This differs from the standard Piece definition in a few ways:
@@ -32,13 +31,10 @@ struct NnueNet {
 	int16_t weightsAccum[NnuePieceNB][SqNB][NnueAccumulatorSize]; // [Piece][PieceSq][index]
 	int16_t biasAccum[NnueAccumulatorSize];
 
-	int8_t weightsHidden1[NnueLayerHidden1Size][2*NnueAccumulatorSize];
-	int32_t biasHidden1[NnueLayerHidden1Size];
+	int8_t weightsHidden[NnueLayerHiddenSize][2*NnueAccumulatorSize];
+	int32_t biasHidden[NnueLayerHiddenSize];
 
-	int8_t weightsHidden2[NnueLayerHidden2Size][NnueLayerHidden1Size];
-	int32_t biasHidden2[NnueLayerHidden2Size];
-
-	int8_t weightsOutput[NnueLayerHidden2Size];
+	int8_t weightsOutput[NnueLayerHiddenSize];
 	int32_t biasOutput;
 };
 
@@ -97,10 +93,8 @@ NnueNet *nnueNetLoad(const char *path) {
 	// Read data
 	if (fread(net->weightsAccum, sizeof(net->weightsAccum), 1, file)!=1 ||
 	    fread(net->biasAccum, sizeof(net->biasAccum), 1, file)!=1 ||
-	    fread(net->weightsHidden1, sizeof(net->weightsHidden1), 1, file)!=1 ||
-	    fread(net->biasHidden1, sizeof(net->biasHidden1), 1, file)!=1 ||
-	    fread(net->weightsHidden2, sizeof(net->weightsHidden2), 1, file)!=1 ||
-	    fread(net->biasHidden2, sizeof(net->biasHidden2), 1, file)!=1 ||
+	    fread(net->weightsHidden, sizeof(net->weightsHidden), 1, file)!=1 ||
+	    fread(net->biasHidden, sizeof(net->biasHidden), 1, file)!=1 ||
 	    fread(net->weightsOutput, sizeof(net->weightsOutput), 1, file)!=1 ||
 	    fread(&net->biasOutput, sizeof(net->biasOutput), 1, file)!=1)
 		goto error;
@@ -130,10 +124,8 @@ bool nnueNetSave(const NnueNet *net, const char *path) {
 	// Write data
 	if (fwrite(net->weightsAccum, sizeof(net->weightsAccum), 1, file)!=1 ||
 	    fwrite(net->biasAccum, sizeof(net->biasAccum), 1, file)!=1 ||
-	    fwrite(net->weightsHidden1, sizeof(net->weightsHidden1), 1, file)!=1 ||
-	    fwrite(net->biasHidden1, sizeof(net->biasHidden1), 1, file)!=1 ||
-	    fwrite(net->weightsHidden2, sizeof(net->weightsHidden2), 1, file)!=1 ||
-	    fwrite(net->biasHidden2, sizeof(net->biasHidden2), 1, file)!=1 ||
+	    fwrite(net->weightsHidden, sizeof(net->weightsHidden), 1, file)!=1 ||
+	    fwrite(net->biasHidden, sizeof(net->biasHidden), 1, file)!=1 ||
 	    fwrite(net->weightsOutput, sizeof(net->weightsOutput), 1, file)!=1 ||
 	    fwrite(&net->biasOutput, sizeof(net->biasOutput), 1, file)!=1) {
 		fclose(file);
@@ -165,13 +157,9 @@ NnueNet *nnueNetNewMaterial(void) {
 		net->weightsAccum[NnuePieceBQueen][pieceSq][0]=-9*f;
 	}
 
-	// Hidden layer 1
-	net->weightsHidden1[0][0]=64;
-	net->weightsHidden1[1][NnueAccumulatorSize]=64;
-
-	// Hidden layer 2
-	net->weightsHidden2[0][0]=64;
-	net->weightsHidden2[1][1]=64;
+	// Hidden layer
+	net->weightsHidden[0][0]=64;
+	net->weightsHidden[1][NnueAccumulatorSize]=64;
 
 	// Output layer
 	net->weightsOutput[0]=20;
@@ -206,24 +194,17 @@ NnueNet *nnueNetNewPST(void) {
 		net->weightsAccum[NnuePieceBKing][pieceSq][i]=evalPST[PieceBKing][pieceSq].mg/d;
 	}
 
-	// Hidden layer 1
+	// Hidden layer
 	assert(SqNB<=NnueAccumulatorSize);
 	for(unsigned i=0; i<SqNB; ++i) {
-		net->weightsHidden1[i/(2*SqNB/NnueLayerHidden1Size)][i]=32;
-		net->weightsHidden1[i/(2*SqNB/NnueLayerHidden1Size)+NnueLayerHidden1Size/2][i+NnueAccumulatorSize]=32;
-	}
-
-	// Hidden layer 2
-	assert(NnueLayerHidden1Size==NnueLayerHidden2Size);
-	for(unsigned i=0; i<NnueLayerHidden2Size/2; ++i) {
-		net->weightsHidden2[i][i]=64;
-		net->weightsHidden2[i+NnueLayerHidden2Size/2][i+NnueLayerHidden2Size/2]=64;
+		net->weightsHidden[i/(2*SqNB/NnueLayerHiddenSize)][i]=32;
+		net->weightsHidden[i/(2*SqNB/NnueLayerHiddenSize)+NnueLayerHiddenSize/2][i+NnueAccumulatorSize]=32;
 	}
 
 	// Output layer
-	for(unsigned i=0; i<NnueLayerHidden2Size/2; ++i) {
+	for(unsigned i=0; i<NnueLayerHiddenSize/2; ++i) {
 		net->weightsOutput[i]=20;
-		net->weightsOutput[i+NnueLayerHidden2Size/2]=-20;
+		net->weightsOutput[i+NnueLayerHiddenSize/2]=-20;
 	}
 
 	return net;
@@ -336,44 +317,27 @@ Score nnueEvaluateNetAccum(Colour stm, const NnueNet *net, const NnueAccumulator
 		nnueLayerDebug8(inputLayer, 2*NnueAccumulatorSize);
 	}
 
-	// First hidden layer
-	int32_t hiddenLayer1[NnueLayerHidden1Size];
-	memcpy(hiddenLayer1, net->biasHidden1, sizeof(hiddenLayer1));
+	// Hidden layer
+	int32_t hiddenLayer[NnueLayerHiddenSize];
+	memcpy(hiddenLayer, net->biasHidden, sizeof(hiddenLayer));
 
-	for(unsigned i=0; i<NnueLayerHidden1Size; ++i)
+	for(unsigned i=0; i<NnueLayerHiddenSize; ++i)
 		for(unsigned j=0; j<2*NnueAccumulatorSize; ++j)
-			hiddenLayer1[i]+=nnueMul(inputLayer[j], net->weightsHidden1[i][j]);
+			hiddenLayer[i]+=nnueMul(inputLayer[j], net->weightsHidden[i][j]);
 
-	for(unsigned i=0; i<NnueLayerHidden1Size; ++i)
-		hiddenLayer1[i]=nnueCReLU(hiddenLayer1[i]);
-
-	// Debugging
-	if (verbose) {
-		printf("Hidden layer 1:\n");
-		nnueLayerDebug32(hiddenLayer1, NnueLayerHidden1Size);
-	}
-
-	// Second hidden layer
-	int32_t hiddenLayer2[NnueLayerHidden2Size];
-	memcpy(hiddenLayer2, net->biasHidden2, sizeof(hiddenLayer2));
-
-	for(unsigned i=0; i<NnueLayerHidden2Size; ++i)
-		for(unsigned j=0; j<NnueLayerHidden1Size; ++j)
-			hiddenLayer2[i]+=nnueMul(hiddenLayer1[j], net->weightsHidden2[i][j]);
-
-	for(unsigned i=0; i<NnueLayerHidden2Size; ++i)
-		hiddenLayer2[i]=nnueCReLU(hiddenLayer2[i]);
+	for(unsigned i=0; i<NnueLayerHiddenSize; ++i)
+		hiddenLayer[i]=nnueCReLU(hiddenLayer[i]);
 
 	// Debugging
 	if (verbose) {
-		printf("Hidden layer 2:\n");
-		nnueLayerDebug32(hiddenLayer2, NnueLayerHidden2Size);
+		printf("Hidden layer:\n");
+		nnueLayerDebug32(hiddenLayer, NnueLayerHiddenSize);
 	}
 
 	// Output layer
 	int32_t outputLayer=net->biasOutput;
-	for(unsigned i=0; i<NnueLayerHidden2Size; ++i)
-		outputLayer+=nnueMul(hiddenLayer2[i], net->weightsOutput[i]);
+	for(unsigned i=0; i<NnueLayerHiddenSize; ++i)
+		outputLayer+=nnueMul(hiddenLayer[i], net->weightsOutput[i]);
 
 	// Debugging
 	if (verbose)

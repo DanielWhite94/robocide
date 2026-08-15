@@ -8,6 +8,7 @@
 #include "uci.h"
 
 bool nnueUseNnue=true;
+const char *nnueNetPath="nnue/nets/ps-default.nnue";
 
 NnueNet *nnueNet=NULL; // holds the currently loaded network
 
@@ -16,6 +17,7 @@ NnueNet *nnueNet=NULL; // holds the currently loaded network
 ////////////////////////////////////////////////////////////////////////////////
 
 void nnueInterfaceUseNnue(void *userData, bool value);
+void nnueInterfaceSetEvalFile(void *userData, const char *value);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions
@@ -27,9 +29,11 @@ void nnueInit(void) {
 	// Add UCI option
 	if (!uciOptionNewCheck("NNUE", &nnueInterfaceUseNnue, NULL, nnueUseNnue))
 		mainFatalError("Error: Could not add NNUE option.\n");
+	if (!uciOptionNewString("EvalFile", &nnueInterfaceSetEvalFile, NULL, nnueNetPath))
+		mainFatalError("Error: Could not add EvalFile option.\n");
 
 	// Load network
-	nnueNet=nnueNetNewPST();
+	nnueNet=nnueNetLoad(nnueNetPath);
 	if (nnueNet==NULL)
 		mainFatalError("Error: Could not load NNUE network.\n");
 }
@@ -70,4 +74,20 @@ void nnueInterfaceUseNnue(void *userData, bool value) {
 	// Clear cached values where possible (ideally restart the engine and set this option before doing any searches)
 	searchClear(); // includes TT
 	evalClear();
+}
+
+void nnueInterfaceSetEvalFile(void *userData, const char *value) {
+	assert(userData==NULL);
+	assert(value!=NULL);
+
+	// Attempt to load given file
+	NnueNet *newNet=nnueNetLoad(value);
+	if (nnueNet==NULL)
+		uciWrite("info string Failed to load NNUE network at '%s'.\n", value);
+
+	// If successful, replace existing
+	if (newNet!=NULL) {
+		nnueNetFree(nnueNet);
+		nnueNet=newNet;
+	}
 }

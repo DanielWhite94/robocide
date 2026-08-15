@@ -1,3 +1,5 @@
+#ifdef NNUE_ARCH_KP
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -496,3 +498,5 @@ NnuePiece nnuePieceSwapColour(NnuePiece p) {
 
 	return (p<NnuePieceBPawn) ? (p-NnuePieceWPawn+NnuePieceBPawn) : (p-NnuePieceBPawn+NnuePieceWPawn);
 }
+
+#endif

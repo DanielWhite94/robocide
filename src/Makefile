@@ -1,6 +1,6 @@
 TARGET = robocide
 CC = gcc
-CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs -march=native
+CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs -march=native -DNNUE_ARCH_PS
 LFLAGS = -lm
 CFLAGSDEBUG = -DNDEBUG -g #-DEVALINFO
 CFLAGSNOBUILTIN = -DBUILTINS
@@ -16,8 +16,8 @@ nobuiltin: default
 debug: default
 tune: default
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) nnue/nnue-ps.o nnue/tune.o nnue/util.o syzygy/tbprobe.o syzygy/wrapper.o
-HEADERS = $(wildcard *.h) $(wildcard syzygy/*.h) nnue/nnue-ps.h nnue/tune.h nnue/util.h
+OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) $(patsubst %.c, %.o, $(wildcard nnue/*.c)) syzygy/tbprobe.o syzygy/wrapper.o
+HEADERS = $(wildcard *.h) $(wildcard syzygy/*.h) $(wildcard nnue/*.h)
 
 %.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) $(CFLAGSDEBUG) $(CFLAGSNOBUILTIN) -c $< -o $@

@@ -1,3 +1,5 @@
+#ifdef NNUE_ARCH_PS
+
 #ifndef NNUE_PS_H
 #define NNUE_PS_H
 
@@ -45,5 +47,7 @@ void nnueAccumulatorMove(NnueAccumulator *accum, const NnueNet *net, const Pos *
 
 // Evaluation functions
 Score nnueEvaluateNetAccum(Colour stm, const NnueNet *net, const NnueAccumulator *accum, bool verbose);
+
+#endif
 
 #endif

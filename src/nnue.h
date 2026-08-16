@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "nnue/nnue-kp.h"
+#include "nnue/nnue-min.h"
 #include "nnue/nnue-ps.h"
 #include "pos.h"
 

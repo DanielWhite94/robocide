@@ -1,6 +1,6 @@
 TARGET = robocide
 CC = gcc
-CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs -march=native -DNNUE_ARCH_PS
+CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs -march=native -DNNUE_ARCH_MIN
 LFLAGS = -lm
 CFLAGSDEBUG = -DNDEBUG -g #-DEVALINFO
 CFLAGSNOBUILTIN = -DBUILTINS

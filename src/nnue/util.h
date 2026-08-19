@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-int32_t nnueMul(int8_t a, int8_t b);
+int32_t nnueMul(int32_t a, int32_t b); // used to easily promote two variables to 32 bit when multiplying them
 int32_t nnueCReLU(int32_t x);
 int32_t nnueClamp(int32_t x, int32_t min, int32_t max);
 

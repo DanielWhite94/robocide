@@ -40,6 +40,8 @@ struct NnueTunePositions {
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
 
+double nnueTunePositionsCalculateTotalError(const NnueTunePositions *positions, const NnueNet *net);
+
 void nnueTunePositionFromPos(NnueTunePosition *position, const Pos *pos);
 void nnueTunePositionToPos(const NnueTunePosition *position, Pos *pos); // note: this only sets the bare minimum for our tuning purposes (a call to posIsConsistent would fail)
 void nnueTunePositionToArray(const NnueTunePosition *position, Piece array[SqNB]);
@@ -157,6 +159,47 @@ NnueTunePositions *nnueTunePositionsLoadEpd(const char *path) {
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
+
+double nnueTunePositionsCalculateTotalError(const NnueTunePositions *positions, const NnueNet *net) {
+	assert(positions!=NULL);
+	assert(net!=NULL);
+
+	// Init
+	Pos *scratchPos=posNew(NULL);
+
+	double totalError=0.0;
+
+	// Loop over positions
+	for(size_t i=0; i<positions->next; ++i) {
+		const NnueTunePosition *pos=&positions->array[i];
+
+		// Compute input layer (accumulators)
+		nnueTunePositionToPos(pos, scratchPos);
+
+		NnueAccumulator accum;
+		nnueAccumulatorCalc(net, scratchPos, &accum);
+
+		// Compute rest of the network to find score
+		Score netScore=nnueEvaluateNetAccum(pos->stm, net, &accum, false);
+		if (pos->stm==ColourBlack)
+			netScore=-netScore;
+
+		// Convert score and game result to win probability
+		double netWinProb=nnueTuneComputeSigmoid(netScore);
+		double gameWinProb=nnueTuneScoreToWinProb(pos->score);
+
+		// Compute difference between network value and game value
+		double winProbDelta=fabs(gameWinProb-netWinProb);
+
+		// Add to running error total
+		totalError+=winProbDelta;
+	}
+
+	// Tidy up
+	posFree(scratchPos);
+
+	return totalError;
+}
 
 void nnueTunePositionFromPos(NnueTunePosition *position, const Pos *pos) {
 	assert(position!=NULL);

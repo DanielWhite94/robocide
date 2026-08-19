@@ -12,6 +12,10 @@ int32_t nnueCReLU(int32_t x) {
 	return (x<=0 ? 0 : (x<=127 ? x : 127));
 }
 
+int32_t nnueClamp(int32_t x, int32_t min, int32_t max) {
+	return (x<=min ? min : (x>=max ? max : x));
+}
+
 void nnueLayerDebug8(const int8_t *values, size_t count) {
 	assert(values!=NULL);
 

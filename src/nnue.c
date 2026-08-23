@@ -8,7 +8,7 @@
 #include "uci.h"
 
 bool nnueUseNnue=true;
-const char *nnueNetPath="nnue/nets/ps-default.nnue";
+const char *nnueNetPath="nnue/nets/minifishport.nnue";
 
 NnueNet *nnueNet=NULL; // holds the currently loaded network
 

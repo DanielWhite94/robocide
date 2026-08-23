@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,8 @@
 #include "nnue.h"
 #include "tune.h"
 #include "uci.h"
+
+typedef int32_t Value;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Tunable values.
@@ -154,12 +157,6 @@ void evalSetValue(void *varPtr, long long value) {
 	// Set value.
 	Value *var=(Value *)varPtr;
 	*var=value;
-
-	// Hack for bishops.
-	if (var==&evalMaterial[PieceTypeBishopL].mg)
-		evalMaterial[PieceTypeBishopD].mg=value;
-	else if (var==&evalMaterial[PieceTypeBishopL].eg)
-		evalMaterial[PieceTypeBishopD].eg=value;
 
 	// Recalculate dervied values (such as passed pawn table).
 	evalRecalc();

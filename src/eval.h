@@ -1,10 +1,6 @@
 #ifndef EVAL_H
 #define EVAL_H
 
-#include <stdint.h>
-
-typedef int32_t Value;
-
 typedef enum {
 	EvalMatTypeInvalid,
 	EvalMatTypeOther,

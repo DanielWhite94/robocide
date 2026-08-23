@@ -11,6 +11,10 @@
 const uint32_t nnueFileHeaderVersion=0x4F9E2B8C; // randomly generated - hopefully it doesn't clash with anything out in the wild
 const uint32_t nnueFileHeaderHash=0xA3D7B29E; // use this as extra version bits instead of a hash for now
 
+#define nnueMinNetworkScale 340
+#define nnueMinNetworkQA 101
+#define nnueMinNetworkQB 160
+
 typedef enum {
 	// This differs from the standard Piece definition in a few ways:
 	// * There is no None member
@@ -41,6 +45,8 @@ struct NnueNet {
 ////////////////////////////////////////////////////////////////////////////////
 // Private prototypes
 ////////////////////////////////////////////////////////////////////////////////
+
+const int16_t *nnueAccumulatorGetFeatureWeights(const NnueNet *net, Sq kingSq, Colour c, Sq sq, NnuePiece p);
 
 NnuePiece nnuePieceFromPiece(Piece p);
 NnuePiece nnuePieceSwapColour(NnuePiece p);
@@ -167,69 +173,8 @@ bool nnueNetSave(const NnueNet *net, const char *path) {
 	return false;
 }
 
-NnueNet *nnueNetNewMaterial(void) {
-	// Create 'empty' net
-	NnueNet *net=nnueNetNew(NULL);
-
-	// Input layer (accumulator)
-	for(Sq pieceSq=0; pieceSq<64; ++pieceSq) {
-		const int f=3*100;
-		net->weightsAccum[NnuePieceWPawn][pieceSq][0]=1*f;
-		net->weightsAccum[NnuePieceBPawn][pieceSq][0]=-1*f;
-		net->weightsAccum[NnuePieceWKnight][pieceSq][0]=3*f;
-		net->weightsAccum[NnuePieceBKnight][pieceSq][0]=-3*f;
-		net->weightsAccum[NnuePieceWBishop][pieceSq][0]=3*f;
-		net->weightsAccum[NnuePieceBBishop][pieceSq][0]=-3*f;
-		net->weightsAccum[NnuePieceWRook][pieceSq][0]=5*f;
-		net->weightsAccum[NnuePieceBRook][pieceSq][0]=-5*f;
-		net->weightsAccum[NnuePieceWQueen][pieceSq][0]=9*f;
-		net->weightsAccum[NnuePieceBQueen][pieceSq][0]=-9*f;
-	}
-
-	// Output layer
-	net->weightsOutput[0]=20;
-	net->weightsOutput[NnueAccumulatorSize]=-20;
-
-	return net;
-}
-
-NnueNet *nnueNetNewPST(void) {
-	// Create 'empty' net
-	NnueNet *net=nnueNetNew(NULL);
-
-	// Input layer (accumulator)
-	for(Sq pieceSq=0; pieceSq<SqNB; ++pieceSq) {
-		unsigned i=pieceSq;
-		int d=2;
-
-		// White
-		net->weightsAccum[NnuePieceWPawn][pieceSq][i]=evalPST[PieceWPawn][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceWKnight][pieceSq][i]=evalPST[PieceWKnight][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceWBishop][pieceSq][i]=evalPST[PieceWBishopL][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceWRook][pieceSq][i]=evalPST[PieceWRook][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceWQueen][pieceSq][i]=evalPST[PieceWQueen][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceWKing][pieceSq][i]=evalPST[PieceWKing][pieceSq].mg/d;
-
-		// Black
-		net->weightsAccum[NnuePieceBPawn][pieceSq][i]=evalPST[PieceBPawn][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceBKnight][pieceSq][i]=evalPST[PieceBKnight][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceBBishop][pieceSq][i]=evalPST[PieceBBishopL][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceBRook][pieceSq][i]=evalPST[PieceBRook][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceBQueen][pieceSq][i]=evalPST[PieceBQueen][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceBKing][pieceSq][i]=evalPST[PieceBKing][pieceSq].mg/d;
-	}
-
-	// Output layer
-	for(unsigned i=0; i<NnueAccumulatorSize; ++i) {
-		net->weightsOutput[i]=20;
-		net->weightsOutput[i+NnueAccumulatorSize]=-20;
-	}
-
-	return net;
-}
-
 bool nnueNetFeatureSetIsSimple(void) {
-	return true;
+	return false; // due to mirroring of POV king if on EGFH files
 }
 
 void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *accum) {
@@ -274,13 +219,18 @@ void nnueAccumulatorAdd(NnueAccumulator *accum, const NnueNet *net, const Pos *p
 	assert(pos!=NULL);
 	assert(piece!=PieceNone);
 
+	Sq kingSqW=posGetKingSq(pos, ColourWhite);
+	Sq kingSqB=posGetKingSq(pos, ColourBlack);
+	const int16_t *values;
 	Piece nnueP=nnuePieceFromPiece(piece);
 
+	values=nnueAccumulatorGetFeatureWeights(net, kingSqW, ColourWhite, sq, nnueP);
 	for(unsigned i=0; i<NnueAccumulatorSize; ++i)
-		accum->values[ColourWhite][i]+=net->weightsAccum[nnueP][sq][i];
+		accum->values[ColourWhite][i]+=values[i];
 
+	values=nnueAccumulatorGetFeatureWeights(net, kingSqB, ColourBlack, sq, nnueP);
 	for(unsigned i=0; i<NnueAccumulatorSize; ++i)
-		accum->values[ColourBlack][i]+=net->weightsAccum[nnuePieceSwapColour(nnueP)][sqFlip(sq)][i];
+		accum->values[ColourBlack][i]+=values[i];
 }
 
 void nnueAccumulatorRemove(NnueAccumulator *accum, const NnueNet *net, const Pos *pos, Sq sq, Piece piece) {
@@ -289,13 +239,18 @@ void nnueAccumulatorRemove(NnueAccumulator *accum, const NnueNet *net, const Pos
 	assert(pos!=NULL);
 	assert(piece!=PieceNone);
 
+	Sq kingSqW=posGetKingSq(pos, ColourWhite);
+	Sq kingSqB=posGetKingSq(pos, ColourBlack);
+	const int16_t *values;
 	Piece nnueP=nnuePieceFromPiece(piece);
 
+	values=nnueAccumulatorGetFeatureWeights(net, kingSqW, ColourWhite, sq, nnueP);
 	for(unsigned i=0; i<NnueAccumulatorSize; ++i)
-		accum->values[ColourWhite][i]-=net->weightsAccum[nnueP][sq][i];
+		accum->values[ColourWhite][i]-=values[i];
 
+	values=nnueAccumulatorGetFeatureWeights(net, kingSqB, ColourBlack, sq, nnueP);
 	for(unsigned i=0; i<NnueAccumulatorSize; ++i)
-		accum->values[ColourBlack][i]-=net->weightsAccum[nnuePieceSwapColour(nnueP)][sqFlip(sq)][i];
+		accum->values[ColourBlack][i]-=values[i];
 }
 
 void nnueAccumulatorMove(NnueAccumulator *accum, const NnueNet *net, const Pos *pos, Sq fromSq, Piece fromPiece, Sq toSq, Piece toPiece) {
@@ -325,8 +280,8 @@ Score nnueEvaluateNetAccum(Colour stm, const NnueNet *net, const NnueAccumulator
 
 	int16_t inputLayer[2*NnueAccumulatorSize];
 	for(unsigned i=0; i<NnueAccumulatorSize; ++i) {
-		inputLayer[i]=nnueCReLU(accum->values[stm][i]);
-		inputLayer[i+NnueAccumulatorSize]=nnueCReLU(accum->values[xtm][i]);
+		inputLayer[i]=nnueClamp(accum->values[stm][i], 0, nnueMinNetworkQA);
+		inputLayer[i+NnueAccumulatorSize]=nnueClamp(accum->values[xtm][i], 0, nnueMinNetworkQA);
 	}
 
 	// Debugging
@@ -336,9 +291,14 @@ Score nnueEvaluateNetAccum(Colour stm, const NnueNet *net, const NnueAccumulator
 	}
 
 	// Output layer
-	int16_t outputLayer=net->biasOutput;
-	for(unsigned i=0; i<2*NnueAccumulatorSize; ++i)
-		outputLayer+=nnueMul(inputLayer[i], net->weightsOutput[i]);
+	int32_t outputLayer=0;
+	for(unsigned i=0; i<2*NnueAccumulatorSize; ++i) {
+		int16_t t=nnueMul(inputLayer[i], net->weightsOutput[i]); // important we throw away the high bits and only keep the lower 16
+		outputLayer+=nnueMul(inputLayer[i], t);
+	}
+
+	int unsquared=outputLayer/nnueMinNetworkQA+net->biasOutput;
+	outputLayer=((unsquared*nnueMinNetworkScale)/(nnueMinNetworkQA*nnueMinNetworkQB));
 
 	// Debugging
 	if (verbose)
@@ -350,6 +310,23 @@ Score nnueEvaluateNetAccum(Colour stm, const NnueNet *net, const NnueAccumulator
 ////////////////////////////////////////////////////////////////////////////////
 // Private functions
 ////////////////////////////////////////////////////////////////////////////////
+
+const int16_t *nnueAccumulatorGetFeatureWeights(const NnueNet *net, Sq kingSq, Colour c, Sq sq, NnuePiece p) {
+	assert(net!=NULL);
+
+	// Mirror if friendly king is on right half of the board (EFGH files)
+	if (sqFile(kingSq)>FileD)
+		sq=sqMirror(sq);
+
+	// Adjust so always from white's POV
+	if (c==ColourBlack) {
+		p=nnuePieceSwapColour(p);
+		sq=sqFlip(sq);
+	}
+
+	// Return array of weights
+	return net->weightsAccum[p][sq];
+}
 
 NnuePiece nnuePieceFromPiece(Piece p) {
 	switch(p) {

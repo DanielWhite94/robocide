@@ -27,9 +27,6 @@ void nnueNetFree(NnueNet *net);
 NnueNet *nnueNetLoad(const char *path);
 bool nnueNetSave(const NnueNet *net, const char *path);
 
-NnueNet *nnueNetNewMaterial(void); // uses 1:3:3:5:9 material values to make a basic test net
-NnueNet *nnueNetNewPST(void); // uses evalPST (exposed by eval.h) to make a basic test net
-
 bool nnueNetFeatureSetIsSimple(void); // if false then have to recalc when e.g. kings move
 
 // Accumulator functions

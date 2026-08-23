@@ -15,7 +15,6 @@
 #include "see.h"
 #include "syzygy.h"
 #include "time.h"
-#include "ttune.h"
 #include "uci.h"
 
 typedef enum {
@@ -189,7 +188,6 @@ void uciLoop(void) {
 		else if (utilStrEqual(part, "ucinewgame")) {
 			mainLogNewGame();
 			searchClear();
-			evalClear();
 		} else if (utilStrEqual(part, "setoption")) {
 			part=line+strlen("setoption");
 			uciParseSetOption(part+1);
@@ -201,7 +199,6 @@ void uciLoop(void) {
 			Score evalScore=evaluate(pos);
 			uciWrite("Eval: %s (raw score %i)\n", SCORETOSTR(evalScore, BoundExact), (int)evalScore);
 
-			uciWrite("MatType: %s\n", evalMatTypeToStr(evalGetMatType(pos)));
 			char *posStr=uciPosToStr(pos);
 			uciWrite("UCI str: %s\n", posStr);
 			free(posStr);
@@ -211,7 +208,7 @@ void uciLoop(void) {
 			Score nnueEval=nnueEvaluate(pos);
 			uciWrite("NNUE eval: %i\n", nnueEval);
 		} else if (utilStrEqual(part, "bitbase")) {
-			if (evalGetMatType(pos)==EvalMatTypeKPvK) {
+			if (evalComputeMatType(pos)==EvalMatTypeKPvK) {
 				uciWrite("BitBase:\n");
 				Moves moves;
 				movesInit(&moves, pos, 0, MoveTypeAny);
@@ -293,23 +290,6 @@ void uciLoop(void) {
 
 			// Call mainReplay to do the actual work
 			mainReplay(replayPath, replayDate);
-		} else if (utilStrEqual(part, "pst")) {
-			evalPstDebug();
-		} else if (utilStrEqual(part, "ttune")) {
-			// Grab arguments
-			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
-				printf("Error: missing input EPD file argument\n");
-				continue;
-			}
-			const char *inputPath=part;
-			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
-				printf("Error: missing output code file argument\n");
-				continue;
-			}
-			const char *outputPath=part;
-
-			// Call ttuneRun to do the actual work
-			ttuneRun(inputPath, outputPath);
 		}
 	}
 

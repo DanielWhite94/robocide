@@ -15,7 +15,6 @@ unsigned long long int benchmarkFen(const char *fen, Depth depth);
 
 unsigned long long int benchmark(void) {
 	searchClear();
-	evalClear();
 
 	unsigned long long int nodes=0;
 	nodes+=benchmarkFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 9);

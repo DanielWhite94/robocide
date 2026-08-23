@@ -223,7 +223,6 @@ bool mainReplay(const char *path, const char *date) {
 	// Start replaying game from first move (or first move we had to search for after any book opening)
 	// First clear internal search state and make note of TT size (we may have to resize it to match the state of the game in the log file).
 	searchClear();
-	evalClear();
 	unsigned long originalTTSize=ttGetSizeMb();
 
 	// Now start replaying game, move by move, until desired position reached.

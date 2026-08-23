@@ -73,7 +73,6 @@ void nnueInterfaceUseNnue(void *userData, bool value) {
 
 	// Clear cached values where possible (ideally restart the engine and set this option before doing any searches)
 	searchClear(); // includes TT
-	evalClear();
 }
 
 void nnueInterfaceSetEvalFile(void *userData, const char *value) {

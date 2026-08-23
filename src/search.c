@@ -1284,7 +1284,7 @@ bool searchInteriorRecog(Node *node) {
 	}
 
 	// Special material combination recognizers.
-	switch(evalGetMatType(node->pos)) {
+	switch(evalComputeMatType(node->pos)) {
 		case EvalMatTypeKNNvK: if (searchInteriorRecogKNNvK(node)) return true; break;
 		case EvalMatTypeKPvK: if (searchInteriorRecogKPvK(node)) return true; break;
 		case EvalMatTypeKBPvK: if (searchInteriorRecogKBPvK(node)) return true; break;

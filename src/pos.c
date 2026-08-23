@@ -41,7 +41,6 @@ struct Pos {
 	Colour stm;
 	unsigned int fullMoveNumber;
 	Key pawnKey, matKey;
-	VPair pstScore; // From white's POV
 	NnueAccumulator nnueAccum; // for incremental updates
 };
 
@@ -301,7 +300,6 @@ void posDraw(const Pos *pos) {
 	char fen[FenMaxLen];
 	posGetFEN(pos, fen);
 	uciWrite("FEN string: %s\n", fen);
-	uciWrite("PST score: (%i,%i)\n", pos->pstScore.mg, pos->pstScore.eg);
 }
 
 Colour posGetSTM(const Pos *pos) {
@@ -371,10 +369,6 @@ CastRights posGetCastRights(const Pos *pos) {
 
 Sq posGetEPSq(const Pos *pos) {
 	return pos->data->epSq;
-}
-
-VPair posGetPstScore(const Pos *pos) {
-	return pos->pstScore;
 }
 
 const NnueAccumulator *posGetNnueAccum(const Pos *pos) {
@@ -776,7 +770,7 @@ bool posIsDraw(const Pos *pos) {
 		return true;
 
 	// Insufficient material.
-	if (evalGetMatType(pos)==EvalMatTypeDraw)
+	if (evalComputeMatType(pos)==EvalMatTypeDraw)
 		return true;
 
 	return false;
@@ -1191,7 +1185,6 @@ void posClean(Pos *pos) {
 	pos->fullMoveNumber=1;
 	pos->pawnKey=0;
 	pos->matKey=0;
-	pos->pstScore=VPairZero;
 
 	// Pos->data fields
 	pos->data=pos->dataStart;
@@ -1226,9 +1219,6 @@ void posPieceAdd(Pos *pos, Piece piece, Sq sq, bool skipMainKeyUpdate, bool skip
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
 	pos->matKey+=posMatKey[piece];
 
-	// Update PST score.
-	evalVPairAddTo(&pos->pstScore, &evalPST[piece][sq]);
-
 	// NNUE accumulator
 	if (!skipNetAccumUpdate)
 		nnueAccumulatorAdd(&pos->nnueAccum, nnueNetGet(), pos, sq, piece);
@@ -1251,9 +1241,6 @@ void posPieceRemove(Pos *pos, Sq sq, bool skipMainKeyUpdate, bool skipNetAccumUp
 		pos->data->key^=posKeyPiece[piece][sq];
 	pos->pawnKey^=posPawnKeyPiece[piece][sq];
 	pos->matKey-=posMatKey[piece];
-
-	// Update PST score.
-	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][sq]);
 
 	// NNUE accumulator
 	if (!skipNetAccumUpdate)
@@ -1279,10 +1266,6 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate, bool ski
 	if (!skipMainKeyUpdate)
 		pos->data->key^=posKeyPiece[piece][fromSq]^posKeyPiece[piece][toSq];
 	pos->pawnKey^=posPawnKeyPiece[piece][fromSq]^posPawnKeyPiece[piece][toSq];
-
-	// Update PST score.
-	evalVPairSubFrom(&pos->pstScore, &evalPST[piece][fromSq]);
-	evalVPairAddTo(&pos->pstScore, &evalPST[piece][toSq]);
 
 	// NNUE accumulator
 	if (!skipNetAccumUpdate) {
@@ -1656,14 +1639,6 @@ bool posIsConsistent(const Pos *pos) {
 	if (matKey!=trueMatKey) {
 		sprintf(error, "Current mat key is %016"PRIxKey" while true key is %016"PRIxKey".\n",
 						matKey, trueMatKey);
-		goto Error;
-	}
-
-	// Test PST score is accurate.
-	VPair truePstScore=evalComputePstScore(pos);
-	if (pos->pstScore.mg!=truePstScore.mg || pos->pstScore.eg!=truePstScore.eg) {
-		sprintf(error, "Current pst score is (%i,%i) while true is (%i,%i).\n",
-						pos->pstScore.mg, pos->pstScore.eg, truePstScore.mg, truePstScore.eg);
 		goto Error;
 	}
 

@@ -80,7 +80,6 @@ Key posGetPawnKey(const Pos *pos);
 Key posGetMatKey(const Pos *pos);
 CastRights posGetCastRights(const Pos *pos);
 Sq posGetEPSq(const Pos *pos);
-VPair posGetPstScore(const Pos *pos);
 const NnueAccumulator *posGetNnueAccum(const Pos *pos);
 
 bool posMakeMove(Pos *pos, Move move);

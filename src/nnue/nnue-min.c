@@ -173,8 +173,19 @@ bool nnueNetSave(const NnueNet *net, const char *path) {
 	return false;
 }
 
-bool nnueNetFeatureSetIsSimple(void) {
-	return false; // due to mirroring of POV king if on EGFH files
+bool nnueAccumulatorCalcRequiredMakeMove(const Pos *pos, Move move) {
+	assert(pos!=NULL);
+
+	// Check for a king moving across the centre line
+	if (moveGetToPieceType(move)==PieceTypeKing) {
+		Sq fromSq=moveGetFromSq(move);
+		Sq toSq=moveGetToSqRaw(move); // this isn't quite right in the case of castling but it won't affect the result of this function
+		if ((sqFile(fromSq)<=FileD && sqFile(toSq)>=FileE) ||
+		    (sqFile(fromSq)>=FileE && sqFile(toSq)<=FileD))
+			return true;
+	}
+
+	return false;
 }
 
 void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *accum) {

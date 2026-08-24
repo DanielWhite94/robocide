@@ -13,6 +13,7 @@
 typedef struct NnueAccumulator NnueAccumulator;
 typedef struct NnueNet NnueNet; // a set of weights and biases
 
+#include "../move.h"
 #include "../pos.h"
 #include "../score.h"
 
@@ -27,9 +28,8 @@ void nnueNetFree(NnueNet *net);
 NnueNet *nnueNetLoad(const char *path);
 bool nnueNetSave(const NnueNet *net, const char *path);
 
-bool nnueNetFeatureSetIsSimple(void); // if false then have to recalc when e.g. kings move
-
 // Accumulator functions
+bool nnueAccumulatorCalcRequiredMakeMove(const Pos *pos, Move move);
 void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *accum); // calculates the accumulator values from scratch rather than using any cached values in the Pos struct
 
 bool nnueAccumulatorIsEqual(const NnueAccumulator *a, const NnueAccumulator *b);

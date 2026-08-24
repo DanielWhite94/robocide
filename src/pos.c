@@ -211,7 +211,7 @@ bool posCopy(Pos *dest, const Pos *src) {
 	return true;
 }
 
-void posSetToArray(Pos *pos, Colour stm, Piece array[SqNB], bool skipNetAccumUpdate) {
+void posSetToArray(Pos *pos, Colour stm, Piece array[SqNB]) {
 	assert(pos!=NULL);
 
 	// Set position to clean state.
@@ -224,7 +224,7 @@ void posSetToArray(Pos *pos, Colour stm, Piece array[SqNB], bool skipNetAccumUpd
 	Sq sq;
 	for(sq=0;sq<SqNB;++sq)
 		if (array[sq]!=PieceNone)
-			posPieceAdd(pos, array[sq], sq, true, (skipNetAccumUpdate || !nnueNetFeatureSetIsSimple()));
+			posPieceAdd(pos, array[sq], sq, true, true);
 }
 
 bool posSetToFEN(Pos *pos, const char *string) {
@@ -237,7 +237,7 @@ bool posSetToFEN(Pos *pos, const char *string) {
 		return false;
 
 	// Call posSetToArray to set the stm and add all of the pieces
-	posSetToArray(pos, fen.stm, fen.array, false);
+	posSetToArray(pos, fen.stm, fen.array);
 
 	// Set other fields
 	pos->fullMoveNumber=fen.fullMoveNumber;
@@ -247,9 +247,8 @@ bool posSetToFEN(Pos *pos, const char *string) {
 		pos->data->epSq=fen.epSq;
 	pos->data->key=posComputeKey(pos);
 
-	// NNUE accumulator recalc as needed
-	if (!nnueNetFeatureSetIsSimple())
-		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
+	// NNUE accumulator recalc
+	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 
 	assert(posIsConsistent(pos));
 
@@ -389,6 +388,8 @@ bool posMakeMove(Pos *pos, Move move) {
 
 	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 
+	bool nnueCalcRequired=nnueAccumulatorCalcRequiredMakeMove(pos, move);
+
 	// Use next data entry.
 	if (pos->data+1>=pos->dataEnd) {
 		// We need more space.
@@ -433,24 +434,41 @@ bool posMakeMove(Pos *pos, Move move) {
 		assert(fromPiece==pieceMake(PieceTypeKing, movingSide));
 		assert(moveGetToPiece(move)==pieceMake(PieceTypeKing, movingSide));
 
-		// Remove king (do it this way in case of strange Chess960 castling)
-		posPieceRemove(pos, fromSq, false, !nnueNetFeatureSetIsSimple());
+		// Special case for Chess960 castling as it can be quite strange
+		if (uciGetChess960()) {
+			// Remove king
+			posPieceRemove(pos, fromSq, false, true);
 
-		// Move rook
-		Sq rookFromSq=toSqRaw;
-		Sq rookToSq=sqMake((isCastlingA ? FileD : FileF), (movingSide==ColourWhite ? Rank1 : Rank8));
-		assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
+			// Move rook
+			Sq rookFromSq=toSqRaw;
+			Sq rookToSq=sqMake((isCastlingA ? FileD : FileF), (movingSide==ColourWhite ? Rank1 : Rank8));
+			assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
 
-		if (rookFromSq!=rookToSq)
-			posPieceMove(pos, rookFromSq, rookToSq, false, !nnueNetFeatureSetIsSimple());
+			if (rookFromSq!=rookToSq)
+				posPieceMove(pos, rookFromSq, rookToSq, false, true);
 
-		// Replace king in new position.
-		assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
-		posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false, !nnueNetFeatureSetIsSimple());
+			// Replace king in new position.
+			assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
+			posPieceAdd(pos, pieceMake(PieceTypeKing, movingSide), toSqTrue, false, true);
 
-		// Given the way we remove and replace the king, we have to manually trigger a recalc of the net accum
-		if (!nnueNetFeatureSetIsSimple())
+			// Given the way we remove and replace the king, we have to manually trigger a recalc of the net accum
 			nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
+		} else {
+			// Standard chess castling
+
+			// Move king
+			assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
+			posPieceMove(pos, fromSq, toSqTrue, false, false);
+
+			// Move rook
+			Sq rookFromSq=toSqRaw;
+			Sq rookToSq=(fromSq+toSqTrue)/2;
+			assert(posGetPieceOnSq(pos, rookFromSq)==pieceMake(PieceTypeRook, movingSide));
+			assert(rookFromSq!=rookToSq);
+
+			posPieceMove(pos, rookFromSq, rookToSq, false, false);
+		}
+
 	} else if (pieceGetType(fromPiece)==PieceTypePawn) {
 		// Pawns are complicated so deserve a special case.
 
@@ -465,15 +483,15 @@ bool posMakeMove(Pos *pos, Move move) {
 		// Capture?
 		if (pos->data->capPiece!=PieceNone)
 			// Remove piece.
-			posPieceRemove(pos, pos->data->capSq, false, false);
+			posPieceRemove(pos, pos->data->capSq, false, nnueCalcRequired);
 
 		// Move the pawn, potentially promoting.
 		Piece toPiece=moveGetToPiece(move);
 		if (toPiece!=fromPiece) {
 			pos->data->lastMoveWasPromo=true;
-			posPieceMoveChange(pos, fromSq, toSqRaw, toPiece, false, false);
+			posPieceMoveChange(pos, fromSq, toSqRaw, toPiece, false, nnueCalcRequired);
 		} else
-			posPieceMove(pos, fromSq, toSqRaw, false, false);
+			posPieceMove(pos, fromSq, toSqRaw, false, nnueCalcRequired);
 
 		// Pawn moves reset 50 move counter.
 		pos->data->halfMoveNumber=0;
@@ -492,7 +510,7 @@ bool posMakeMove(Pos *pos, Move move) {
 		// Capture?
 		if (pos->data->capPiece!=PieceNone) {
 			// Remove piece.
-			posPieceRemove(pos, toSqTrue, false, false);
+			posPieceRemove(pos, toSqTrue, false, nnueCalcRequired);
 
 			// Captures reset 50 move counter.
 			pos->data->halfMoveNumber=0;
@@ -500,7 +518,7 @@ bool posMakeMove(Pos *pos, Move move) {
 
 		// Move non-pawn piece (i.e. no promotion to worry about).
 		assert(posGetPieceOnSq(pos, toSqTrue)==PieceNone);
-		posPieceMove(pos, fromSq, toSqTrue, false, false);
+		posPieceMove(pos, fromSq, toSqTrue, false, nnueCalcRequired);
 	}
 
 	// Update castling rights
@@ -520,6 +538,10 @@ bool posMakeMove(Pos *pos, Move move) {
 		pos->data->key^=posKeyCastling[pos->data->castRights.rookSq[nonMovingSide][CastSideH]];
 		pos->data->castRights.rookSq[nonMovingSide][CastSideH]=SqInvalid;
 	}
+
+	// Recalc NNUE accumulator (if needed)
+	if (nnueCalcRequired)
+		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 
 	assert(posIsConsistent(pos));
 
@@ -609,31 +631,37 @@ void posUndoMove(Pos *pos) {
 	Sq toSqRaw=moveGetToSqRaw(move);
 	Sq toSqTrue=posMoveGetToSqTrue(pos, move);
 
+	bool nnueCalcRequired=nnueAccumulatorCalcRequiredMakeMove(pos, move);
+
 	// If castling, remove rook here (to be safe in case of strange Chess960 castling)
 	if (pos->data->castRights.rookSq[movingSide][CastSideA]==toSqRaw) {
 		Sq rookToSq=sqMake(FileD, (movingSide==ColourWhite ? Rank1 : Rank8));
-		posPieceRemove(pos, rookToSq, true, !nnueNetFeatureSetIsSimple());
+		posPieceRemove(pos, rookToSq, true, nnueCalcRequired);
 	}
 	if (pos->data->castRights.rookSq[movingSide][CastSideH]==toSqRaw) {
 		Sq rookToSq=sqMake(FileF, (movingSide==ColourWhite ? Rank1 : Rank8));
-		posPieceRemove(pos, rookToSq, true, !nnueNetFeatureSetIsSimple());
+		posPieceRemove(pos, rookToSq, true, nnueCalcRequired);
 	}
 
 	// Move piece back (potentially un-promoting).
 	if ((pos->data+1)->lastMoveWasPromo)
-		posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide), true, false);
+		posPieceMoveChange(pos, toSqTrue, fromSq, pieceMake(PieceTypePawn, movingSide), true, nnueCalcRequired);
 	else if (toSqTrue!=fromSq) // king doesn't always move when castling
-		posPieceMove(pos, toSqTrue, fromSq, true, false);
+		posPieceMove(pos, toSqTrue, fromSq, true, nnueCalcRequired);
 
 	// Replace any captured piece.
 	if ((pos->data+1)->capPiece!=PieceNone)
-		posPieceAdd(pos, (pos->data+1)->capPiece, (pos->data+1)->capSq, true, false);
+		posPieceAdd(pos, (pos->data+1)->capPiece, (pos->data+1)->capSq, true, nnueCalcRequired);
 
 	// If castling replace the rook.
 	if (posMoveIsCastling(pos, move)) {
 		Sq rookFromSq=toSqRaw;
-		posPieceAdd(pos, pieceMake(PieceTypeRook, movingSide), rookFromSq, true, false);
+		posPieceAdd(pos, pieceMake(PieceTypeRook, movingSide), rookFromSq, true, nnueCalcRequired);
 	}
+
+	// Recalc NNUE accumulator (if needed)
+	if (nnueCalcRequired)
+		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 
 	assert(posIsConsistent(pos));
 }
@@ -1100,13 +1128,13 @@ void posMirror(Pos *pos) {
 	for(sq=0;sq<SqNB;++sq) {
 		board[sq]=posGetPieceOnSq(pos, sqMirror(sq));
 		if (board[sq]!=PieceNone)
-			posPieceRemove(pos, sqMirror(sq), true, !nnueNetFeatureSetIsSimple());
+			posPieceRemove(pos, sqMirror(sq), true, true);
 	}
 
 	// Add pieces from mirrored board.
 	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
-			posPieceAdd(pos, board[sq], sq, true, !nnueNetFeatureSetIsSimple());
+			posPieceAdd(pos, board[sq], sq, true, true);
 
 	// Mirror other fields.
 	if (pos->data->epSq!=SqInvalid)
@@ -1126,8 +1154,7 @@ void posMirror(Pos *pos) {
 	pos->matKey=posComputeMatKey(pos);
 
 	// Recalc net accumulator
-	if (!nnueNetFeatureSetIsSimple())
-		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
+	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 }
 
 void posFlip(Pos *pos) {
@@ -1140,14 +1167,14 @@ void posFlip(Pos *pos) {
 			PieceType pieceType=pieceGetType(board[sq]);
 			Colour pieceColour=pieceGetColour(board[sq]);
 			board[sq]=pieceMake(pieceType, colourSwap(pieceColour));
-			posPieceRemove(pos, sqFlip(sq), true, !nnueNetFeatureSetIsSimple());
+			posPieceRemove(pos, sqFlip(sq), true, true);
 		}
 	}
 
 	// Add pieces from flipped board.
 	for(sq=0;sq<SqNB;++sq)
 		if (board[sq]!=PieceNone)
-			posPieceAdd(pos, board[sq], sq, true, !nnueNetFeatureSetIsSimple());
+			posPieceAdd(pos, board[sq], sq, true, true);
 
 	// Flip other fields.
 	pos->stm=colourSwap(pos->stm);
@@ -1168,8 +1195,7 @@ void posFlip(Pos *pos) {
 	pos->matKey=posComputeMatKey(pos);
 
 	// Recalc net accumulator
-	if (!nnueNetFeatureSetIsSimple())
-		nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
+	nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1268,12 +1294,8 @@ void posPieceMove(Pos *pos, Sq fromSq, Sq toSq, bool skipMainKeyUpdate, bool ski
 	pos->pawnKey^=posPawnKeyPiece[piece][fromSq]^posPawnKeyPiece[piece][toSq];
 
 	// NNUE accumulator
-	if (!skipNetAccumUpdate) {
-		if (pieceGetType(piece)==PieceTypeKing && !nnueNetFeatureSetIsSimple())
-			nnueAccumulatorCalc(nnueNetGet(), pos, &pos->nnueAccum);
-		else
-			nnueAccumulatorMove(&pos->nnueAccum, nnueNetGet(), pos, fromSq, piece, toSq, piece);
-	}
+	if (!skipNetAccumUpdate)
+		nnueAccumulatorMove(&pos->nnueAccum, nnueNetGet(), pos, fromSq, piece, toSq, piece);
 }
 
 void posPieceMoveChange(Pos *pos, Sq fromSq, Sq toSq, Piece toPiece, bool skipMainKeyUpdate, bool skipNetAccumUpdate) {

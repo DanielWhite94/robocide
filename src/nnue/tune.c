@@ -231,7 +231,7 @@ void nnueTunePositionToPos(const NnueTunePosition *position, Pos *pos) {
 	// Convert NnueTunePosition into a piece array and then to a Pos
 	Piece array[SqNB];
 	nnueTunePositionToArray(position, array);
-	posSetToArray(pos, position->stm, array, true);
+	posSetToArray(pos, position->stm, array);
 }
 
 void nnueTunePositionToArray(const NnueTunePosition *position, Piece array[SqNB]) {

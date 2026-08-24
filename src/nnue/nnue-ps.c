@@ -248,8 +248,8 @@ NnueNet *nnueNetNewPST(void) {
 	return net;
 }
 
-bool nnueNetFeatureSetIsSimple(void) {
-	return true;
+bool nnueAccumulatorCalcRequiredMakeMove(const Pos *pos, Move move) {
+	return false; // we never need to recalc as we don't taken into account anything like king position
 }
 
 void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *accum) {

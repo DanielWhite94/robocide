@@ -271,8 +271,9 @@ NnueNet *nnueNetNewPST(void) {
 	return net;
 }
 
-bool nnueNetFeatureSetIsSimple(void) {
-	return false; // features depend on king position
+bool nnueAccumulatorCalcRequiredMakeMove(const Pos *pos, Move move) {
+	// Features depend on king position so king moves trigger a recalc
+	return (moveGetToPieceType(move)==PieceTypeKing);
 }
 
 void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *accum) {

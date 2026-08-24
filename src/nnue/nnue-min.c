@@ -295,36 +295,41 @@ Score nnueEvaluateNetAccum(Colour stm, const NnueNet *net, const NnueAccumulator
 		nnueLayerDebug16(accum->values[ColourBlack], NnueAccumulatorSize);
 	}
 
-	// Transform step (encode stm, reduce, make 8 bit, clamping to [0, 127])
+	// Output layer (transform step is combined into this where we encode the stm and clamp the values)
 	Colour xtm=colourSwap(stm);
 
-	int16_t inputLayer[2*NnueAccumulatorSize];
-	for(unsigned i=0; i<NnueAccumulatorSize; ++i) {
-		inputLayer[i]=nnueClamp(accum->values[stm][i], 0, nnueMinNetworkQA);
-		inputLayer[i+NnueAccumulatorSize]=nnueClamp(accum->values[xtm][i], 0, nnueMinNetworkQA);
+	const SimdVector *valuesSTM=(const SimdVector *)accum->values[stm];
+	const SimdVector *valuesXTM=(const SimdVector *)accum->values[xtm];
+	const SimdVector *weightsSTM=(const SimdVector *)(net->weightsOutput);
+	const SimdVector *weightsXTM=(const SimdVector *)(net->weightsOutput+NnueAccumulatorSize);
+
+	const SimdVector vecMin=simdSetZero();
+	const SimdVector vecMax=simdSetEpi16(nnueMinNetworkQA);
+
+	SimdVector outputLayer=simdSetZero();
+
+	for(unsigned i=0; i<nnueSimdIterCount; ++i) {
+		SimdVector input, t;
+
+		input=simdMinEpi16(simdMaxEpi16(valuesSTM[i], vecMin), vecMax);
+		t=simdMulloEpi16(input, weightsSTM[i]);
+		t=simdMAddEpi16(t, input);
+		outputLayer=simdAddEpi32(outputLayer, t);
+
+		input=simdMinEpi16(simdMaxEpi16(valuesXTM[i], vecMin), vecMax);
+		t=simdMulloEpi16(input, weightsXTM[i]);
+		t=simdMAddEpi16(t, input);
+		outputLayer=simdAddEpi32(outputLayer, t);
 	}
 
-	// Debugging
-	if (verbose) {
-		printf("Input layer:\n");
-		nnueLayerDebug16(inputLayer, 2*NnueAccumulatorSize);
-	}
-
-	// Output layer
-	int32_t outputLayer=0;
-	for(unsigned i=0; i<2*NnueAccumulatorSize; ++i) {
-		int16_t t=nnueMul(inputLayer[i], net->weightsOutput[i]); // important we throw away the high bits and only keep the lower 16
-		outputLayer+=nnueMul(inputLayer[i], t);
-	}
-
-	int unsquared=outputLayer/nnueMinNetworkQA+net->biasOutput;
-	outputLayer=((unsquared*nnueMinNetworkScale)/(nnueMinNetworkQA*nnueMinNetworkQB));
+	int unsquared=simdHAddEpi32(outputLayer)/nnueMinNetworkQA+net->biasOutput;
+	Score output=((unsquared*nnueMinNetworkScale)/(nnueMinNetworkQA*nnueMinNetworkQB));
 
 	// Debugging
 	if (verbose)
-		printf("Output layer: %i\n", (int)outputLayer);
+		printf("Output layer: %i\n", (int)output);
 
-	return outputLayer;
+	return output;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

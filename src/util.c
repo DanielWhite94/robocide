@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "simd.h"
 #include "util.h"
 
 uint64_t utilRandState=31;
@@ -39,4 +40,12 @@ unsigned utilFileCountLines(FILE *file) {
 	rewind(file);
 
 	return count;
+}
+
+void *utilAlignedMalloc(size_t size, size_t align) {
+	return _mm_malloc(size, align);
+}
+
+void utilAlignedFree(void *ptr) {
+	_mm_free(ptr);
 }

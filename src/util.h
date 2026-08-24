@@ -19,4 +19,7 @@ uint64_t utilRand64(void);
 
 unsigned utilFileCountLines(FILE *file); // expects file pointer to be positioned at the start of the file (and the function will move it back there before returning)
 
+void *utilAlignedMalloc(size_t size, size_t align);
+void utilAlignedFree(void *ptr);
+
 #endif

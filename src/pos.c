@@ -96,15 +96,13 @@ void posInit(void) {
 	for(i=0;i<SqNB;++i) {
 		posKeyPiece[PieceWPawn][i]=posRandKey();
 		posKeyPiece[PieceWKnight][i]=posRandKey();
-		posKeyPiece[PieceWBishopL][i]=posRandKey();
-		posKeyPiece[PieceWBishopD][i]=posRandKey();
+		posKeyPiece[PieceWBishop][i]=posRandKey();
 		posKeyPiece[PieceWRook][i]=posRandKey();
 		posKeyPiece[PieceWQueen][i]=posRandKey();
 		posKeyPiece[PieceWKing][i]=posRandKey();
 		posKeyPiece[PieceBPawn][i]=posRandKey();
 		posKeyPiece[PieceBKnight][i]=posRandKey();
-		posKeyPiece[PieceBBishopL][i]=posRandKey();
-		posKeyPiece[PieceBBishopD][i]=posRandKey();
+		posKeyPiece[PieceBBishop][i]=posRandKey();
 		posKeyPiece[PieceBRook][i]=posRandKey();
 		posKeyPiece[PieceBQueen][i]=posRandKey();
 		posKeyPiece[PieceBKing][i]=posRandKey();
@@ -600,7 +598,7 @@ bool posCanMakeMove(const Pos *pos, Move move) {
 
 	// Pieces are checked for each square in checkSquares (which usually only has a single bit set anyway).
 	BB oppKnights=(opp & posGetBBPiece(pos, pieceMake(PieceTypeKnight, xstm)));
-	BB oppSlidersDiagonal=(opp & (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, xstm))|posGetBBPiece(pos, pieceMake(PieceTypeBishopD, xstm))|posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))));
+	BB oppSlidersDiagonal=(opp & (posGetBBPiece(pos, pieceMake(PieceTypeBishop, xstm))|posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))));
 	BB oppSlidersOrthogonal=(opp & (posGetBBPiece(pos, pieceMake(PieceTypeRook, xstm))|posGetBBPiece(pos, pieceMake(PieceTypeQueen, xstm))));
 	BB oppKing=(opp & posGetBBPiece(pos, pieceMake(PieceTypeKing, xstm)));
 	while(checkSquares) {
@@ -761,8 +759,7 @@ bool posIsSqAttackedByColour(const Pos *pos, Sq sq, Colour colour) {
 
 	// Bishops.
 	BB bishopSet=attacksBishop(sq, occ);
-	if (bishopSet & (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, colour)) |
-	                 posGetBBPiece(pos, pieceMake(PieceTypeBishopD, colour))))
+	if (bishopSet & posGetBBPiece(pos, pieceMake(PieceTypeBishop, colour)))
 		return true;
 
 	// Rooks.
@@ -826,8 +823,7 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 	    posLegalMoveExistsPiece(pos, PieceTypeKnight, allowed) ||
 	    posLegalMoveExistsPiece(pos, PieceTypeQueen, allowed) ||
 	    posLegalMoveExistsPiece(pos, PieceTypeRook, allowed) ||
-	    posLegalMoveExistsPiece(pos, PieceTypeBishopL, allowed) ||
-	    posLegalMoveExistsPiece(pos, PieceTypeBishopD, allowed))
+	    posLegalMoveExistsPiece(pos, PieceTypeBishop, allowed))
 		goto success;
 
 	// Pawns.
@@ -1358,7 +1354,7 @@ void posGenPseudoPawnMoves(Moves *moves, MoveType type) {
 			Sq fromSq=sqBackwardOne(toSq, stm);
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
-			PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
+			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeBishop, stm)));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
 		}
 
@@ -1371,7 +1367,7 @@ void posGenPseudoPawnMoves(Moves *moves, MoveType type) {
 			Sq fromSq=sqEastOne(sqBackwardOne(toSq, stm));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
-			PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
+			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeBishop, stm)));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
 		}
 		while(set) {
@@ -1389,7 +1385,7 @@ void posGenPseudoPawnMoves(Moves *moves, MoveType type) {
 			Sq fromSq=sqWestOne(sqBackwardOne(toSq, stm));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeQueen, stm)));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeRook, stm)));
-			PUSH(moveMake(fromSq, toSq, pieceMake(sqIsLight(toSq) ? PieceTypeBishopL : PieceTypeBishopD, stm)));
+			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeBishop, stm)));
 			PUSH(moveMake(fromSq, toSq, pieceMake(PieceTypeKnight, stm)));
 		}
 		while(set) {
@@ -1554,8 +1550,7 @@ bool posIsPiecePinned(const Pos *pos, BB occ, Colour atkColour, Sq pinnedSq, Sq 
 			return true;
 	} else if (x1+y1==x2+y2 || y1-x1==y2-x2) { // Major/minor diagonal.
 		BB ray=(attacksBishop(victimSq, occ) & beyond);
-		if (ray & (posGetBBPiece(pos, pieceMake(PieceTypeBishopL, atkColour)) |
-		           posGetBBPiece(pos, pieceMake(PieceTypeBishopD, atkColour)) |
+		if (ray & (posGetBBPiece(pos, pieceMake(PieceTypeBishop, atkColour)) |
 		           posGetBBPiece(pos, pieceMake(PieceTypeQueen, atkColour))))
 			return true;
 	}
@@ -1617,18 +1612,6 @@ bool posIsConsistent(const Pos *pos) {
 	if (wKingCount!=1 || bKingCount!=1) {
 		sprintf(error, "bad king counts: (white,black)=(%i,%i).\n", wKingCount, bKingCount);
 		goto Error;
-	}
-
-	// Test correct bishop pieces are correct (either light or dark).
-	for(sq=0;sq<SqNB;++sq) {
-		if ((posGetPieceOnSq(pos, sq)==PieceWBishopL || posGetPieceOnSq(pos, sq)==PieceBBishopL) && !sqIsLight(sq)) {
-			sprintf(error, "Light bishop on dark square %c%c.\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
-			goto Error;
-		}
-		if ((posGetPieceOnSq(pos, sq)==PieceWBishopD || posGetPieceOnSq(pos, sq)==PieceBBishopD) && sqIsLight(sq)) {
-			sprintf(error, "Dark bishop on light square %c%c.\n", fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
-			goto Error;
-		}
 	}
 
 	// Test EP square is valid.
@@ -1759,8 +1742,7 @@ bool posMoveIsPseudoLegalInternal(const Pos *pos, Move move) {
 		case PieceTypeKnight:
 			return (((dX==2 && dY==1) || (dX==1 && dY==2)) && fromPiece==toPiece);
 		break;
-		case PieceTypeBishopL:
-		case PieceTypeBishopD:
+		case PieceTypeBishop:
 			return (dX==dY && fromPiece==toPiece && (bbBetween(fromSq, toSqTrue) & occ)==BBNone);
 		break;
 		case PieceTypeRook:

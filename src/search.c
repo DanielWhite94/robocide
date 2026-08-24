@@ -1113,7 +1113,7 @@ void searchOutputDepthPost(Node *node) {
 		pvStrNext+=sprintf(pvStrNext, " %s", str);
 
 		// Draw? (don't want infinite PVs in case of repetition).
-		if (posIsDraw(node->pos))
+		if (posIsDraw(node->pos, evalComputeMatType(node->pos)))
 			break;
 	}
 
@@ -1136,7 +1136,7 @@ void searchOutputDepthPost(Node *node) {
 		pvStrNext+=sprintf(pvStrNext, " %s", str);
 
 		// Draw? (don't want infinite PVs in case of repetition).
-		if (posIsDraw(node->pos))
+		if (posIsDraw(node->pos, evalComputeMatType(node->pos)))
 			break;
 	}
 	*pvStrNext=0;
@@ -1235,8 +1235,10 @@ bool searchInteriorRecog(Node *node) {
 	assert(node->alpha>=-ScoreInf && node->alpha<node->beta && node->beta<=ScoreInf);
 	assert(depthIsValid(node->ply));
 
+	EvalMatType matType=evalComputeMatType(node->pos);
+
 	// Test for draws by rule (and rare checkmates).
-	if (posIsDraw(node->pos)) {
+	if (posIsDraw(node->pos, matType)) {
 		node->bound=BoundExact;
 
 		// In rare cases checkmate can be given on 100th half move.
@@ -1276,21 +1278,21 @@ bool searchInteriorRecog(Node *node) {
 		}
 	}
 
-	// Blocked positions.
-	if (node->beta<=ScoreDraw && searchInteriorRecogBlocked(node)) {
-		node->score=ScoreDraw;
-		node->bound=BoundLower;
-		return true;
-	}
-
 	// Special material combination recognizers.
-	switch(evalComputeMatType(node->pos)) {
+	switch(matType) {
 		case EvalMatTypeKNNvK: if (searchInteriorRecogKNNvK(node)) return true; break;
 		case EvalMatTypeKPvK: if (searchInteriorRecogKPvK(node)) return true; break;
 		case EvalMatTypeKBPvK: if (searchInteriorRecogKBPvK(node)) return true; break;
 		default:
 			// No handler for this combination.
 		break;
+	}
+
+	// Blocked positions.
+	if (node->beta<=ScoreDraw && searchInteriorRecogBlocked(node)) {
+		node->score=ScoreDraw;
+		node->bound=BoundLower;
+		return true;
 	}
 
 	return false;

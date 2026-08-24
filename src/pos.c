@@ -756,8 +756,12 @@ bool posIsSTMInCheck(const Pos *pos) {
 	return posIsSqAttackedByColour(pos, posGetKingSq(pos, pos->stm), colourSwap(pos->stm));
 }
 
-bool posIsDraw(const Pos *pos) {
+bool posIsDraw(const Pos *pos, EvalMatType matType) {
 	// False positives are bad, false negatives are OK.
+
+	// Insufficient material.
+	if (matType==EvalMatTypeDraw)
+		return true;
 
 	// Repetition (2-fold).
 	PosData *ptr, *endPtr=utilMax(pos->dataStart, pos->data-posGetHalfMoveNumber(pos));
@@ -767,10 +771,6 @@ bool posIsDraw(const Pos *pos) {
 
 	// 50-move rule.
 	if (posGetHalfMoveNumber(pos)>=100)
-		return true;
-
-	// Insufficient material.
-	if (evalComputeMatType(pos)==EvalMatTypeDraw)
 		return true;
 
 	return false;

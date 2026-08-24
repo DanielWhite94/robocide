@@ -200,10 +200,11 @@ void nnueAccumulatorCalc(const NnueNet *net, const Pos *pos, NnueAccumulator *ac
 	memcpy(accum->values[ColourWhite], net->biasAccum, NnueAccumulatorSize*sizeof(int16_t));
 	memcpy(accum->values[ColourBlack], net->biasAccum, NnueAccumulatorSize*sizeof(int16_t));
 
-	for(Sq sq=0; sq<SqNB; ++sq) {
+	BB occ=posGetBBAll(pos);
+	while(occ!=BBNone) {
+		Sq sq=bbScanReset(&occ);
 		Piece p=posGetPieceOnSq(pos, sq);
-		if (p!=PieceNone)
-			nnueAccumulatorAdd(accum, net, pos, sq, p);
+		nnueAccumulatorAdd(accum, net, pos, sq, p);
 	}
 }
 

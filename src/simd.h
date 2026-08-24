@@ -12,6 +12,19 @@ typedef __m128i SimdVector;
 #define SimdAlignment 32
 
 SimdVector simdAddEpi16(SimdVector x, SimdVector y);
+SimdVector simdAddEpi32(SimdVector x, SimdVector y);
+
 SimdVector simdSubEpi16(SimdVector x, SimdVector y);
+
+SimdVector simdMinEpi16(SimdVector x, SimdVector y);
+SimdVector simdMaxEpi16(SimdVector x, SimdVector y);
+
+SimdVector simdMulloEpi16(SimdVector x, SimdVector y);
+SimdVector simdMAddEpi16(SimdVector x, SimdVector y);
+
+SimdVector simdSetZero(void);
+SimdVector simdSetEpi16(int16_t x);
+
+int32_t simdHAddEpi32(SimdVector x);
 
 #endif

@@ -1,8 +1,8 @@
 TARGET = robocide
 CC = gcc
-CFLAGS = -pthread -Wall -O3 -flto -Wno-unused-local-typedefs -march=native -DNNUE_ARCH_MIN
+CFLAGS = -pthread -Wall -flto -Wno-unused-local-typedefs -march=native -DNNUE_ARCH_MIN #-DEVALINFO
 LFLAGS = -lm
-CFLAGSDEBUG = -DNDEBUG -g #-DEVALINFO
+CFLAGSNDEBUG = -O3 -DNDEBUG
 CFLAGSNOBUILTIN = -DBUILTINS
 
 .PHONY: default all nobuiltin debug tune clean
@@ -10,7 +10,8 @@ CFLAGSNOBUILTIN = -DBUILTINS
 default: $(TARGET)
 all: default
 nobuiltin: CFLAGSNOBUILTIN :=
-debug: CFLAGSDEBUG :=
+debug: CFLAGSNDEBUG :=
+debug: CFLAGSDEBUG := -O2 -g
 tune: CFLAGS += -DTUNE
 nobuiltin: default
 debug: default
@@ -20,12 +21,12 @@ OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c)) $(patsubst %.c, %.o, $(wildcard 
 HEADERS = $(wildcard *.h) $(wildcard syzygy/*.h) $(wildcard nnue/*.h)
 
 %.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) $(CFLAGSDEBUG) $(CFLAGSNOBUILTIN) -c $< -o $@
+	$(CC) $(CFLAGS) $(CFLAGSNDEBUG) $(CFLAGSDEBUG) $(CFLAGSNOBUILTIN) -c $< -o $@
 
 .PRECIOUS: $(TARGET) $(OBJECTS)
 
 $(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) $(CFLAGS) $(CFLAGSDEBUG) $(CFLAGSNOBUILTIN) -o $@ $(LFLAGS)
+	$(CC) $(OBJECTS) $(CFLAGS) $(CFLAGSNDEBUG) $(CFLAGSDEBUG) $(CFLAGSNOBUILTIN) -o $@ $(LFLAGS)
 
 clean:
 	@rm -f *.o

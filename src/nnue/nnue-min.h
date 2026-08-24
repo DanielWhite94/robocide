@@ -29,6 +29,7 @@ void nnueNetFree(NnueNet *net);
 NnueNet *nnueNetLoad(const char *path);
 bool nnueNetSave(const NnueNet *net, const char *path);
 bool nnueNetExport(const NnueNet *net, const char *path); // exports code which can be compiled into the final binary
+NnueNet *nnueNetImport(void);
 
 // Accumulator functions
 bool nnueAccumulatorCalcRequiredMakeMove(const Pos *pos, Move move);

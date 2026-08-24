@@ -262,6 +262,8 @@ bool nnueNetExport(const NnueNet *net, const char *path) {
 	return true;
 }
 
+#include "nnue-minnetdata.h"
+
 bool nnueAccumulatorCalcRequiredMakeMove(const Pos *pos, Move move) {
 	assert(pos!=NULL);
 

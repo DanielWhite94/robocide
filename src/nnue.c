@@ -8,7 +8,7 @@
 #include "uci.h"
 
 bool nnueUseNnue=true;
-const char *nnueNetPath="nnue/nets/minifishport.nnue";
+const char *nnueNetPath="<empty>";
 
 NnueNet *nnueNet=NULL; // holds the currently loaded network
 
@@ -33,7 +33,7 @@ void nnueInit(void) {
 		mainFatalError("Error: Could not add EvalFile option.\n");
 
 	// Load network
-	nnueNet=nnueNetLoad(nnueNetPath);
+	nnueNet=nnueNetImport();
 	if (nnueNet==NULL)
 		mainFatalError("Error: Could not load NNUE network.\n");
 }

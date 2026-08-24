@@ -48,7 +48,7 @@ void evalRecalc(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 void evalInit(void) {
-	// Calculate dervied values (such as passed pawn table).
+	// Calculate dervied values (such as half move factors table).
 	evalRecalc();
 
 	// Setup callbacks for tuning values.

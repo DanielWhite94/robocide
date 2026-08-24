@@ -232,16 +232,22 @@ void nnueAccumulatorAdd(NnueAccumulator *accum, const NnueNet *net, const Pos *p
 
 	Sq kingSqW=posGetKingSq(pos, ColourWhite);
 	Sq kingSqB=posGetKingSq(pos, ColourBlack);
-	const int16_t *values;
+	const SimdVector *values;
+	SimdVector *acc;
 	Piece nnueP=nnuePieceFromPiece(piece);
 
-	values=nnueAccumulatorGetFeatureWeights(net, kingSqW, ColourWhite, sq, nnueP);
-	for(unsigned i=0; i<NnueAccumulatorSize; ++i)
-		accum->values[ColourWhite][i]+=values[i];
+	const size_t valuesPerVector=sizeof(SimdVector)/sizeof(int16_t);
+	const size_t iterCount=NnueAccumulatorSize/valuesPerVector;
 
-	values=nnueAccumulatorGetFeatureWeights(net, kingSqB, ColourBlack, sq, nnueP);
-	for(unsigned i=0; i<NnueAccumulatorSize; ++i)
-		accum->values[ColourBlack][i]+=values[i];
+	values=(const SimdVector *)nnueAccumulatorGetFeatureWeights(net, kingSqW, ColourWhite, sq, nnueP);
+	acc=(SimdVector *)accum->values[ColourWhite];
+	for(unsigned i=0; i<iterCount; ++i)
+		acc[i]=simdAddEpi16(acc[i], values[i]);
+
+	values=(const SimdVector *)nnueAccumulatorGetFeatureWeights(net, kingSqB, ColourBlack, sq, nnueP);
+	acc=(SimdVector *)accum->values[ColourBlack];
+	for(unsigned i=0; i<iterCount; ++i)
+		acc[i]=simdAddEpi16(acc[i], values[i]);
 }
 
 void nnueAccumulatorRemove(NnueAccumulator *accum, const NnueNet *net, const Pos *pos, Sq sq, Piece piece) {
@@ -252,16 +258,22 @@ void nnueAccumulatorRemove(NnueAccumulator *accum, const NnueNet *net, const Pos
 
 	Sq kingSqW=posGetKingSq(pos, ColourWhite);
 	Sq kingSqB=posGetKingSq(pos, ColourBlack);
-	const int16_t *values;
+	const SimdVector *values;
+	SimdVector *acc;
 	Piece nnueP=nnuePieceFromPiece(piece);
 
-	values=nnueAccumulatorGetFeatureWeights(net, kingSqW, ColourWhite, sq, nnueP);
-	for(unsigned i=0; i<NnueAccumulatorSize; ++i)
-		accum->values[ColourWhite][i]-=values[i];
+	const size_t valuesPerVector=sizeof(SimdVector)/sizeof(int16_t);
+	const size_t iterCount=NnueAccumulatorSize/valuesPerVector;
 
-	values=nnueAccumulatorGetFeatureWeights(net, kingSqB, ColourBlack, sq, nnueP);
-	for(unsigned i=0; i<NnueAccumulatorSize; ++i)
-		accum->values[ColourBlack][i]-=values[i];
+	values=(const SimdVector *)nnueAccumulatorGetFeatureWeights(net, kingSqW, ColourWhite, sq, nnueP);
+	acc=(SimdVector *)accum->values[ColourWhite];
+	for(unsigned i=0; i<iterCount; ++i)
+		acc[i]=simdSubEpi16(acc[i], values[i]);
+
+	values=(const SimdVector *)nnueAccumulatorGetFeatureWeights(net, kingSqB, ColourBlack, sq, nnueP);
+	acc=(SimdVector *)accum->values[ColourBlack];
+	for(unsigned i=0; i<iterCount; ++i)
+		acc[i]=simdSubEpi16(acc[i], values[i]);
 }
 
 void nnueAccumulatorMove(NnueAccumulator *accum, const NnueNet *net, const Pos *pos, Sq fromSq, Piece fromPiece, Sq toSq, Piece toPiece) {

@@ -19,7 +19,7 @@ typedef struct NnueNet NnueNet; // a set of weights and biases
 #include "../simd.h"
 
 struct NnueAccumulator {
-	_Alignas(SIMD_ALIGNMENT) int16_t values[ColourNB][NnueAccumulatorSize];
+	_Alignas(SimdAlignment) int16_t values[ColourNB][NnueAccumulatorSize];
 };
 
 // Network functions

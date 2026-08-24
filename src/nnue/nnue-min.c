@@ -35,10 +35,10 @@ typedef enum {
 } NnuePiece;
 
 struct NnueNet {
-	_Alignas(SIMD_ALIGNMENT) int16_t weightsAccum[NnuePieceNB][SqNB][NnueAccumulatorSize]; // [Piece][PieceSq][index]
-	_Alignas(SIMD_ALIGNMENT) int16_t biasAccum[NnueAccumulatorSize];
+	_Alignas(SimdAlignment) int16_t weightsAccum[NnuePieceNB][SqNB][NnueAccumulatorSize]; // [Piece][PieceSq][index]
+	_Alignas(SimdAlignment) int16_t biasAccum[NnueAccumulatorSize];
 
-	_Alignas(SIMD_ALIGNMENT) int16_t weightsOutput[2*NnueAccumulatorSize];
+	_Alignas(SimdAlignment) int16_t weightsOutput[2*NnueAccumulatorSize];
 	int16_t biasOutput;
 };
 
@@ -57,7 +57,7 @@ NnuePiece nnuePieceSwapColour(NnuePiece p);
 
 NnueNet *nnueNetNew(const NnueNet *src) {
 	// Allocate memory
-	NnueNet *net=utilAlignedMalloc(sizeof(NnueNet), SIMD_ALIGNMENT);
+	NnueNet *net=utilAlignedMalloc(sizeof(NnueNet), SimdAlignment);
 	if (net==NULL)
 		return NULL;
 

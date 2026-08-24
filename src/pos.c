@@ -133,7 +133,7 @@ Pos *posNew(const char *gfen) {
 	const size_t initialPosDataSize=64;
 
 	// Create clean position.
-	Pos *pos=utilAlignedMalloc(sizeof(Pos), SIMD_ALIGNMENT); // alignment is for NNUE accumulator
+	Pos *pos=utilAlignedMalloc(sizeof(Pos), SimdAlignment); // alignment is for NNUE accumulator
 	PosData *posData=malloc(initialPosDataSize*sizeof(PosData));
 	if (pos==NULL || posData==NULL) {
 		free(pos);

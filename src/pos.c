@@ -7,6 +7,7 @@
 #include "eval.h"
 #include "fen.h"
 #include "pos.h"
+#include "simd.h"
 #include "uci.h"
 #include "util.h"
 
@@ -34,6 +35,7 @@ typedef struct {
 
 STATICASSERT(PieceBit<=8);
 struct Pos {
+	NnueAccumulator nnueAccum; // for incremental updates (placed as the first entry for alignment reasons)
 	BB bbPiece[PieceNB];
 	uint8_t array64[SqNB]; // entries are Pieces
 	PosData *dataStart, *dataEnd, *data;
@@ -41,7 +43,6 @@ struct Pos {
 	Colour stm;
 	unsigned int fullMoveNumber;
 	Key pawnKey, matKey;
-	NnueAccumulator nnueAccum; // for incremental updates
 };
 
 const char *posStartFEN="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -132,7 +133,7 @@ Pos *posNew(const char *gfen) {
 	const size_t initialPosDataSize=64;
 
 	// Create clean position.
-	Pos *pos=malloc(sizeof(Pos));
+	Pos *pos=utilAlignedMalloc(sizeof(Pos), SIMD_ALIGNMENT); // alignment is for NNUE accumulator
 	PosData *posData=malloc(initialPosDataSize*sizeof(PosData));
 	if (pos==NULL || posData==NULL) {
 		free(pos);
@@ -173,7 +174,7 @@ void posFree(Pos *pos) {
 	if (pos==NULL)
 		return;
 	free(pos->dataStart);
-	free(pos);
+	utilAlignedFree(pos);
 }
 
 bool posCopy(Pos *dest, const Pos *src) {

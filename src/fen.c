@@ -47,13 +47,13 @@ bool fenRead(Fen *data, const char *string) {
 			break;
 			case 'P': data->array[sqMake(x++,y)]=PieceWPawn; break;
 			case 'N': data->array[sqMake(x++,y)]=PieceWKnight; break;
-			case 'B': data->array[sqMake(x,y)]=(sqIsLight(sqMake(x,y)) ? PieceWBishopL : PieceWBishopD); ++x; break;
+			case 'B': data->array[sqMake(x++,y)]=PieceWBishop; break;
 			case 'R': data->array[sqMake(x++,y)]=PieceWRook; break;
 			case 'Q': data->array[sqMake(x++,y)]=PieceWQueen; break;
 			case 'K': data->array[sqMake(x++,y)]=PieceWKing; break;
 			case 'p': data->array[sqMake(x++,y)]=PieceBPawn; break;
 			case 'n': data->array[sqMake(x++,y)]=PieceBKnight; break;
-			case 'b': data->array[sqMake(x,y)]=(sqIsLight(sqMake(x,y)) ? PieceBBishopL : PieceBBishopD); ++x; break;
+			case 'b': data->array[sqMake(x++,y)]=PieceBBishop; break;
 			case 'r': data->array[sqMake(x++,y)]=PieceBRook; break;
 			case 'q': data->array[sqMake(x++,y)]=PieceBQueen; break;
 			case 'k': data->array[sqMake(x++,y)]=PieceBKing; break;

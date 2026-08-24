@@ -15,6 +15,9 @@ const uint32_t nnueFileHeaderHash=0xA3D7B29E; // use this as extra version bits 
 #define nnueMinNetworkQA 101
 #define nnueMinNetworkQB 160
 
+const unsigned nnueSimdValuesPerVector=sizeof(SimdVector)/sizeof(int16_t);
+const unsigned nnueSimdIterCount=NnueAccumulatorSize/nnueSimdValuesPerVector;
+
 typedef enum {
 	// This differs from the standard Piece definition in a few ways:
 	// * There is no None member
@@ -236,17 +239,14 @@ void nnueAccumulatorAdd(NnueAccumulator *accum, const NnueNet *net, const Pos *p
 	SimdVector *acc;
 	Piece nnueP=nnuePieceFromPiece(piece);
 
-	const size_t valuesPerVector=sizeof(SimdVector)/sizeof(int16_t);
-	const size_t iterCount=NnueAccumulatorSize/valuesPerVector;
-
 	values=(const SimdVector *)nnueAccumulatorGetFeatureWeights(net, kingSqW, ColourWhite, sq, nnueP);
 	acc=(SimdVector *)accum->values[ColourWhite];
-	for(unsigned i=0; i<iterCount; ++i)
+	for(unsigned i=0; i<nnueSimdIterCount; ++i)
 		acc[i]=simdAddEpi16(acc[i], values[i]);
 
 	values=(const SimdVector *)nnueAccumulatorGetFeatureWeights(net, kingSqB, ColourBlack, sq, nnueP);
 	acc=(SimdVector *)accum->values[ColourBlack];
-	for(unsigned i=0; i<iterCount; ++i)
+	for(unsigned i=0; i<nnueSimdIterCount; ++i)
 		acc[i]=simdAddEpi16(acc[i], values[i]);
 }
 
@@ -262,17 +262,14 @@ void nnueAccumulatorRemove(NnueAccumulator *accum, const NnueNet *net, const Pos
 	SimdVector *acc;
 	Piece nnueP=nnuePieceFromPiece(piece);
 
-	const size_t valuesPerVector=sizeof(SimdVector)/sizeof(int16_t);
-	const size_t iterCount=NnueAccumulatorSize/valuesPerVector;
-
 	values=(const SimdVector *)nnueAccumulatorGetFeatureWeights(net, kingSqW, ColourWhite, sq, nnueP);
 	acc=(SimdVector *)accum->values[ColourWhite];
-	for(unsigned i=0; i<iterCount; ++i)
+	for(unsigned i=0; i<nnueSimdIterCount; ++i)
 		acc[i]=simdSubEpi16(acc[i], values[i]);
 
 	values=(const SimdVector *)nnueAccumulatorGetFeatureWeights(net, kingSqB, ColourBlack, sq, nnueP);
 	acc=(SimdVector *)accum->values[ColourBlack];
-	for(unsigned i=0; i<iterCount; ++i)
+	for(unsigned i=0; i<nnueSimdIterCount; ++i)
 		acc[i]=simdSubEpi16(acc[i], values[i]);
 }
 

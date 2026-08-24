@@ -176,6 +176,92 @@ bool nnueNetSave(const NnueNet *net, const char *path) {
 	return false;
 }
 
+bool nnueNetExport(const NnueNet *net, const char *path) {
+	assert(net!=NULL);
+	assert(path!=NULL);
+
+	// Open file
+	FILE *file=fopen(path, "w");
+	if (file==NULL)
+		return false;
+
+	// Beginning of file
+	fprintf(file, "#ifndef NNUE_NET_IMPORT\n");
+	fprintf(file, "#define NNUE_NET_IMPORT\n");
+	fprintf(file, "\n");
+
+	fprintf(file, "// This is a generated file designed to be included within nnue-min.c\n");
+	fprintf(file, "\n");
+
+	// Add accumulator weights
+	fprintf(file, "const int16_t nnueImportWeightsAccum[NnuePieceNB][SqNB][NnueAccumulatorSize]={\n");
+	for(unsigned p=0; p<NnuePieceNB; ++p) {
+		fprintf(file, "	{ // p=%u\n", p);
+		for(unsigned sq=0; sq<SqNB; ++sq) {
+			fprintf(file, "		{ // sq=%u=%c%c\n", sq, fileToChar(sqFile(sq)), rankToChar(sqRank(sq)));
+			for(unsigned i=0; i<NnueAccumulatorSize; ++i) {
+				if (i%32==0)
+					fprintf(file, "		");
+				fprintf(file, "%5i,", net->weightsAccum[p][sq][i]);
+				if (i%32==31)
+					fprintf(file, "\n");
+			}
+			fprintf(file, "		},\n");
+		}
+		fprintf(file, "	},\n");
+	}
+	fprintf(file, "};\n");
+	fprintf(file, "\n");
+
+	// Add accumulator biases
+	fprintf(file, "const int16_t nnueImportBiasAccum[NnueAccumulatorSize]={\n");
+	for(unsigned i=0; i<NnueAccumulatorSize; ++i) {
+		if (i%8==0)
+			fprintf(file, "	");
+		fprintf(file, "%5i,", net->biasAccum[i]);
+		if (i%8==7)
+			fprintf(file, "\n");
+	}
+	fprintf(file, "};\n");
+	fprintf(file, "\n");
+
+	// Add output weights
+	fprintf(file, "const int16_t nnueImportWeightsOutput[2*NnueAccumulatorSize]={\n");
+	for(unsigned i=0; i<2*NnueAccumulatorSize; ++i) {
+		if (i%8==0)
+			fprintf(file, "	");
+		fprintf(file, "%5i,", net->weightsOutput[i]);
+		if (i%8==7)
+			fprintf(file, "\n");
+	}
+	fprintf(file, "};\n");
+	fprintf(file, "\n");
+
+	// Beginning of import function
+	fprintf(file, "NnueNet *nnueNetImport(void) {\n");
+	fprintf(file, "	NnueNet *net=nnueNetNew(NULL);\n");
+	fprintf(file, "	if (net==NULL)\n");
+	fprintf(file, "		return NULL;\n");
+	fprintf(file, "\n");
+
+	fprintf(file, "	memcpy(net->weightsAccum, nnueImportWeightsAccum, sizeof(nnueImportWeightsAccum));\n");
+	fprintf(file, "	memcpy(net->biasAccum, nnueImportBiasAccum, sizeof(nnueImportBiasAccum));\n");
+	fprintf(file, "	memcpy(net->weightsOutput, nnueImportWeightsOutput, sizeof(nnueImportWeightsOutput));\n");
+	fprintf(file, "	net->biasOutput=%i;\n", net->biasOutput);
+	fprintf(file, "\n");
+
+	// End of function/file
+	fprintf(file, "	return net;\n");
+	fprintf(file, "}\n");
+	fprintf(file, "\n");
+	fprintf(file, "#endif\n");
+
+	// Close file
+	fclose(file);
+
+	return true;
+}
+
 bool nnueAccumulatorCalcRequiredMakeMove(const Pos *pos, Move move) {
 	assert(pos!=NULL);
 

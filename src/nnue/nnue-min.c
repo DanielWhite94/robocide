@@ -19,9 +19,7 @@ const unsigned nnueSimdValuesPerVector=sizeof(SimdVector)/sizeof(int16_t);
 const unsigned nnueSimdIterCount=NnueAccumulatorSize/nnueSimdValuesPerVector;
 
 typedef enum {
-	// This differs from the standard Piece definition in a few ways:
-	// * There is no None member
-	// * No differentiation between light/dark square bishops
+	// This differs from the standard Piece definition in that there is no None member
 	NnuePieceWPawn,
 	NnuePieceWKnight,
 	NnuePieceWBishop,
@@ -465,8 +463,7 @@ NnuePiece nnuePieceFromPiece(Piece p) {
 		case PieceWKnight:
 			return NnuePieceWKnight;
 		break;
-		case PieceWBishopL:
-		case PieceWBishopD:
+		case PieceWBishop:
 			return NnuePieceWBishop;
 		break;
 		case PieceWRook:
@@ -484,8 +481,7 @@ NnuePiece nnuePieceFromPiece(Piece p) {
 		case PieceBKnight:
 			return NnuePieceBKnight;
 		break;
-		case PieceBBishopL:
-		case PieceBBishopD:
+		case PieceBBishop:
 			return NnuePieceBBishop;
 		break;
 		case PieceBRook:

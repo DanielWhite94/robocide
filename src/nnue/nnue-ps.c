@@ -14,9 +14,7 @@ const uint32_t nnueFileHeaderVersion=0x246977F7; // randomly generated - hopeful
 const uint32_t nnueFileHeaderHash=0xA9D38C1F; // use this as extra version bits instead of a hash for now
 
 typedef enum {
-	// This differs from the standard Piece definition in a few ways:
-	// * There is no None member
-	// * No differentiation between light/dark square bishops
+	// This differs from the standard Piece definition as there is no None member
 	NnuePieceWPawn,
 	NnuePieceWKnight,
 	NnuePieceWBishop,
@@ -218,7 +216,7 @@ NnueNet *nnueNetNewPST(void) {
 		// White
 		net->weightsAccum[NnuePieceWPawn][pieceSq][i]=evalPST[PieceWPawn][pieceSq].mg/d;
 		net->weightsAccum[NnuePieceWKnight][pieceSq][i]=evalPST[PieceWKnight][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceWBishop][pieceSq][i]=evalPST[PieceWBishopL][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceWBishop][pieceSq][i]=evalPST[PieceWBishop][pieceSq].mg/d;
 		net->weightsAccum[NnuePieceWRook][pieceSq][i]=evalPST[PieceWRook][pieceSq].mg/d;
 		net->weightsAccum[NnuePieceWQueen][pieceSq][i]=evalPST[PieceWQueen][pieceSq].mg/d;
 		net->weightsAccum[NnuePieceWKing][pieceSq][i]=evalPST[PieceWKing][pieceSq].mg/d;
@@ -226,7 +224,7 @@ NnueNet *nnueNetNewPST(void) {
 		// Black
 		net->weightsAccum[NnuePieceBPawn][pieceSq][i]=evalPST[PieceBPawn][pieceSq].mg/d;
 		net->weightsAccum[NnuePieceBKnight][pieceSq][i]=evalPST[PieceBKnight][pieceSq].mg/d;
-		net->weightsAccum[NnuePieceBBishop][pieceSq][i]=evalPST[PieceBBishopL][pieceSq].mg/d;
+		net->weightsAccum[NnuePieceBBishop][pieceSq][i]=evalPST[PieceBBishop][pieceSq].mg/d;
 		net->weightsAccum[NnuePieceBRook][pieceSq][i]=evalPST[PieceBRook][pieceSq].mg/d;
 		net->weightsAccum[NnuePieceBQueen][pieceSq][i]=evalPST[PieceBQueen][pieceSq].mg/d;
 		net->weightsAccum[NnuePieceBKing][pieceSq][i]=evalPST[PieceBKing][pieceSq].mg/d;
@@ -400,8 +398,7 @@ NnuePiece nnuePieceFromPiece(Piece p) {
 		case PieceWKnight:
 			return NnuePieceWKnight;
 		break;
-		case PieceWBishopL:
-		case PieceWBishopD:
+		case PieceWBishop:
 			return NnuePieceWBishop;
 		break;
 		case PieceWRook:
@@ -419,8 +416,7 @@ NnuePiece nnuePieceFromPiece(Piece p) {
 		case PieceBKnight:
 			return NnuePieceBKnight;
 		break;
-		case PieceBBishopL:
-		case PieceBBishopD:
+		case PieceBBishop:
 			return NnuePieceBBishop;
 		break;
 		case PieceBRook:

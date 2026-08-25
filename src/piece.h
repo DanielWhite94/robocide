@@ -11,8 +11,7 @@ typedef enum {
 	PieceTypeNone,
 	PieceTypePawn,
 	PieceTypeKnight,
-	PieceTypeBishopL,
-	PieceTypeBishopD,
+	PieceTypeBishop,
 	PieceTypeRook,
 	PieceTypeQueen,
 	PieceTypeKing,
@@ -30,15 +29,13 @@ typedef enum {
 	PieceNone=PieceTypeNone,
 	PieceWPawn=PieceTypePawn,
 	PieceWKnight=PieceTypeKnight,
-	PieceWBishopL=PieceTypeBishopL,
-	PieceWBishopD=PieceTypeBishopD,
+	PieceWBishop=PieceTypeBishop,
 	PieceWRook=PieceTypeRook,
 	PieceWQueen=PieceTypeQueen,
 	PieceWKing=PieceTypeKing,
 	PieceBPawn=(PieceColourMask|PieceTypePawn),
 	PieceBKnight=(PieceColourMask|PieceTypeKnight),
-	PieceBBishopL=(PieceColourMask|PieceTypeBishopL),
-	PieceBBishopD=(PieceColourMask|PieceTypeBishopD),
+	PieceBBishop=(PieceColourMask|PieceTypeBishop),
 	PieceBRook=(PieceColourMask|PieceTypeRook),
 	PieceBQueen=(PieceColourMask|PieceTypeQueen),
 	PieceBKing=(PieceColourMask|PieceTypeKing),
@@ -48,8 +45,6 @@ typedef enum {
 
 bool pieceTypeIsValid(PieceType type);
 bool pieceIsValid(Piece piece);
-
-bool pieceTypeIsBishop(PieceType type);
 
 Colour pieceGetColour(Piece piece);
 PieceType pieceGetType(Piece piece);

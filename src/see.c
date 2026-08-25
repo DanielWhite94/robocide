@@ -8,8 +8,7 @@ const int seePieceValue[PieceTypeNB]={
 	[PieceTypeNone]=0,
 	[PieceTypePawn]=1,
 	[PieceTypeKnight]=3,
-	[PieceTypeBishopL]=3,
-	[PieceTypeBishopD]=3,
+	[PieceTypeBishop]=3,
 	[PieceTypeRook]=5,
 	[PieceTypeQueen]=9,
 	[PieceTypeKing]=255
@@ -40,8 +39,7 @@ int see(const Pos *pos, Sq fromSq, Sq toSq) {
 	BB mayXRay=occ^posGetBBPiece(pos, PieceWKnight)^posGetBBPiece(pos, PieceWKing)^
 	               posGetBBPiece(pos, PieceBKnight)^posGetBBPiece(pos, PieceBKing);
 	assert(mayXRay==(posGetBBPiece(pos, PieceWPawn)|posGetBBPiece(pos, PieceBPawn)|
-	                 posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceBBishopL)|
-	                 posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceBBishopD)|
+	                 posGetBBPiece(pos, PieceWBishop)|posGetBBPiece(pos, PieceBBishop)|
 	                 posGetBBPiece(pos, PieceWRook)|posGetBBPiece(pos, PieceBRook)|
 	                 posGetBBPiece(pos, PieceWQueen)|posGetBBPiece(pos, PieceBQueen)));
 
@@ -112,8 +110,7 @@ BB seeAttacksTo(const Pos *pos, Sq sq, BB occ) {
 
 	// Diagonal sliders.
 	set|=(attacksBishop(sq, occ) &
-	      (posGetBBPiece(pos, PieceWBishopL) | posGetBBPiece(pos, PieceBBishopL) |
-	       posGetBBPiece(pos, PieceWBishopD) | posGetBBPiece(pos, PieceBBishopD) |
+	      (posGetBBPiece(pos, PieceWBishop) | posGetBBPiece(pos, PieceBBishop) |
 	       posGetBBPiece(pos, PieceWQueen) | posGetBBPiece(pos, PieceBQueen)));
 
 	// Horizontal/vertical sliders.

@@ -147,7 +147,7 @@ void syzygyGetPosData(SyzygyPosData *data, const Pos *pos) {
 	data->kings=(posGetBBPiece(pos, PieceWKing)|posGetBBPiece(pos, PieceBKing));
 	data->queens=(posGetBBPiece(pos, PieceWQueen)|posGetBBPiece(pos, PieceBQueen));
 	data->rooks=(posGetBBPiece(pos, PieceWRook)|posGetBBPiece(pos, PieceBRook));
-	data->bishops=(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceBBishopL)|posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceBBishopD));
+	data->bishops=(posGetBBPiece(pos, PieceWBishop)|posGetBBPiece(pos, PieceBBishop));
 	data->knights=(posGetBBPiece(pos, PieceWKnight)|posGetBBPiece(pos, PieceBKnight));
 	data->pawns=(posGetBBPiece(pos, PieceWPawn)|posGetBBPiece(pos, PieceBPawn));
 	data->rule50=posGetHalfMoveNumber(pos);
@@ -189,10 +189,7 @@ Move syzygyResultToMove(unsigned result, const Pos *pos) {
 			toPiece=pieceMake(PieceTypeRook, pieceGetColour(toPiece));
 		break;
 		case TB_PROMOTES_BISHOP:
-			if (sqIsLight(toSq))
-				toPiece=pieceMake(PieceTypeBishopL, pieceGetColour(toPiece));
-			else
-				toPiece=pieceMake(PieceTypeBishopD, pieceGetColour(toPiece));
+			toPiece=pieceMake(PieceTypeBishop, pieceGetColour(toPiece));
 		break;
 		case TB_PROMOTES_KNIGHT:
 			toPiece=pieceMake(PieceTypeKnight, pieceGetColour(toPiece));

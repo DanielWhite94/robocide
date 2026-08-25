@@ -4,17 +4,16 @@
 
 const char PieceChar[PieceNB]={
 	[PieceNone]='.',
-	[PieceWPawn]='P', [PieceWKnight]='N', [PieceWBishopL]='B', [PieceWBishopD]='B', [PieceWRook]='R', [PieceWQueen]='Q', [PieceWKing]='K',
-	[PieceBPawn]='p', [PieceBKnight]='n', [PieceBBishopL]='b', [PieceBBishopD]='b', [PieceBRook]='r', [PieceBQueen]='q', [PieceBKing]='k'
+	[PieceWPawn]='P', [PieceWKnight]='N', [PieceWBishop]='B', [PieceWRook]='R', [PieceWQueen]='Q', [PieceWKing]='K',
+	[PieceBPawn]='p', [PieceBKnight]='n', [PieceBBishop]='b', [PieceBRook]='r', [PieceBQueen]='q', [PieceBKing]='k'
 };
 const char PromoChar[PieceTypeNB]={
-	[PieceTypeKnight]='n', [PieceTypeBishopL]='b', [PieceTypeBishopD]='b', [PieceTypeRook]='r', [PieceTypeQueen]='q'
+	[PieceTypeKnight]='n', [PieceTypeBishop]='b', [PieceTypeRook]='r', [PieceTypeQueen]='q'
 };
 const char PieceTypeStr[PieceTypeNB][8]={
 	[PieceTypePawn]="Pawn",
 	[PieceTypeKnight]="Knight",
-	[PieceTypeBishopL]="Bishop",
-	[PieceTypeBishopD]="Bishop",
+	[PieceTypeBishop]="Bishop",
 	[PieceTypeRook]="Rook",
 	[PieceTypeQueen]="Queen",
 	[PieceTypeKing]="King"
@@ -27,10 +26,6 @@ bool pieceTypeIsValid(PieceType type) {
 bool pieceIsValid(Piece piece) {
 	return ((piece>=PieceWPawn && piece<=PieceWKing) ||
 	        (piece>=PieceBPawn && piece<=PieceBKing));
-}
-
-bool pieceTypeIsBishop(PieceType type) {
-	return (type==PieceTypeBishopL || type==PieceTypeBishopD);
 }
 
 Colour pieceGetColour(Piece piece) {
@@ -55,7 +50,7 @@ char pieceToChar(Piece piece) {
 }
 
 char pieceTypeToPromoChar(PieceType type) {
-	assert(type==PieceTypeKnight || type==PieceTypeBishopL || type==PieceTypeBishopD || type==PieceTypeRook || type==PieceTypeQueen);
+	assert(type==PieceTypeKnight || type==PieceTypeBishop || type==PieceTypeRook || type==PieceTypeQueen);
 	return PromoChar[type];
 }
 

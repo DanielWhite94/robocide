@@ -63,8 +63,7 @@ BB attacksPiece(Piece piece, Sq sq, BB occ) {
 	switch(pieceGetType(piece)) {
 		case PieceTypePawn: return attacksPawn(sq, pieceGetColour(piece)); break;
 		case PieceTypeKnight: return attacksKnight(sq); break;
-		case PieceTypeBishopL: return attacksBishop(sq, occ); break;
-		case PieceTypeBishopD: return attacksBishop(sq, occ); break;
+		case PieceTypeBishop: return attacksBishop(sq, occ); break;
 		case PieceTypeRook: return attacksRook(sq, occ); break;
 		case PieceTypeQueen: return attacksQueen(sq, occ); break;
 		case PieceTypeKing: return attacksKing(sq); break;
@@ -78,8 +77,7 @@ BB attacksPieceType(PieceType type, Sq sq, BB occ) {
 
 	switch(type) {
 		case PieceTypeKnight: return attacksKnight(sq); break;
-		case PieceTypeBishopL: return attacksBishop(sq, occ); break;
-		case PieceTypeBishopD: return attacksBishop(sq, occ); break;
+		case PieceTypeBishop: return attacksBishop(sq, occ); break;
 		case PieceTypeRook: return attacksRook(sq, occ); break;
 		case PieceTypeQueen: return attacksQueen(sq, occ); break;
 		case PieceTypeKing: return attacksKing(sq); break;

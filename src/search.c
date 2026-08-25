@@ -721,13 +721,15 @@ void searchNodeInternal(Node *node) {
 
 			// If have a Syzygy table hit, check if current move should be excluded because it does not maintain the WDL value
 			if (tbWdl!=SyzygyWdlError) {
+				bool skipMove=false;
 				for(unsigned i=0; tbMoves[i].move!=MoveInvalid; ++i) {
 					if (tbMoves[i].move==move) {
-						if (tbMoves[i].wdl!=tbWdl)
-							continue; // exclude this move
+						skipMove=(tbMoves[i].wdl!=tbWdl);
 						break;
 					}
 				}
+				if (skipMove)
+					continue;
 			}
 
 			// If UCI 'searchmoves' used, check if current move should be excluded

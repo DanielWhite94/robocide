@@ -1124,6 +1124,11 @@ void searchOutputDepthPost(Node *node) {
 	}
 
 	while(ply<node->depth) {
+		// Draw? (don't want infinite PVs in case of repetition).
+		// (note: we do this at the start of the loop this time, rather than the end, in case this is the reason we broke out of the loop above)
+		if (posIsDraw(node->pos, evalComputeMatType(node->pos)))
+			break;
+
 		// Attempt to read move from TT
 		Move move=ttReadMove(node->pos, ply);
 		if (move==MoveInvalid)
@@ -1140,11 +1145,8 @@ void searchOutputDepthPost(Node *node) {
 
 		// Print move string.
 		pvStrNext+=sprintf(pvStrNext, " %s", str);
-
-		// Draw? (don't want infinite PVs in case of repetition).
-		if (posIsDraw(node->pos, evalComputeMatType(node->pos)))
-			break;
 	}
+
 	*pvStrNext=0;
 
 	// Return position to initial state.

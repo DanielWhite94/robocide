@@ -1421,11 +1421,11 @@ bool searchInteriorRecogKBPvK(Node *node) {
 	Colour atkCol=(posGetPieceCount(node->pos, PieceWPawn)>0 ? ColourWhite : ColourBlack);
 	BB pawns=posGetBBPiece(node->pos, pieceMake(PieceTypePawn, atkCol));
 	assert(pawns!=BBNone);
-	assert((posGetPieceCount(node->pos, pieceMake(PieceTypeBishopL, atkCol))>0) ^
-	       (posGetPieceCount(node->pos, pieceMake(PieceTypeBishopD, atkCol))>0));
+	assert(((posGetBBPiece(node->pos, pieceMake(PieceTypeBishop, atkCol))&BBLight)!=BBNone) ^
+	       ((posGetBBPiece(node->pos, pieceMake(PieceTypeBishop, atkCol))&BBDark)!=BBNone));
 
 	// Ensure all pawns are on wrong rook file.
-	bool bishopIsLight=(posGetPieceCount(node->pos, pieceMake(PieceTypeBishopL, atkCol))>0);
+	bool bishopIsLight=((posGetBBPiece(node->pos, pieceMake(PieceTypeBishop, atkCol))&BBLight)!=BBNone);
 	BB wrongFile=((bishopIsLight^(atkCol==ColourWhite)) ? bbFile(FileA) : bbFile(FileH));
 	if (pawns & ~wrongFile)
 	  return false; // At least one other pawn.

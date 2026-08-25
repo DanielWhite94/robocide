@@ -85,9 +85,14 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 
 	BB occXKings=bbWhiteXKings|bbBlackXKings;
 
+	BB bbWhiteBishopL=(posGetBBPiece(pos, PieceWBishop)&BBLight);
+	BB bbWhiteBishopD=(posGetBBPiece(pos, PieceWBishop)&BBDark);
+	BB bbBlackBishopL=(posGetBBPiece(pos, PieceBBishop)&BBLight);
+	BB bbBlackBishopD=(posGetBBPiece(pos, PieceBBishop)&BBDark);
+
 	// If only pieces are bishops and all share same colour squares, draw.
-	BB bishopsL=(posGetBBPiece(pos, PieceWBishopL)|posGetBBPiece(pos, PieceBBishopL));
-	BB bishopsD=(posGetBBPiece(pos, PieceWBishopD)|posGetBBPiece(pos, PieceBBishopD));
+	BB bishopsL=(bbWhiteBishopL|bbBlackBishopL);
+	BB bishopsD=(bbWhiteBishopD|bbBlackBishopD);
 	if (occXKings==bishopsL || occXKings==bishopsD)
 		return EvalMatTypeDraw;
 
@@ -115,17 +120,17 @@ EvalMatType evalComputeMatType(const Pos *pos) {
 	if (occXKings==bbWhiteXKings) { // only white material?
 		BB pawns=posGetBBPiece(pos, PieceWPawn);
 		if ((bbWhiteXKings&pawns)!=BBNone && (bbWhiteXKings^pawns)!=BBNone) { // does white even have any pawns and non-pawns?
-			if ((bbWhiteXKings^pawns)==posGetBBPiece(pos, PieceWBishopL))
+			if ((bbWhiteXKings^pawns)==bbWhiteBishopL)
 				return EvalMatTypeKBPvK;
-			if ((bbWhiteXKings^pawns)==posGetBBPiece(pos, PieceWBishopD))
+			if ((bbWhiteXKings^pawns)==bbWhiteBishopD)
 				return EvalMatTypeKBPvK;
 		}
 	} else if (occXKings==bbBlackXKings) { // only black material?
 		BB pawns=posGetBBPiece(pos, PieceBPawn);
 		if ((bbBlackXKings&pawns)!=BBNone && (bbBlackXKings^pawns)!=BBNone) { // does black even have any pawns and non-pawns?
-			if ((bbBlackXKings^pawns)==posGetBBPiece(pos, PieceBBishopL))
+			if ((bbBlackXKings^pawns)==bbBlackBishopL)
 				return EvalMatTypeKBPvK;
-			if ((bbBlackXKings^pawns)==posGetBBPiece(pos, PieceBBishopD))
+			if ((bbBlackXKings^pawns)==bbBlackBishopD)
 				return EvalMatTypeKBPvK;
 		}
 	}

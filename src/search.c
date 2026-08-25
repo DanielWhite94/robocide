@@ -36,6 +36,7 @@ typedef struct {
 
 unsigned long long int searchNodeCount; // Number of nodes entered since beginning of last search.
 unsigned long long int searchNodeNext; // Node count at which we should next check the time.
+unsigned long long int searchNodeTBHits; // tablebase hits
 bool searchStopFlag;
 Lock *searchActivity=NULL; // Once reached depth limit, search will wait for this before printing bestmove command.
 Pos *searchPos=NULL;
@@ -181,6 +182,7 @@ void searchThink(const Pos *srcPos, const SearchLimit *limit, SearchOutput outpu
 
 	searchStopFlag=false;
 	searchNodeCount=0;
+	searchNodeTBHits=0;
 	searchLimit=*limit;
 	searchLimit.searchMovesNext=searchLimit.searchMoves+(limit->searchMovesNext-limit->searchMoves);
 	searchOutput=output;
@@ -1077,6 +1079,8 @@ void searchOutputRegular(void) {
 	uciWrite("info nodes %llu time %llu", (unsigned long long int)searchNodeCount, (unsigned long long int)time);
 	if (time>0)
 		uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
+	if (searchNodeTBHits>0)
+		uciWrite(" tbhits %llu", searchNodeTBHits);
 	uciWrite(" hashfull %u\n", ttFull());
 }
 
@@ -1156,6 +1160,8 @@ void searchOutputDepthPost(Node *node) {
 	uciWrite("info depth %u score %s nodes %llu time %llu", (unsigned int)node->depth, SCORETOSTR(node->score, node->bound), searchNodeCount, (unsigned long long int)time);
 	if (time>0)
 		uciWrite(" nps %llu", (searchNodeCount*1000llu)/time);
+	if (searchNodeTBHits>0)
+		uciWrite(" tbhits %llu", searchNodeTBHits);
 	uciWrite(" pv%s\n", pvStr);
 }
 
@@ -1258,16 +1264,19 @@ bool searchInteriorRecog(Node *node) {
 			case SyzygyWdlError:
 			break;
 			case SyzygyWdlWin:
+				++searchNodeTBHits;
 				node->bound=BoundLower;
 				node->score=scoreTbWin(256);
 				return true;
 			break;
 			case SyzygyWdlLoss:
+				++searchNodeTBHits;
 				node->bound=BoundUpper;
 				node->score=scoreTbLoss(256);
 				return true;
 			break;
 			case SyzygyWdlDraw:
+				++searchNodeTBHits;
 				node->bound=BoundExact;
 				node->score=ScoreDraw;
 				return true;

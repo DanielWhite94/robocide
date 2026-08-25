@@ -15,9 +15,8 @@ const uint32_t nnueFileHeaderHash=0xF4B8E1D9; // use this as extra version bits 
 #define NnueLayerHidden2Size 32
 
 typedef enum {
-	// This differs from the standard Piece definition in a few ways:
+	// This differs from the standard Piece definition in a couple of ways:
 	// * There is no None member
-	// * No differentiation between light/dark square bishops
 	// * Single (non-coloured) king (would be redundant having both as friendly king position is already encoded in the input layer)
 	NnuePieceWPawn,
 	NnuePieceWKnight,
@@ -232,14 +231,14 @@ NnueNet *nnueNetNewPST(void) {
 			// White
 			net->weightsAccum[kingSq][NnuePieceWPawn][pieceSq][i]=evalPST[PieceWPawn][pieceSq].mg/d;
 			net->weightsAccum[kingSq][NnuePieceWKnight][pieceSq][i]=evalPST[PieceWKnight][pieceSq].mg/d;
-			net->weightsAccum[kingSq][NnuePieceWBishop][pieceSq][i]=evalPST[PieceWBishopL][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NnuePieceWBishop][pieceSq][i]=evalPST[PieceWBishop][pieceSq].mg/d;
 			net->weightsAccum[kingSq][NnuePieceWRook][pieceSq][i]=evalPST[PieceWRook][pieceSq].mg/d;
 			net->weightsAccum[kingSq][NnuePieceWQueen][pieceSq][i]=evalPST[PieceWQueen][pieceSq].mg/d;
 
 			// Black
 			net->weightsAccum[kingSq][NnuePieceBPawn][pieceSq][i]=evalPST[PieceBPawn][pieceSq].mg/d;
 			net->weightsAccum[kingSq][NnuePieceBKnight][pieceSq][i]=evalPST[PieceBKnight][pieceSq].mg/d;
-			net->weightsAccum[kingSq][NnuePieceBBishop][pieceSq][i]=evalPST[PieceBBishopL][pieceSq].mg/d;
+			net->weightsAccum[kingSq][NnuePieceBBishop][pieceSq][i]=evalPST[PieceBBishop][pieceSq].mg/d;
 			net->weightsAccum[kingSq][NnuePieceBRook][pieceSq][i]=evalPST[PieceBRook][pieceSq].mg/d;
 			net->weightsAccum[kingSq][NnuePieceBQueen][pieceSq][i]=evalPST[PieceBQueen][pieceSq].mg/d;
 
@@ -449,8 +448,7 @@ NnuePiece nnuePieceFromPiece(Piece p) {
 		case PieceWKnight:
 			return NnuePieceWKnight;
 		break;
-		case PieceWBishopL:
-		case PieceWBishopD:
+		case PieceWBishop:
 			return NnuePieceWBishop;
 		break;
 		case PieceWRook:
@@ -468,8 +466,7 @@ NnuePiece nnuePieceFromPiece(Piece p) {
 		case PieceBKnight:
 			return NnuePieceBKnight;
 		break;
-		case PieceBBishopL:
-		case PieceBBishopD:
+		case PieceBBishop:
 			return NnuePieceBBishop;
 		break;
 		case PieceBRook:

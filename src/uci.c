@@ -203,7 +203,23 @@ void uciLoop(void) {
 			uciWrite("UCI str: %s\n", posStr);
 			free(posStr);
 
-			uciWrite("Syzygy lookup: %s\n", syzygyWdlToStr(syzygyProbeWdl(pos)));
+			uciWrite("Syzygy probe WDL: %s\n", syzygyWdlToStr(syzygyProbeWdl(pos)));
+
+			SyzygyWdl tbWdl;
+			int tbDtz;
+			SyzygyMove tbMoves[SyzygyMovesMax];
+			Move tbMove=syzygyProbeRoot(pos, &tbWdl, &tbDtz, tbMoves);
+			if (tbMove!=MoveInvalid) {
+				Sq fromSq=moveGetFromSq(tbMove);
+				Sq toSq=moveGetToSqRaw(tbMove);
+				uciWrite("Syzygy probe root: %c%c%c%c %s dtz=%i\n", fileToChar(sqFile(fromSq)), rankToChar(sqRank(fromSq)), fileToChar(sqFile(toSq)), rankToChar(sqRank(toSq)), syzygyWdlToStr(tbWdl), tbDtz);
+				for(unsigned i=0; tbMoves[i].move!=MoveInvalid; ++i) {
+					Sq fromSq=moveGetFromSq(tbMoves[i].move);
+					Sq toSq=moveGetToSqRaw(tbMoves[i].move);
+					uciWrite("    %c%c%c%c %s dtz=%i\n", fileToChar(sqFile(fromSq)), rankToChar(sqRank(fromSq)), fileToChar(sqFile(toSq)), rankToChar(sqRank(toSq)), syzygyWdlToStr(tbMoves[i].wdl), tbMoves[i].dtz);
+				}
+			} else
+				uciWrite("Syzygy probe root: failed\n");
 
 			Score nnueEval=nnueEvaluate(pos);
 			uciWrite("NNUE eval: %i\n", nnueEval);

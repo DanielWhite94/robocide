@@ -253,6 +253,15 @@ void uciLoop(void) {
 			} else {
 				uciWrite("Syzygy lookup: failed\n");
 			}
+		} else if (utilStrEqual(part, "moves")) {
+			uciWrite("Moves (ordered):\n");
+			Moves moves;
+			movesInit(&moves, pos, 0, MoveTypeAny);
+			movesRewind(&moves, MoveInvalid, MoveInvalid);
+			Move move;
+			while((move=movesNext(&moves))!=MoveInvalid) {
+				uciWrite("    %s\n", POSMOVETOSTR(pos, move));
+			}
 		} else if (utilStrEqual(part, "perft")) {
 			if ((part=strtok_r(NULL, " ", &savePtr))==NULL)
 				continue;

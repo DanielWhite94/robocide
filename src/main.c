@@ -199,6 +199,84 @@ void mainLogSearchCurrmove(const Pos *pos, Move move, unsigned moveNumber) {
 	fclose(file);
 }
 
+void mainLogVerifyFirstCurrmove(const  char *path) {
+	printf("Verifying first currmove for log data at '%s'\n", path);
+
+	// Open log file
+	FILE *file=fopen(path, "r");
+	if (file==NULL) {
+		printf("Error: could not read log data file\n");
+		return;
+	}
+
+	// Read log file
+	char prevFirstMove[POSMOVETOSTRMAXLEN];
+	prevFirstMove[0]=0;
+	char line[4096]; // TODO: better
+	unsigned lineNum=0;
+	while(1) {
+		// Read line (taking note of current position before we do so)
+		if (fgets(line, 4096, file)==NULL)
+			break;
+		++lineNum;
+
+		// Strip newline to make parsing simpler
+		if (line[0]!='\0' && line[strlen(line)-1]=='\n')
+			line[strlen(line)-1]='\0';
+
+		// Parse line
+		if (strncmp(line, "searchtime ", 11)==0) {
+			prevFirstMove[0]=0;
+		} else if (strncmp(line, "info ", 5)==0) {
+			char *savePtr;
+			char *part=strtok_r(line, " ", &savePtr); // this will be 'info' but we don't use it
+			while((part=strtok_r(NULL, " ", &savePtr))!=NULL) {
+				// Look for PV (list of moves - we want the first one i.e. the best move found for 'us' in the root)
+				if (strcmp(part, "pv")==0) {
+					part=strtok_r(NULL, " ", &savePtr);
+
+					// Bad string? (no moves after 'pv')
+					if (part==NULL)
+						break;
+
+					// Update first move
+					if (strlen(part)>=POSMOVETOSTRMAXLEN)
+						part[POSMOVETOSTRMAXLEN-1]=0; // just to be safe
+					strcpy(prevFirstMove, part);
+				}
+			}
+		} else if (strncmp(line, "currmove ", 9)==0 && prevFirstMove[0]!=0) {
+			// Grab move and index
+			char *savePtr;
+			char *part=strtok_r(line, " ", &savePtr); // this will be 'currmove' due to check above
+			if (part==NULL)
+				continue;
+			char *currMove=strtok_r(NULL, " ", &savePtr);
+			if (currMove==NULL)
+				continue;
+			part=strtok_r(NULL, " ", &savePtr);
+			if (part==NULL || strcmp(part, "currmovenumber")!=0)
+				continue;
+			char *currMoveNumStr=strtok_r(NULL, " ", &savePtr);
+			if (currMoveNumStr==NULL)
+				continue;
+
+			// Only looking for best move (i.e. move at index 0)
+			if (atoi(currMoveNumStr)!=0)
+				continue;
+
+			// Compare
+			if (strcmp(prevFirstMove, currMove)!=0)
+				printf("%u: prev move %s, curr move %s\n", lineNum, prevFirstMove, currMove);
+		}
+	}
+
+	printf("Verification complete\n");
+
+	// Close log file
+	fclose(file);
+}
+
 bool mainReplay(const char *path, const char *date) {
 	// Open log file
 	FILE *file=fopen(path, "r");

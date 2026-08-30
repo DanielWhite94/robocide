@@ -748,6 +748,10 @@ void searchNodeInternal(Node *node) {
 		if (searchShowCurrmove && node->ply==0)
 			posMoveToStr(node->pos, move, moveStr); // Must do this before making the move.
 
+		// Logging
+		if (node->ply==0)
+			mainLogSearchCurrmove(node->pos, move, moveNumber);
+
 		// Make move (might leave us in check, if so skip).
 		MoveType moveType=posMoveGetType(node->pos, move);
 		if (!posMakeMove(node->pos, move))

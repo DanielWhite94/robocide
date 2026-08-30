@@ -182,6 +182,23 @@ void mainLogSearchEnd(unsigned long long int nodeCount) {
 	fclose(file);
 }
 
+void mainLogSearchCurrmove(const Pos *pos, Move move, unsigned moveNumber) {
+	// No logging required?
+	if (mainLogFilePath==NULL)
+		return;
+
+	// Open log file
+	FILE *file=fopen(mainLogFilePath, "a");
+	if (file==NULL)
+		return;
+
+	// Write data
+	fprintf(file, "currmove %s currmovenumber %u\n", POSMOVETOSTR(pos, move), moveNumber);
+
+	// Close log file
+	fclose(file);
+}
+
 bool mainReplay(const char *path, const char *date) {
 	// Open log file
 	FILE *file=fopen(path, "r");

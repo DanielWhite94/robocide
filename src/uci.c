@@ -310,6 +310,16 @@ void uciLoop(void) {
 
 			// Call mainReplay to do the actual work
 			mainReplay(replayPath, replayDate);
+		} else if (utilStrEqual(part, "verify")) {
+			// Grab arguments
+			if ((part=strtok_r(NULL, " ", &savePtr))==NULL) {
+				printf("Error: missing path argument\n");
+				continue;
+			}
+			const char *verifyPath=part;
+
+			// Call mainLogVerifyFirstCurrmove to do the actual work
+			mainLogVerifyFirstCurrmove(verifyPath);
 		}
 	}
 

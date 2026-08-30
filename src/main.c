@@ -215,7 +215,7 @@ void mainLogVerifyFirstCurrmove(const  char *path) {
 	char line[4096]; // TODO: better
 	unsigned lineNum=0;
 	while(1) {
-		// Read line (taking note of current position before we do so)
+		// Read line
 		if (fgets(line, 4096, file)==NULL)
 			break;
 		++lineNum;

@@ -1266,33 +1266,30 @@ bool searchInteriorRecog(Node *node) {
 	}
 
 	// Probe endgame bitbase (Syzygy)
-	// (skip if infinite search and PV node)
-	if (!searchLimit.infinite || !searchNodeIsPV(node)) {
-		switch(syzygyProbeWdl(node->pos)) {
-			case SyzygyWdlError:
-			break;
-			case SyzygyWdlWin:
-				++searchNodeTBHits;
-				node->bound=BoundLower;
-				node->score=scoreTbWin(256);
-				return true;
-			break;
-			case SyzygyWdlLoss:
-				++searchNodeTBHits;
-				node->bound=BoundUpper;
-				node->score=scoreTbLoss(256);
-				return true;
-			break;
-			case SyzygyWdlDraw:
-				++searchNodeTBHits;
-				node->bound=BoundExact;
-				node->score=ScoreDraw;
-				return true;
-			break;
-			case SyzygyWdlNB:
-				assert(false);
-			break;
-		}
+	switch(syzygyProbeWdl(node->pos)) {
+		case SyzygyWdlError:
+		break;
+		case SyzygyWdlWin:
+			++searchNodeTBHits;
+			node->bound=BoundLower;
+			node->score=scoreTbWin(256);
+			return true;
+		break;
+		case SyzygyWdlLoss:
+			++searchNodeTBHits;
+			node->bound=BoundUpper;
+			node->score=scoreTbLoss(256);
+			return true;
+		break;
+		case SyzygyWdlDraw:
+			++searchNodeTBHits;
+			node->bound=BoundExact;
+			node->score=ScoreDraw;
+			return true;
+		break;
+		case SyzygyWdlNB:
+			assert(false);
+		break;
 	}
 
 	// Special material combination recognizers.

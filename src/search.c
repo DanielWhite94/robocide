@@ -828,6 +828,11 @@ void searchNodeInternal(Node *node) {
 			return;
 		}
 
+		// Bit of a hack to report a 0 score if we know it is a draw
+		// This only happens in the root node as otherwise tbWdl can never be SyzygyWdlDraw
+		if (tbWdl==SyzygyWdlDraw)
+			score=0; // we know this move must be a draw as we filter out moves which don't preserve the WDL state
+
 		// Better move?
 		if (score>node->score) {
 			// Update best score and update PV.

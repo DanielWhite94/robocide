@@ -24,6 +24,7 @@ typedef struct {
 ////////////////////////////////////////////////////////////////////////////////
 
 void syzygyGetPosData(SyzygyPosData *data, const Pos *pos);
+unsigned syzygyGetPosCastling(const Pos *pos); // Set of TB_CASTLING_K etc.
 
 void syzygySetSyzygyPath(void *userData, const char *value);
 
@@ -151,9 +152,21 @@ void syzygyGetPosData(SyzygyPosData *data, const Pos *pos) {
 	data->knights=(posGetBBPiece(pos, PieceWKnight)|posGetBBPiece(pos, PieceBKnight));
 	data->pawns=(posGetBBPiece(pos, PieceWPawn)|posGetBBPiece(pos, PieceBPawn));
 	data->rule50=posGetHalfMoveNumber(pos);
-	data->castling=0; // TODO: this (using TB_CASTLING_K etc.). However, in reality never going to matter in a real game. Also needs thought for Chess960 in case where castling is still a possibility)
+	data->castling=syzygyGetPosCastling(pos);
 	data->ep=(posGetEPSq(pos)!=SqInvalid ? posGetEPSq(pos) : 0);
 	data->turn=(posGetSTM(pos)==ColourWhite);
+}
+
+unsigned syzygyGetPosCastling(const Pos *pos) {
+	STATICASSERT(TB_CASTLING_Q==((1u)<<1));
+	STATICASSERT(TB_CASTLING_K==((1u)<<0));
+	STATICASSERT(TB_CASTLING_q==((1u)<<3));
+	STATICASSERT(TB_CASTLING_k==((1u)<<2));
+	CastRights castling=posGetCastRights(pos);
+	return (((castling.rookSq[ColourWhite][CastSideA]!=SqInvalid)<<1)|
+	        ((castling.rookSq[ColourWhite][CastSideH]!=SqInvalid)<<0)|
+	        ((castling.rookSq[ColourBlack][CastSideA]!=SqInvalid)<<3)|
+	        ((castling.rookSq[ColourBlack][CastSideH]!=SqInvalid)<<2));
 }
 
 void syzygySetSyzygyPath(void *userData, const char *value) {

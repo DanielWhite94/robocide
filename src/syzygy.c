@@ -54,6 +54,11 @@ SyzygyWdl syzygyProbeWdl(const Pos *pos) {
 	if (bbPopCount(posGetBBAll(pos))>TB_LARGEST)
 		return SyzygyWdlError;
 
+	// Before we spend time filling the pos data - check for non-zero 50 move counter as this is very common and fast to check
+	// Note: tb_probe_wdl also does this check again - as well as checking for non-zero castling rights but those are slower to check
+	if (posGetHalfMoveNumber(pos)!=0)
+		return SyzygyWdlError;
+
 	// Lookup value
 	SyzygyPosData pd;
 	syzygyGetPosData(&pd, pos);

@@ -178,11 +178,7 @@ void syzygySetSyzygyPath(void *userData, const char *value) {
 	assert(userData==NULL);
 	assert(value!=NULL);
 
-	// Free previous initialisation if needed
-	if (TB_LARGEST>0)
-		tb_free();
-
-	// Initialise
+	// (re)initialise
 	if (!tb_init(value)) {
 		uciWrite("info string Failed to load Syzygy tables at '%s'\n", value);
 		return;

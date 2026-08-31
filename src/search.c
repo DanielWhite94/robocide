@@ -1277,13 +1277,13 @@ bool searchInteriorRecog(Node *node) {
 		case SyzygyWdlWin:
 			++searchNodeTBHits;
 			node->bound=BoundLower;
-			node->score=scoreTbWin(256);
+			node->score=scoreTbWin(node->ply);
 			return true;
 		break;
 		case SyzygyWdlLoss:
 			++searchNodeTBHits;
 			node->bound=BoundUpper;
-			node->score=scoreTbLoss(256);
+			node->score=scoreTbLoss(node->ply);
 			return true;
 		break;
 		case SyzygyWdlDraw:

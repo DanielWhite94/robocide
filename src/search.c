@@ -700,8 +700,9 @@ void searchNodeInternal(Node *node) {
 	// If root, probe endgame bitbase (Syzygy) to populate tbMoves array
 	SyzygyWdl tbWdl=SyzygyWdlError;
 	SyzygyMove tbMoves[SyzygyMovesMax];
+	Move tbMove=MoveInvalid; // only used if half move counter is getting high
 	if (node->ply==0)
-		syzygyProbeRoot(node->pos, &tbWdl, NULL, tbMoves);
+		tbMove=syzygyProbeRoot(node->pos, &tbWdl, NULL, tbMoves);
 
 	// Move loop.
 	Moves moves;
@@ -719,13 +720,20 @@ void searchNodeInternal(Node *node) {
 		if (node->ply==0) {
 			// TODO: fix issue where, if all moves which maintain the WDL value have been excluded by searchmoves, we will not search any moves in the root
 
-			// If have a Syzygy table hit, check if current move should be excluded because it does not maintain the WDL value
+			// If have a Syzygy table hit we may want to filter this move
 			if (tbWdl!=SyzygyWdlError) {
 				bool skipMove=false;
-				for(unsigned i=0; tbMoves[i].move!=MoveInvalid; ++i) {
-					if (tbMoves[i].move==move) {
-						skipMove=(tbMoves[i].wdl!=tbWdl);
-						break;
+				if (posGetHalfMoveNumber(node->pos)>80) {
+					// Check if current move should be excluded because it does not have the minimum DTZ
+					skipMove=(move!=tbMove);
+				} else {
+					// Check if current move should be excluded because it does not maintain the WDL value (or will be too slow and be a 50 move rule draw)
+					unsigned pliesToDraw=100-posGetHalfMoveNumber(node->pos);
+					for(unsigned i=0; tbMoves[i].move!=MoveInvalid; ++i) {
+						if (tbMoves[i].move==move) {
+							skipMove=(tbMoves[i].wdl!=tbWdl || tbMoves[i].dtz>=pliesToDraw);
+							break;
+						}
 					}
 				}
 				if (skipMove)

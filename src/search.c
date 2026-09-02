@@ -50,7 +50,7 @@ STATICASSERT(MoveBit<=16);
 uint16_t searchPv[DepthMax][DepthMax];
 bool searchRootSingleLegalMove;
 
-TUNECONST int searchNullReduction=1;
+TUNECONST int searchNullReduction=3;
 TUNECONST int searchIIDMin=2;
 TUNECONST int searchIIDReduction=3;
 TUNECONST bool searchHistoryHeuristic=true;

@@ -9,7 +9,7 @@
 // Private prototypes.
 ////////////////////////////////////////////////////////////////////////////////
 
-void movesSort(ScoredMove *start, ScoredMove *end); // Descending order (best move first).
+void movesSort(Moves *moves); // Descending order (best move first).
 
 ////////////////////////////////////////////////////////////////////////////////
 // Public functions.
@@ -19,12 +19,9 @@ void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type, Move pvMo
 	assert(type==MoveTypeQuiet || type==MoveTypeCapture || type==MoveTypeAny);
 	moves->end=moves->next=moves->list;
 	moves->stage=MovesStagePV;
-	moves->pvMove=MoveInvalid;
-	moves->ttMove=MoveInvalid;
 	moves->pos=pos;
 	moves->ply=ply;
 	moves->allowed=moves->needed=type;
-	moves->next=moves->list;
 	moves->savedCounterMove=MoveInvalid;
 	moves->pvMove=((moveIsValid(pvMove) && (posMoveGetType(moves->pos, pvMove)&moves->allowed) && moves->ply==0) ? pvMove : MoveInvalid);
 	moves->ttMove=((moveIsValid(ttMove) && (posMoveGetType(moves->pos, ttMove)&moves->allowed)) ? ttMove : MoveInvalid);
@@ -56,7 +53,7 @@ Move movesNext(Moves *moves) {
 				assert(moves->next==moves->list);
 				assert(moves->next==moves->end);
 				posGenPseudoMoves(moves, MoveTypeCapture);
-				movesSort(moves->next, moves->end);
+				movesSort(moves);
 				moves->needed&=~MoveTypeCapture;
 			}
 
@@ -99,8 +96,10 @@ Move movesNext(Moves *moves) {
 			// No captures left, do we need to generate any quiets?
 			if (moves->needed & MoveTypeQuiet) {
 				assert(moves->next==moves->end);
+				moves->next=moves->list;
+				moves->end=moves->list;
 				posGenPseudoMoves(moves, MoveTypeQuiet);
-				movesSort(moves->next, moves->end);
+				movesSort(moves);
 				moves->needed&=~MoveTypeQuiet;
 			}
 
@@ -140,12 +139,14 @@ void movesPush(Moves *moves, Move move) {
 // Private functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-void movesSort(ScoredMove *start, ScoredMove *end) {
+void movesSort(Moves *moves) {
+	assert(moves!=NULL);
+
 	// Insertion sort - best move first.
 	ScoredMove *ptr;
-	for(ptr=start+1;ptr<end;++ptr) {
+	for(ptr=moves->list+1;ptr<moves->end;++ptr) {
 		ScoredMove temp=*ptr, *tempPtr;
-		for(tempPtr=ptr-1;tempPtr>=start && scoredMoveCompGT(temp, *tempPtr);--tempPtr)
+		for(tempPtr=ptr-1;tempPtr>=moves->list && scoredMoveCompGT(temp, *tempPtr);--tempPtr)
 			*(tempPtr+1)=*tempPtr;
 		*(tempPtr+1)=temp;
 	}

@@ -182,23 +182,6 @@ void mainLogSearchEnd(unsigned long long int nodeCount) {
 	fclose(file);
 }
 
-void mainLogSearchCurrmove(const Pos *pos, Move move, unsigned moveNumber) {
-	// No logging required?
-	if (mainLogFilePath==NULL)
-		return;
-
-	// Open log file
-	FILE *file=fopen(mainLogFilePath, "a");
-	if (file==NULL)
-		return;
-
-	// Write data
-	fprintf(file, "currmove %s currmovenumber %u\n", POSMOVETOSTR(pos, move), moveNumber);
-
-	// Close log file
-	fclose(file);
-}
-
 void mainLogVerifyFirstCurrmove(const  char *path) {
 	printf("Verifying first currmove for log data at '%s'\n", path);
 
@@ -210,6 +193,8 @@ void mainLogVerifyFirstCurrmove(const  char *path) {
 	}
 
 	// Read log file
+	unsigned long long int moveMatchCount=0;
+	unsigned long long int moveMatchTotal=0;
 	char prevFirstMove[POSMOVETOSTRMAXLEN];
 	prevFirstMove[0]=0;
 	char line[4096]; // TODO: better
@@ -261,17 +246,43 @@ void mainLogVerifyFirstCurrmove(const  char *path) {
 			if (currMoveNumStr==NULL)
 				continue;
 
-			// Only looking for best move (i.e. move at index 0)
-			if (atoi(currMoveNumStr)!=0)
+			// Only looking for best move (i.e. move at index 1)
+			if (atoi(currMoveNumStr)!=1)
 				continue;
 
 			// Compare
 			if (strcmp(prevFirstMove, currMove)!=0)
 				printf("%u: prev move %s, curr move %s\n", lineNum, prevFirstMove, currMove);
+		} else if (strncmp(line, "searchrootmoveloopstart ", 24)==0) {
+			// Grab pv and tt moves
+			char *savePtr;
+			char *part=strtok_r(line, " ", &savePtr); // this will be 'searchrootmoveloopstart' due to check above
+			if (part==NULL)
+				continue;
+			part=strtok_r(NULL, " ", &savePtr);
+			if (part==NULL || strcmp(part, "pvmove")!=0)
+				continue;
+			char *pvMove=strtok_r(NULL, " ", &savePtr);
+			if (pvMove==NULL)
+				continue;
+			part=strtok_r(NULL, " ", &savePtr);
+			if (part==NULL || strcmp(part, "ttmove")!=0)
+				continue;
+			char *ttMove=strtok_r(NULL, " ", &savePtr);
+			if (ttMove==NULL)
+				continue;
+
+			if (strcmp(pvMove, "0000")==0)
+				continue; // ok for pvMove to be MoveInvalid e.g. for depth=1 where we haven't yet searched
+			moveMatchCount+=(strcmp(pvMove, ttMove)==0);
+			++moveMatchTotal;
+			if (strcmp(pvMove, ttMove)!=0) {
+				printf("%u: pv move %s, tt move %s\n", lineNum, pvMove, ttMove);
+			}
 		}
 	}
 
-	printf("Verification complete\n");
+	printf("Verification complete (PV/TT move matches: %llu/%llu)\n", moveMatchCount, moveMatchTotal);
 
 	// Close log file
 	fclose(file);

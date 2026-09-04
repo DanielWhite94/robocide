@@ -717,6 +717,13 @@ void searchNodeInternal(Node *node) {
 	child.beta=-alpha;
 	Move move;
 	unsigned moveNumber=0, lmrMoveNumber=0;
+	if (node->ply==0) {
+		// Logging
+		char pvMoveStr[POSMOVETOSTRMAXLEN], ttMoveStr[POSMOVETOSTRMAXLEN];
+		posMoveToStr(node->pos, searchRootPrevBestMove, pvMoveStr);
+		posMoveToStr(node->pos, ttMove, ttMoveStr);
+		mainLogF("searchrootmoveloopstart pvmove %s ttmove %s\n", pvMoveStr, ttMoveStr);
+	}
 	while((move=movesNext(&moves))!=MoveInvalid) {
 		// If we are the root potentially filter out this move
 		if (node->ply==0) {
@@ -753,14 +760,10 @@ void searchNodeInternal(Node *node) {
 			}
 		}
 
-		// Find move string for UCI output.
+		// Find move string for logging output.
 		char moveStr[8]; // Only used if root node.
-		if (searchShowCurrmove && node->ply==0)
-			posMoveToStr(node->pos, move, moveStr); // Must do this before making the move.
-
-		// Logging
 		if (node->ply==0)
-			mainLogSearchCurrmove(node->pos, move, moveNumber);
+			posMoveToStr(node->pos, move, moveStr); // Must do this before making the move.
 
 		// Make move (might leave us in check, if so skip).
 		MoveType moveType=posMoveGetType(node->pos, move);
@@ -768,9 +771,13 @@ void searchNodeInternal(Node *node) {
 			continue;
 		++moveNumber;
 
-		// 'currmove' UCI output.
-		if (searchShowCurrmove && node->ply==0)
-			uciWrite("info depth %u currmove %s currmovenumber %u\n", node->depth, moveStr, moveNumber);
+		// 'currmove' UCI and logging output.
+		if (node->ply==0) {
+			if (searchShowCurrmove)
+				uciWrite("info depth %u currmove %s currmovenumber %u\n", node->depth, moveStr, moveNumber);
+
+			mainLogF("currmove %s currmovenumber %u\n", moveStr, moveNumber);
+		}
 
 		// Calculate child values.
 		child.inCheck=posIsSTMInCheck(node->pos);

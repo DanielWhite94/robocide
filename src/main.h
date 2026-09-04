@@ -17,7 +17,6 @@ void mainLogNewGame(void);
 void mainLogSearchStart(Pos *pos, TimeMs searchTime);
 void mainLogSearchDepth(Depth depth, Score score, Bound bound, unsigned long long nodeCount, TimeMs startTime, const char *pvStr);
 void mainLogSearchEnd(unsigned long long int nodeCount);
-void mainLogSearchCurrmove(const Pos *pos, Move move, unsigned moveNumber);
 void mainLogVerifyFirstCurrmove(const  char *path);
 bool mainReplay(const char *path, const char *date);
 

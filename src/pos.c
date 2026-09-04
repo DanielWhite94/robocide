@@ -736,7 +736,7 @@ void posGenPseudoMoves(Moves *moves, MoveType type) {
 
 Move posGenLegalMove(const Pos *pos, MoveType type) {
 	Moves moves;
-	movesInit(&moves, pos, 0, type);
+	movesInit(&moves, pos, 0, type, MoveInvalid, MoveInvalid);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid)
 		if (posCanMakeMove(pos, move))
@@ -916,7 +916,7 @@ bool posLegalMoveExists(const Pos *pos, MoveType type) {
 bool posNLegalMovesExists(const Pos *pos, MoveType type, unsigned n) {
 	// TODO: this can presumably be done faster by generating and trying moves one-by-one (currently we generate all captures, then all quiets)
 	Moves moves;
-	movesInit(&moves, pos, 0, type);
+	movesInit(&moves, pos, 0, type, MoveInvalid, MoveInvalid);
 	Move move;
 	while(n>0 && (move=movesNext(&moves))!=MoveInvalid) {
 		// Test if move is actually legal (does not leave side to move in check)
@@ -993,7 +993,7 @@ bool posMoveIsCastlingH(const Pos *pos, Move move) {
 
 Move posMoveFromStr(const Pos *pos, const char str[static 6]){
 	Moves moves;
-	movesInit(&moves, pos, 0, MoveTypeAny);
+	movesInit(&moves, pos, 0, MoveTypeAny, MoveInvalid, MoveInvalid);
 	Move move;
 	while((move=movesNext(&moves))!=MoveInvalid)
 		if (strcmp(str, POSMOVETOSTR(pos, move))==0)

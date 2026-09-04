@@ -10,7 +10,7 @@ typedef struct Moves Moves;
 #include "pos.h"
 #include "scoredmove.h"
 
-typedef enum { MovesStageTT, MovesStageGenCaptures, MovesStageCaptures, MovesStageKillers, MovesStageCounterMove, MovesStageGenQuiets, MovesStageQuiets } MovesStage;
+typedef enum { MovesStagePV, MovesStageTT, MovesStageGenCaptures, MovesStageCaptures, MovesStageKillers, MovesStageCounterMove, MovesStageGenQuiets, MovesStageQuiets } MovesStage;
 
 #define MovesMax 256
 struct Moves
@@ -18,6 +18,7 @@ struct Moves
 	// All entries should be considered private - only here to allow easy allocation on the stack.
 	ScoredMove list[MovesMax], *next, *end;
 	MovesStage stage;
+	Move pvMove;
 	Move ttMove;
 	unsigned int killersIndex;
 	const Pos *pos;
@@ -26,9 +27,7 @@ struct Moves
 	Move savedCounterMove;
 };
 
-void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type);
-
-void movesRewind(Moves *moves, Move ttMove);
+void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type, Move pvMove, Move ttMove);
 
 Move movesNext(Moves *moves); // Returns distinct moves until none remain (then returning MoveInvalid).
 

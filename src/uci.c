@@ -222,7 +222,7 @@ void uciLoop(void) {
 			if (evalComputeMatType(pos)==EvalMatTypeKPvK) {
 				uciWrite("BitBase:\n");
 				Moves moves;
-				movesInit(&moves, pos, 0, MoveTypeAny);
+				movesInit(&moves, pos, 0, MoveTypeAny, MoveInvalid, MoveInvalid);
 				Move move;
 				while((move=movesNext(&moves))!=MoveInvalid) {
 					char str[8];
@@ -256,8 +256,7 @@ void uciLoop(void) {
 		} else if (utilStrEqual(part, "moves")) {
 			uciWrite("Moves (ordered):\n");
 			Moves moves;
-			movesInit(&moves, pos, 0, MoveTypeAny);
-			movesRewind(&moves, MoveInvalid, MoveInvalid);
+			movesInit(&moves, pos, 0, MoveTypeAny, MoveInvalid, MoveInvalid);
 			Move move;
 			while((move=movesNext(&moves))!=MoveInvalid) {
 				uciWrite("    %s\n", POSMOVETOSTR(pos, move));
@@ -274,7 +273,7 @@ void uciLoop(void) {
 			divide(pos, depth);
 		} else if (utilStrEqual(part, "see")) {
 			Moves moves;
-			movesInit(&moves, pos, 0, MoveTypeAny);
+			movesInit(&moves, pos, 0, MoveTypeAny, MoveInvalid, MoveInvalid);
 			Move move;
 			while((move=movesNext(&moves))!=MoveInvalid) {
 				Sq toSq=posMoveGetToSqTrue(pos, move);

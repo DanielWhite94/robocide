@@ -15,33 +15,38 @@ void movesSort(ScoredMove *start, ScoredMove *end); // Descending order (best mo
 // Public functions.
 ////////////////////////////////////////////////////////////////////////////////
 
-void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type) {
+void movesInit(Moves *moves, const Pos *pos, Depth ply, MoveType type, Move pvMove, Move ttMove) {
 	assert(type==MoveTypeQuiet || type==MoveTypeCapture || type==MoveTypeAny);
 	moves->end=moves->next=moves->list;
-	moves->stage=MovesStageTT;
+	moves->stage=MovesStagePV;
+	moves->pvMove=MoveInvalid;
 	moves->ttMove=MoveInvalid;
 	moves->pos=pos;
 	moves->ply=ply;
 	moves->allowed=moves->needed=type;
 	moves->next=moves->list;
 	moves->savedCounterMove=MoveInvalid;
-}
-
-void movesRewind(Moves *moves, Move ttMove) {
-	moves->stage=MovesStageTT;
-	moves->next=moves->list;
+	moves->pvMove=((moveIsValid(pvMove) && (posMoveGetType(moves->pos, pvMove)&moves->allowed) && moves->ply==0) ? pvMove : MoveInvalid);
 	moves->ttMove=((moveIsValid(ttMove) && (posMoveGetType(moves->pos, ttMove)&moves->allowed)) ? ttMove : MoveInvalid);
-	moves->savedCounterMove=MoveInvalid;
 }
 
 Move movesNext(Moves *moves) {
 	switch(moves->stage) {
+		case MovesStagePV:
+			// Update stage and next ptr ready for next call (at most one PV move).
+			moves->stage=MovesStageTT;
+
+			// Do we have a PV move?
+			if (moves->pvMove!=MoveInvalid)
+				return moves->pvMove;
+
+			// Fall through.
 		case MovesStageTT:
 			// Update stage and next ptr ready for next call (at most one TT move).
 			moves->stage=MovesStageGenCaptures;
 
 			// Do we have a TT move?
-			if (moves->ttMove!=MoveInvalid)
+			if (moves->ttMove!=MoveInvalid && moves->ttMove!=moves->pvMove)
 				return moves->ttMove;
 
 			// Fall through.
@@ -61,7 +66,7 @@ Move movesNext(Moves *moves) {
 			// Return moves one at a time.
 			while (moves->next<moves->end) {
 				Move move=scoredMoveGetMove(*moves->next++);
-				if (move!=moves->ttMove) // Exclude TT move as this is searched earlier.
+				if (move!=moves->pvMove && move!=moves->ttMove) // Exclude TT and PV moves as these are searched earlier.
 					return move;
 			}
 
@@ -73,7 +78,7 @@ Move movesNext(Moves *moves) {
 				while(moves->killersIndex<KillersPerPly) {
 					// Check if any killers left.
 					Move move=killersGetN(moves->ply, moves->killersIndex++);
-					if (move!=MoveInvalid && move!=moves->ttMove && posMoveIsPseudoLegal(moves->pos, move))
+					if (move!=MoveInvalid && move!=moves->pvMove && move!=moves->ttMove && posMoveIsPseudoLegal(moves->pos, move))
 						return move;
 				}
 			}
@@ -83,7 +88,7 @@ Move movesNext(Moves *moves) {
 			if (moves->needed & MoveTypeQuiet) {
 				Move move=counterMoveGetResponseMove(posGetLastMove(moves->pos));
 				moves->savedCounterMove=move; // cache this for when we check against it later (result from the counter move module may change by the time we call it again)
-				if (move!=MoveInvalid && move!=moves->ttMove && !killersMoveIsKiller(moves->ply, move) && posMoveIsPseudoLegal(moves->pos, move)) {
+				if (move!=MoveInvalid && move!=moves->pvMove && move!=moves->ttMove && !killersMoveIsKiller(moves->ply, move) && posMoveIsPseudoLegal(moves->pos, move)) {
 					moves->stage=MovesStageGenQuiets;
 					return move;
 				}
@@ -104,9 +109,9 @@ Move movesNext(Moves *moves) {
 		case MovesStageQuiets:
 			// Return moves one at a time.
 			while (moves->next<moves->end) {
-				// Exclude TT, killer and counter moves as these are searched earlier.
+				// Exclude PV, TT, killer and counter moves as these are searched earlier.
 				Move move=scoredMoveGetMove(*moves->next++);
-				if (move!=moves->ttMove && !killersMoveIsKiller(moves->ply, move) && move!=moves->savedCounterMove)
+				if (move!=moves->pvMove && move!=moves->ttMove && !killersMoveIsKiller(moves->ply, move) && move!=moves->savedCounterMove)
 					return move;
 			}
 

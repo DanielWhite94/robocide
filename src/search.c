@@ -49,6 +49,7 @@ SearchOutput searchOutput;
 STATICASSERT(MoveBit<=16);
 uint16_t searchPv[DepthMax][DepthMax];
 bool searchRootSingleLegalMove;
+Move searchRootPrevBestMove; // used to ensure we always search the previous iterations best move first, regardless of any TT issues
 
 TUNECONST int searchNullReduction=3;
 TUNECONST int searchIIDMin=2;
@@ -385,6 +386,7 @@ void searchIDLoop(void *userData) {
 	// Loop, increasing search depth until we run out of 'time'.
 	searchRootSingleLegalMove=!posNLegalMovesExists(node.pos, MoveTypeAny, 2);
 	Move bestMove=MoveInvalid, ponderMove=MoveInvalid;
+	searchRootPrevBestMove=MoveInvalid;
 	if (searchLimit.infinite || !searchRootSingleLegalMove) {
 		for(node.depth=1;node.depth<=searchLimit.depth;++node.depth) {
 			// After 1s start showing 'currmove' info.
@@ -403,6 +405,7 @@ void searchIDLoop(void *userData) {
 
 			// Update bestMove
 			bestMove=searchPv[node.ply][0];
+			searchRootPrevBestMove=bestMove;
 			ponderMove=(bestMove!=MoveInvalid ? searchPv[node.ply][1] : MoveInvalid);
 
 			// Output post info.
@@ -687,10 +690,10 @@ void searchNodeInternal(Node *node) {
 	}
 
 	// Internal iterative deepening.
-	if (searchIIDReduction>0 && node->depth>=searchIIDMin && node->depth>searchIIDReduction && searchNodeIsPV(node) && !moveIsValid(ttMove)) {
+	if (searchIIDReduction>0 && node->depth>=searchIIDMin && node->depth>searchIIDReduction && searchNodeIsPV(node) && !moveIsValid(ttMove) && (node->ply>0 || !moveIsValid(searchRootPrevBestMove))) {
 		assert(ttMove==MoveInvalid);
 
-		// No hash move available - search current node but with a reduced depth to obtain a good guess at the best move.
+		// No PV or TT move available - search current node but with a reduced depth to obtain a good guess at the best move.
 		Node child2=*node;
 		child2.depth-=searchIIDReduction;
 		searchNode(&child2);
@@ -706,8 +709,7 @@ void searchNodeInternal(Node *node) {
 
 	// Move loop.
 	Moves moves;
-	movesInit(&moves, node->pos, node->ply, MoveTypeAny);
-	movesRewind(&moves, ttMove);
+	movesInit(&moves, node->pos, node->ply, MoveTypeAny, searchRootPrevBestMove, ttMove); // note: movesInit checks if we are in root before using searchRootPrevBestMove
 	Score alpha=node->alpha;
 	node->score=ScoreInvalid;
 	node->bound=BoundNone;
@@ -978,7 +980,7 @@ void searchQNodeInternal(Node *node) {
 	child.alpha=-node->beta;
 	child.beta=-alpha;
 	Moves moves;
-	movesInit(&moves, node->pos, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture));
+	movesInit(&moves, node->pos, 0, (node->inCheck ? MoveTypeAny : MoveTypeCapture), MoveInvalid, MoveInvalid);
 	Move move;
 	bool noLegalMove=true;
 	while((move=movesNext(&moves))!=MoveInvalid) {
